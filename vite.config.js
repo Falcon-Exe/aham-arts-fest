@@ -9,7 +9,7 @@ VitePWA({
   registerType: "autoUpdate",
   manifest: {
     name: "AHAM Arts Fest",
-    short_name: "AHAM Fest",
+    short_name: "AHAM",
     start_url: "/",
     scope: "/",
     display: "standalone",
