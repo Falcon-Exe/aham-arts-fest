@@ -1,0 +1,19 @@
+.gallery-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+  padding: 20px;
+  justify-items: center;
+}
+
+.gallery-image {
+  width: 100%;
+  max-width: 220px;
+  border-radius: 10px; /* smooth corners */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* subtle shadow */
+  transition: transform 0.3s;
+}
+
+.gallery-image:hover {
+  transform: scale(1.05); /* slight zoom on hover */
+}
