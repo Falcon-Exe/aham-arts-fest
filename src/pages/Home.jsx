@@ -6,6 +6,7 @@ function Home() {
     <div className="container">
       <h1>AHAM Arts Fest</h1>
       <p>Welcome to our fest</p>
+      <p>MAJLIS WAFY COLLEGE</p>
 
       {/* Gallery component */}
       <Header />
