@@ -5,12 +5,11 @@ function Participants() {
   const [participants, setParticipants] = useState([]);
 
   useEffect(() => {
-    // 👉 YOUR CSV LINK HERE
     const url =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7akmZPo8vINBoUN2hF6GdJ3ob-SqZFV2oDNSej9QvfY4z8H7Q9UbRIVmyu31pgiecp2h_2uiunBDJ/pub?gid=885092322&single=true&output=csv";
 
     fetch(url)
-      .then((response) => response.text())
+      .then((res) => res.text())
       .then((csv) => {
         Papa.parse(csv, {
           header: true,
@@ -18,42 +17,44 @@ function Participants() {
             setParticipants(results.data);
           },
         });
-      })
-      .catch((error) => {
-        console.error("Error fetching registration data:", error);
       });
   }, []);
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>Registered Participants</h1>
+    <div className="container">
+      <h1 style={{ textAlign: "center", marginBottom: "20px" }}>
+        Registered Participants
+      </h1>
+
       {participants.length === 0 ? (
         <p>No registration data found.</p>
       ) : (
-        <table border="1" cellPadding="8">
-          <thead>
-            <tr>
-              <th>CIC Number</th>
-              <th>Chest No</th>
-              <th>CANDIDATE  FULL NAME</th>
-              <th>Team Name</th>
-              <th>Off Stage Events</th>
-              <th>On Stage Events</th>
-            </tr>
-          </thead>
-          <tbody>
-            {participants.map((p, i) => (
-              <tr key={i}>
-                <td>{p["CIC NUMBER"]}</td>
-                <td>{p["CHEST NO"]}</td>
-                <td>{p["CANDIDATE  FULL NAME"]}</td>
-                <td>{p["TEAM NAME"]}</td>
-                <td>{p["OFF STAGE EVENTS"]}</td>
-                <td>{p["ON STAGE EVENTS"]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+            gap: "16px",
+          }}
+        >
+          {participants.map((p, i) => (
+            <div
+              key={i}
+              style={{
+                border: "1px solid #ddd",
+                borderRadius: "12px",
+                padding: "14px",
+                backgroundColor: "#f9f9f9",
+              }}
+            >
+              <p><strong>Name:</strong> {p["CANDIDATE  FULL NAME"]}</p>
+              <p><strong>CIC No:</strong> {p["CIC NUMBER"]}</p>
+              <p><strong>Chest No:</strong> {p["CHEST NO"]}</p>
+              <p><strong>Team:</strong> {p["TEAM NAME"]}</p>
+              <p><strong>Off Stage:</strong> {p["OFF STAGE EVENTS"]}</p>
+              <p><strong>On Stage:</strong> {p["ON STAGE EVENTS"]}</p>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

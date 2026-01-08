@@ -1,22 +1,20 @@
-import { Link } from "react-router-dom";
-
 function Navbar() {
   return (
     <nav
       style={{
         display: "flex",
+        flexWrap: "wrap",
+        gap: "12px",
         justifyContent: "center",
-        gap: "30px",
-        padding: "15px",
+        padding: "12px",
         borderBottom: "1px solid #ddd",
       }}
     >
-      <Link to="/">Home</Link>
-      <Link to="/events">Events</Link>
-      <Link to="/schedule">Schedule</Link>
-      <Link to="/results">Results</Link>
-      <Link to="/participants">Participants</Link>
-
+      <a href="/">Home</a>
+      <a href="/schedule">Schedule</a>
+      <a href="/events">Events</a>
+      <a href="/participants">Participants</a>
+      <a href="/results">Results</a>
     </nav>
   );
 }

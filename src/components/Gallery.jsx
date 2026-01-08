@@ -7,15 +7,23 @@ import pic6 from "../assets/pic6.jpg";
 import "./Gallery.css"; // import the CSS file
 
 function Gallery() {
-  const images = [pic1, pic2, pic3, pic4, pic5, pic6];
-
   return (
-    <div className="gallery-container">
-      {images.map((img, index) => (
-        <img key={index} src={img} alt={`pic${index + 1}`} className="gallery-image" />
-      ))}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+        gap: "10px",
+      }}
+    >
+      <img src={pic1} />
+      <img src={pic2} />
+      <img src={pic3} />
+      <img src={pic4} />
+      <img src={pic5} />
+      <img src={pic6} />
     </div>
   );
 }
 
 export default Gallery;
+

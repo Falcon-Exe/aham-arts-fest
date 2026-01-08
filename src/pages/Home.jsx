@@ -3,12 +3,10 @@ import Gallery from "../components/Gallery";
 
 function Home() {
   return (
-    <>
-      <Header />
-
-
-    <Gallery />
-    </>
+    <div className="container">
+      <h1>AHAM Arts Fest</h1>
+      <p>Welcome to our fest</p>
+    </div>
   );
 }
 

@@ -3,15 +3,16 @@ import EventCard from "../components/EventCard";
 
 function Events() {
   return (
-    <div style={{ textAlign: "center", padding: "30px" }}>
-      <h1>Fest Events 🎭</h1>
+    <div className="container">
+      <h1 style={{ textAlign: "center", marginBottom: "20px" }}>
+        Fest Events 🎭
+      </h1>
+
       <div
         style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "20px",
-          justifyContent: "center",
-          marginTop: "20px",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          gap: "16px",
         }}
       >
         {events.map((event) => (
