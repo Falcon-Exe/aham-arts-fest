@@ -39,3 +39,55 @@ img {
   font-size: 16px;
   opacity: 0.7;
 }
+.hero {
+  text-align: center;
+  padding: 40px 16px;
+}
+
+.hero-logo {
+  width: 120px;
+  margin: 0 auto 12px;
+}
+
+.tagline {
+  opacity: 0.8;
+  margin-top: 6px;
+}
+
+.section {
+  margin-top: 40px;
+}
+
+.section h2 {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  text-align: center;
+}
+
+.cta {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+
+.btn {
+  padding: 10px 18px;
+  background: black;
+  color: white;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.btn.outline {
+  background: white;
+  color: black;
+  border: 2px solid black;
+}
