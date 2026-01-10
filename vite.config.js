@@ -5,30 +5,21 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig({
   plugins: [
     react(),
-    VitePWA({
-      registerType: "autoUpdate",
-      injectRegister: "auto",
-
-      manifest: {
-        name: "AHAM Arts Fest",
-        short_name: "AHAM",
-        start_url: "/",
-        display: "standalone",
-        background_color: "#ffffff",
-        theme_color: "#ffffff",
-        icons: [
-          {
-            src: "pwa-192x192.png",
-            sizes: "192x192",
-            type: "image/png"
-          },
-          {
-            src: "pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png"
-          }
-        ]
-      }
-    })
+VitePWA({
+  registerType: "autoUpdate",
+  injectRegister: "auto",
+  manifest: {
+    name: "AHAM Arts Fest",
+    short_name: "AHAM",
+    display: "standalone",
+    theme_color: "#ffffff",
+    background_color: "#ffffff",
+    icons: [
+      { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
+      { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" }
+    ]
+  }
+})
   ]
 });
+
