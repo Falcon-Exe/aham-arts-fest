@@ -21,7 +21,7 @@ import "./Header.css";
 function Header() {
   return (
     <header className="hero">
-      <img src={logo} alt="AHAM Arts Fest Logo" className="hero-logo" />
+<img src="/logo.jpg" alt="AHAM Logo" className="hero-logo" />
 
       <h1 className="hero-title">
         AHAM ARTS FEST 2025–26
