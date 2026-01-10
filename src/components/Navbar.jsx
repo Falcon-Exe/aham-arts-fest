@@ -12,7 +12,7 @@ function Navbar() {
     >
       <a href="/">Home</a>
       <a href="/schedule">Schedule</a>
-      <a href="/events">Events</a>
+      {/* <a href="/events">Events</a> */}
       <a href="/participants">Participants</a>
       <a href="/results">Results</a>
     </nav>
