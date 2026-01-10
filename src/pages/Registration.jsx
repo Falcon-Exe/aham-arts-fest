@@ -1,13 +1,14 @@
 function Register() {
   return (
     <div className="container">
-      <h1>Register for Events</h1>
+      <h1>Event Registration</h1>
 
       <iframe
-        src="https://forms.gle/K2HbM7uLsCxe3mcHA"
+        src="https://docs.google.com/forms/d/e/1FAIpQLSfIbR6Bqj-kBTtH8-d2BcqdYPDFnmV27IqLqJi7BH9M-biNIA/viewform?usp=sharing&ouid=105810331933873677496"
         width="100%"
         height="900"
-        frameBorder="0"
+        style={{ border: "none" }}
+        loading="lazy"
       >
         Loading…
       </iframe>
