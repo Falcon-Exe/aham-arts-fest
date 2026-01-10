@@ -5,7 +5,7 @@ function Home() {
   return (
     <div className="container">
 
-      {/* Hero */}
+      {/* Hero
       <section className="hero">
         <img
           src="/pwa-192x192.png"
@@ -14,7 +14,7 @@ function Home() {
         />
         <h1>AHAM Arts Fest 2025–26</h1>
         <p>Where talent meets tradition 🎭</p>
-      </section>
+      </section> */}
 
       <Header />
 
