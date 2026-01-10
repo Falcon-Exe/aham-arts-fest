@@ -40,7 +40,10 @@ background_color: "#ffffff",
         //     purpose: "maskable"
         //   }
         ]
-      }
+      },
+        workbox: {
+        cleanupOutdatedCaches: true,  // removes old caches automatically
+      },
     })
   ]
 });
