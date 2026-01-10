@@ -119,3 +119,8 @@ th {
 tr:nth-child(even) {
   background: #fafafa;
 }
+iframe {
+  border: none;
+  margin-top: 20px;
+  border-radius: 8px;
+}
