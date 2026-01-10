@@ -27,15 +27,23 @@
 
 // export default Gallery;
 
-const images = [
-  "/gallery/pic1.jpg",
-  "/gallery/pic2.jpg",
-  "/gallery/pic3.jpg",
-  "/gallery/pic4.jpg",
-  "/gallery/pic5.jpg",
-  "/gallery/pic6.jpg", 
-];
+function Gallery() {
+  const images = [
+    "/gallery/pic1.jpg",
+    "/gallery/pic2.jpg",
+    "/gallery/pic3.jpg",
+    "/gallery/pic4.jpg",
+    "/gallery/pic5.jpg",
+    "/gallery/pic6.jpg",
+  ];
 
-{images.map((src, i) => (
-  <img key={i} src={src} alt="" />
-))}
+  return (
+    <div className="gallery">
+      {images.map((src, i) => (
+        <img key={i} src={src} alt={`Gallery ${i + 1}`} />
+      ))}
+    </div>
+  );
+}
+
+export default Gallery;
