@@ -19,8 +19,8 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         display: "standalone",
-theme_color: "#913831",
-background_color: "#ffffff",
+        theme_color: "#ffffff",
+        background_color: "#ffffff",
         icons: [
           {
             src: "/pwa-192x192.png",
@@ -32,7 +32,6 @@ background_color: "#ffffff",
             sizes: "512x512",
             type: "image/png"
           },
-          
         //   {
         //     src: "/pwa-maskable-512.png",
         //     sizes: "512x512",
@@ -40,10 +39,7 @@ background_color: "#ffffff",
         //     purpose: "maskable"
         //   }
         ]
-      },
-        workbox: {
-        cleanupOutdatedCaches: true,  // removes old caches automatically
-      },
+      }
     })
   ]
 });

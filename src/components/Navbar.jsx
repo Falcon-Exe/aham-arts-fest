@@ -15,8 +15,6 @@ function Navbar() {
       {/* <a href="/events">Events</a> */}
       <a href="/participants">Participants</a>
       <a href="/results">Results</a>
-      <a href="/register">Register</a>
-
     </nav>
   );
 }
