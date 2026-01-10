@@ -4,18 +4,7 @@ import Gallery from "../components/Gallery";
 function Home() {
   return (
     <div className="container">
-
-      {/* HERO SECTION */}
-      <section className="hero">
-        <img
-          src="/pwa-192x192.png"
-          alt="AHAM Arts Fest Logo"
-          className="hero-logo"
-        />
-        <h1>AHAM Arts Fest 2025–26</h1>
-        <p className="tagline">Where talent meets tradition 🎭</p>
-      </section>
-
+      
       <Header />
 
       {/* GALLERY */}
