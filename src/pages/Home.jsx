@@ -1,27 +1,23 @@
-import Header from "../components/Header";
-import Gallery from "../components/Gallery";
+import { lazy, Suspense } from "react";
+
+// Lazy loaded components
+const Header = lazy(() => import("../components/Header"));
+const Gallery = lazy(() => import("../components/Gallery"));
 
 function Home() {
+  console.log("HOME RENDERED");
+
   return (
     <div className="container">
-
-      {/* Hero
-      <section className="hero">
-        <img
-          src="/pwa-192x192.png"
-          alt="AHAM Arts Fest"
-          className="hero-logo"
-        />
-        <h1>AHAM Arts Fest 2025–26</h1>
-        <p>Where talent meets tradition 🎭</p>
-      </section> */}
-
-      <Header />
+      <Suspense fallback={<p>Loading header...</p>}>
+        <Header />
+      </Suspense>
 
       <section>
-        <Gallery />
+        <Suspense fallback={<p>Loading gallery...</p>}>
+          <Gallery />
+        </Suspense>
       </section>
-
     </div>
   );
 }

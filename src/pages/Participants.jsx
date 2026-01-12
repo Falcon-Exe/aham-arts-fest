@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import Papa from "papaparse";
+import "./Participants.css";
 
 function Participants() {
   const [participants, setParticipants] = useState([]);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const url =
@@ -13,6 +15,7 @@ function Participants() {
       .then((csv) => {
         Papa.parse(csv, {
           header: true,
+          skipEmptyLines: true,
           complete: (results) => {
             setParticipants(results.data);
           },
@@ -20,32 +23,39 @@ function Participants() {
       });
   }, []);
 
+  /* 🔍 SEARCH FILTER */
+  const filteredParticipants = participants.filter((p) => {
+    const query = search.toLowerCase();
+
+    return (
+      p["CANDIDATE  FULL NAME"]?.toLowerCase().includes(query) ||
+      p["CIC NUMBER"]?.toLowerCase().includes(query) ||
+      p["CHEST NO"]?.toLowerCase().includes(query) ||
+      p["TEAM NAME"]?.toLowerCase().includes(query) ||
+      p["ON STAGE EVENTS"]?.toLowerCase().includes(query) ||
+      p["OFF STAGE EVENTS"]?.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div className="container">
-      <h1 style={{ textAlign: "center", marginBottom: "20px" }}>
-        Registered Participants
-      </h1>
+      <h1 className="participants-title">Registered Participants</h1>
 
-      {participants.length === 0 ? (
-        <p>No registration data found.</p>
+      {/* 🔍 SEARCH INPUT */}
+      <input
+        type="text"
+        className="participants-search"
+        placeholder="Search by name, CIC, chest no, team, events..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
+      {filteredParticipants.length === 0 ? (
+        <p className="participants-empty">No matching participants found.</p>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gap: "16px",
-          }}
-        >
-          {participants.map((p, i) => (
-            <div
-              key={i}
-              style={{
-                border: "1px solid #ddd",
-                borderRadius: "12px",
-                padding: "14px",
-                backgroundColor: "#f9f9f9",
-              }}
-            >
+        <div className="participants-grid">
+          {filteredParticipants.map((p, i) => (
+            <div key={i} className="participant-card">
               <p><strong>Name:</strong> {p["CANDIDATE  FULL NAME"]}</p>
               <p><strong>CIC No:</strong> {p["CIC NUMBER"]}</p>
               <p><strong>Chest No:</strong> {p["CHEST NO"]}</p>

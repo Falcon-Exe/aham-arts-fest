@@ -1,0 +1,41 @@
+/* SEARCH */
+.results-search {
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto 20px;
+  display: block;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+}
+
+.results-search:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* TOP PERFORMER */
+.top-performer {
+  background: rgba(145, 56, 49, 0.08);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-top: 6px;
+}
+
+/* GRADE COLORS */
+.grade-a {
+  color: #1b7f3a; /* green */
+  font-weight: 700;
+}
+
+.grade-b {
+  color: #c47a00; /* amber */
+  font-weight: 600;
+}
+
+.grade-c {
+  color: #b03030; /* red */
+  font-weight: 600;
+}
+    

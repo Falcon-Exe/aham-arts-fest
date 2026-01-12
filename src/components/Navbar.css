@@ -1,0 +1,32 @@
+.navbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px;
+  background-color: var(--bg-color); /* #ead19b */
+  background-color: var(--primary-color); /* #913831 */
+  border-bottom: 3px solid #7a2d2a;
+}
+
+/* Each link as a button */
+.navbar a {
+  background-color: var(--primary); /* #913831 */
+  color: #ead19b;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+/* Hover effect */
+.navbar a:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
+/* Active page (optional – manual or NavLink later) */
+.navbar a.active {
+  box-shadow: 0 0 0 2px #ead19b inset;
+}

@@ -1,17 +1,26 @@
-import logo from "../assets/logo.jpg";
+import "./Header.css";
 
 function Header() {
   return (
-    <div style={{ textAlign: "center", padding: "30px 20px" }}>
-      <img src={logo} alt="Fest Logo" width="500" />
-      <h1 style={{ marginTop: "10px", fontSize: "32px" }}>
-        AHAM ARTS FEST 2025–26
-      </h1>
-      <p style={{ color: "#555", marginTop: "5px" }}>
-        Where talent meets tradition 🎭
-      </p>
+    <div className="header">
+      <div className="header-card">
+<img
+  src="/pwa-512x512.png"
+  alt="AHAM Arts Fest official logo"
+  className="header-logo"
+/>
+
+        <h1 className="header-title">
+          AHAM ARTS FEST 2025–26
+        </h1>
+
+        <p className="header-tagline">
+          Where talent meets tradition 🎭
+        </p>
+      </div>
     </div>
   );
 }
 
-export default Header;
+import { memo } from "react";
+export default memo(Header);

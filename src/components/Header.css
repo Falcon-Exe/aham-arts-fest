@@ -1,24 +1,46 @@
-.hero {
+.header {
+  background-color: var(--primary); /* red hero */
+  padding: 60px 20px;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 40px 20px;
+  justify-content: center;
 }
 
-.hero-logo {
-  max-width: 320px;
+.header-card {
+  background-color: #fffaf0;
+  border-radius: 16px;
+  padding: 40px 30px;
+  max-width: 700px;
   width: 100%;
-  margin-bottom: 18px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
 }
 
-.hero-title {
-  font-size: 30px;
-  font-weight: 700;
-  color: var(--primary);   /* 👈 theme color */
+.header-logo {
+  max-width: 380px;
+  width: 100%;
+  margin: 0 auto 20px;
 }
 
-.hero-tagline {
+.header-title {
+  font-size: 34px;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+
+.header-tagline {
   font-size: 16px;
-  color: var(--primary-light);
+  color: var(--muted);
+}
+.header,
+.header:hover {
+  background-color: transparent !important;
+}
+@media (max-width: 600px) {
+  .header-title {
+    font-size: 26px;
+  }
+
+  .header-logo {
+    max-width: 260px;
+  }
 }

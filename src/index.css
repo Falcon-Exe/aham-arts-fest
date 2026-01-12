@@ -1,12 +1,18 @@
+/* ===============================
+   FEST THEME VARIABLES
+   =============================== */
 :root {
-  --primary: #913831;
-  --primary-dark: #7a2e29;
-  --primary-light: #b3564f;
-  --bg: #ffffff;
-  --text: #222222;
-  --muted: #666666;
+  --primary: #913831;         /* Fest theme color */
+  --primary-dark: #7a2d2a;    /* Darker shade for hover */
+  --bg-color: #ead19b;        /* App background */
+  --text-color: #2b1b14;      /* Main text */
+  --muted: #6b5a4a;           /* Muted text */
+  --card-bg: #fffaf0;         /* Card background */
 }
 
+/* ===============================
+   RESET & BASE
+   =============================== */
 * {
   margin: 0;
   padding: 0;
@@ -14,41 +20,30 @@
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.6;
 }
 
-
+/* ===============================
+   IMAGES
+   =============================== */
 img {
   max-width: 100%;
   height: auto;
   display: block;
 }
 
+/* ===============================
+   LAYOUT
+   =============================== */
 .container {
   max-width: 1100px;
   margin: 0 auto;
   padding: 16px;
 }
-#loader {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  background: white;
-}
 
-#loader img {
-  width: 120px;
-  margin-bottom: 10px;
-}
-
-#loader p {
-  font-size: 16px;
-  opacity: 0.7;
-}
 .section {
   margin-top: 50px;
 }
@@ -58,19 +53,28 @@ img {
   color: var(--primary);
   margin-bottom: 20px;
 }
+
+/* ===============================
+   BUTTONS
+   =============================== */
+button,
+.primary-btn,
 .btn {
-  background: var(--primary);
-  color: white;
+  background-color: var(--primary);
+  color: #ead19b;
   padding: 12px 22px;
   border-radius: 6px;
-  text-decoration: none;
+  border: none;
+  cursor: pointer;
   font-weight: 600;
-  margin: 5px;
+  text-decoration: none;
   display: inline-block;
 }
 
+button:hover,
+.primary-btn:hover,
 .btn:hover {
-  background: var(--primary-dark);
+  background-color: var(--primary-dark);
 }
 
 .btn.outline {
@@ -81,8 +85,12 @@ img {
 
 .btn.outline:hover {
   background: var(--primary);
-  color: white;
+  color: #ead19b;
 }
+
+/* ===============================
+   INFO SECTION
+   =============================== */
 .info {
   display: flex;
   justify-content: space-around;
@@ -98,4 +106,26 @@ img {
 
 .info p {
   color: var(--muted);
+}
+
+/* ===============================
+   LOADER
+   =============================== */
+.loader {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: white;
+}
+
+.loader img {
+  width: 120px;
+  margin-bottom: 10px;
+}
+
+.loader p {
+  font-size: 16px;
+  opacity: 0.7;
 }

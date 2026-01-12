@@ -1,20 +1,14 @@
+import "./Navbar.css";
+import { Link } from "react-router-dom";
+
 function Navbar() {
   return (
-    <nav
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: "12px",
-        justifyContent: "center",
-        padding: "12px",
-        borderBottom: "1px solid #ddd",
-      }}
-    >
-      <a href="/">Home</a>
-      <a href="/schedule">Schedule</a>
-      {/* <a href="/events">Events</a> */}
-      <a href="/participants">Participants</a>
-      <a href="/results">Results</a>
+    <nav className="navbar">
+      <Link to="/">Home</Link>
+      <Link to="/schedule">Schedule</Link>
+      <Link to="/register">Register</Link>
+      <Link to="/participants">Participants</Link>
+      <Link to="/results">Results</Link>
     </nav>
   );
 }

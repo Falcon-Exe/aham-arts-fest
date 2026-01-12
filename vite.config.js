@@ -2,17 +2,17 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
-      injectRegister: "auto",
-      workbox: {
-        cleanupOutdatedCaches: true,
-        skipWaiting: true,
-        clientsClaim: true,
-      },
+      registerType: 'autoUpdate',
+  workbox: {
+    cleanupOutdatedCaches: true,
+    clientsClaim: true,
+    skipWaiting: true,
+  },
       manifest: {
         name: "AHAM Arts Fest",
         short_name: "AHAM",
@@ -33,12 +33,12 @@ export default defineConfig({
             sizes: "512x512",
             type: "image/png"
           },
-        //   {
-        //     src: "/pwa-maskable-512.png",
-        //     sizes: "512x512",
-        //     type: "image/png",
-        //     purpose: "maskable"
-        //   }
+          {
+            src: "/pwa-maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable"
+          }
         ]
       }
     })
