@@ -7,23 +7,25 @@ export default defineConfig({
 
   plugins: [
     react(),
-    VitePWA({
-      registerType: "autoUpdate",
+   VitePWA({
+      registerType: "prompt", // 🔔 enables update prompt
 
       devOptions: {
-        enabled: false, // 🔴 PREVENT DEV CACHE IN PROD
+        enabled: false,
       },
 
-      workbox: {
-        cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true,
-      },
+workbox: {
+  cleanupOutdatedCaches: true,
+  clientsClaim: true,
+  skipWaiting: false,
+  navigateFallback: "/offline.html",
+},
+
 
       manifest: {
         name: "AHAM Arts Fest",
         short_name: "AHAM",
-        start_url: "./", // 🔴 IMPORTANT
+        start_url: "./",
         scope: "./",
         display: "standalone",
         theme_color: "#913831",

@@ -8,6 +8,8 @@ import Schedule from "./pages/Schedule";
 import Results from "./pages/Results";
 import Participants from "./pages/Participants";
 import Register from "./pages/Register";
+import PwaUpdate from "./components/PwaUpdate";
+
 
 export default function App() {
   const [loading, setLoading] = useState(true);
@@ -28,6 +30,9 @@ export default function App() {
 
   return (
     <Router>
+      <Navbar />
+<Routes>...</Routes>
+<PwaUpdate />
       <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
