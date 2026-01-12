@@ -1,18 +1,48 @@
-.gallery-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 14px;
+/* ===============================
+   MASONRY GALLERY
+   =============================== */
+
+.gallery-masonry {
+  column-count: 2;
+  column-gap: 14px;
   margin-top: 10px;
 
-  max-height: 500px;        /* controls visible height */
-  overflow-y: auto;         /* vertical scrolling */
-  overflow-x: hidden;
+  max-height: 500px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
 
-  scroll-behavior: smooth;
+.gallery-masonry::-webkit-scrollbar {
+  display: none;
+}
 
-  /* Hide scrollbar */
-  scrollbar-width: none;          /* Firefox */
-  -ms-overflow-style: none;       /* IE & Edge */
+/* Tablet */
+@media (min-width: 600px) {
+  .gallery-masonry {
+    column-count: 3;
+  }
+}
+
+/* Desktop */
+@media (min-width: 900px) {
+  .gallery-masonry {
+    column-count: 4;
+  }
+}
+
+/* Images */
+.gallery-image {
+  width: 100%;
+  margin-bottom: 14px;
+  break-inside: avoid;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
+  cursor: pointer;
+}
+
+.gallery-image:hover {
+  transform: scale(1.03);
 }
 
 .gallery-container::-webkit-scrollbar {
@@ -40,19 +70,31 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.85);
+
   display: flex;
   justify-content: center;
   align-items: center;
+
   z-index: 9999;
-  cursor: zoom-out;
+
+  /* 🔴 IMPORTANT */
+  padding: 16px;
+  box-sizing: border-box;
 }
 
+/* FORCE IMAGE CENTERING */
 .lightbox-image {
-  max-width: 90%;
-  max-height: 90%;
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+  display: block;
+  margin: auto;
+
+  max-width: 90vw;
+  max-height: 90vh;
+
+  object-fit: contain;
+
+  transform: none !important;
 }
+
 .lightbox-play {
   position: absolute;
   bottom: 18px;
@@ -95,5 +137,13 @@
 @media (min-width: 901px) {
   .gallery-container {
     grid-template-columns: repeat(4, 1fr);
+  }
+}
+@supports (padding: env(safe-area-inset-top)) {
+  .lightbox {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 }

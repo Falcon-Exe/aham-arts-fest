@@ -67,19 +67,18 @@ function Gallery() {
   return (
     <>
       {/* GALLERY GRID */}
-      <div className="gallery-container">
-        {images.map((src, i) => (
-          <img
-            key={i}
-            src={src}
-            alt={`Gallery ${i + 1}`}
-            className="gallery-image"
-            loading="lazy"
-            decoding="async"
-            onClick={() => openImage(i)}
-          />
-        ))}
-      </div>
+<div className="gallery-masonry">
+  {images.map((src, i) => (
+    <img
+      key={i}
+      src={src}
+      alt={`Gallery ${i + 1}`}
+      className="gallery-image"
+      loading="lazy"
+      onClick={() => openImage(i)}
+    />
+  ))}
+</div>
 
       {/* LIGHTBOX */}
       {currentIndex !== null && (
