@@ -69,3 +69,31 @@
 .lightbox-play:hover {
   background: rgba(255,255,255,0.3);
 }
+/* ===============================
+   FORCE MULTI-COLUMN IN PWA / MOBILE
+   =============================== */
+
+/* Phones & PWA */
+@media (max-width: 480px) {
+  .gallery-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .gallery-image {
+    max-width: 100%;
+  }
+}
+
+/* Tablets */
+@media (min-width: 481px) and (max-width: 900px) {
+  .gallery-container {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Desktop */
+@media (min-width: 901px) {
+  .gallery-container {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
