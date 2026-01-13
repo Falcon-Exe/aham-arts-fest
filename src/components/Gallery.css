@@ -7,14 +7,21 @@
   column-gap: 14px;
   margin-top: 10px;
 
+  /* 🔴 FORCE VERTICAL SCROLL ONLY */
   max-height: 500px;
   overflow-y: auto;
+  overflow-x: hidden;
+
+  width: 100%;
+  box-sizing: border-box;
+
   scrollbar-width: none;
 }
 
 .gallery-masonry::-webkit-scrollbar {
   display: none;
 }
+
 
 /* Tablet */
 @media (min-width: 600px) {
