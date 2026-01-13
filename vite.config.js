@@ -43,7 +43,7 @@ workbox: {
             type: "image/png",
           },
           {
-            src: "./pwa-maskable-512.png",
+            src: "./pwa-192x192.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable",
