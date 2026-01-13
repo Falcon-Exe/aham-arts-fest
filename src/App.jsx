@@ -10,12 +10,11 @@ import Participants from "./pages/Participants";
 import Register from "./pages/Register";
 import PwaUpdate from "./components/PwaUpdate";
 
-
 export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1500);
+    const t = setTimeout(() => setLoading(false), 800);
     return () => clearTimeout(t);
   }, []);
 
@@ -31,9 +30,7 @@ export default function App() {
   return (
     <Router>
       <Navbar />
-<Routes>...</Routes>
-<PwaUpdate />
-      <Navbar />
+
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/events" element={<Events />} />
@@ -42,6 +39,9 @@ export default function App() {
         <Route path="/results" element={<Results />} />
         <Route path="/participants" element={<Participants />} />
       </Routes>
+
+      {/* 🔔 PWA UPDATE BANNER */}
+      <PwaUpdate />
     </Router>
   );
 }

@@ -13,9 +13,10 @@ function Home() {
         <Header />
       </Suspense>
 
-      <section>
+      <section className="section">
         <Suspense fallback={<p>Loading gallery...</p>}>
-          <Gallery />
+
+  <Gallery />
         </Suspense>
       </section>
     </div>

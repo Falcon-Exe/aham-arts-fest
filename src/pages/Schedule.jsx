@@ -6,7 +6,9 @@ function Schedule() {
     <div className="container">
       <h1 className="schedule-title">Fest Schedule 📅</h1>
 
-      <div className="schedule-grid">
+      {/* <div className="schedule-grid"> */}
+      <div className="card">
+
         {schedule.map((item, index) => (
           <div key={index} className="schedule-card">
             <h3 className="schedule-event">{item.event}</h3>

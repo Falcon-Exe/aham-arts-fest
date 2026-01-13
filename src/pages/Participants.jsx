@@ -53,7 +53,9 @@ function Participants() {
       {filteredParticipants.length === 0 ? (
         <p className="participants-empty">No matching participants found.</p>
       ) : (
-        <div className="participants-grid">
+        // <div className="participants-grid">
+          <div className="card">
+
           {filteredParticipants.map((p, i) => (
             <div key={i} className="participant-card">
               <p><strong>Name:</strong> {p["CANDIDATE  FULL NAME"]}</p>

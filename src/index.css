@@ -3,11 +3,19 @@
    =============================== */
 :root {
   --primary: #913831;         /* Fest theme color */
-  --primary-dark: #7a2d2a;    /* Darker shade for hover */
-  --bg-color: #ead19b;        /* App background */
   --text-color: #2b1b14;      /* Main text */
   --muted: #6b5a4a;           /* Muted text */
-  --card-bg: #fffaf0;         /* Card background */
+  --primary-color: #913831;
+  --primary-dark: #742a24;
+  --primary-soft: rgba(145, 56, 49, 0.08);
+
+  --bg-color: #ead19b;
+  --card-bg: #fffaf0;
+
+  --text-main: #2b1b14;
+  --text-muted: #6f5a4f;
+
+  --border-soft: rgba(0,0,0,0.08);
 }
 
 /* ===============================
@@ -57,7 +65,29 @@ img {
 /* ===============================
    BUTTONS
    =============================== */
-button,
+   button,
+.primary-btn {
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 8px;
+  border: none;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+button:hover,
+.primary-btn:hover {
+  background: var(--primary-dark);
+}
+
+button:active,
+.primary-btn:active {
+  transform: scale(0.98);
+}
+
+/* button,
 .primary-btn,
 .btn {
   background-color: var(--primary);
@@ -86,7 +116,7 @@ button:hover,
 .btn.outline:hover {
   background: var(--primary);
   color: #ead19b;
-}
+} */
 
 /* ===============================
    INFO SECTION
@@ -152,4 +182,25 @@ button:hover,
   border-radius: 4px;
   font-weight: 600;
   cursor: pointer;
+}
+.card {
+  background: var(--card-bg);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+  border: 1px solid var(--border-soft);
+}
+.section {
+  animation: fadeUp 0.4s ease both;
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

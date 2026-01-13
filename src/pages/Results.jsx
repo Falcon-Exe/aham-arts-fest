@@ -53,7 +53,7 @@ function Results() {
       {filteredResults.length === 0 ? (
         <p className="results-message">No results available.</p>
       ) : (
-        <div className="results-grid">
+        <div className="card results-grid">
           {filteredResults.map((r, i) => (
             <div key={i} className="results-card">
               <h3 className="results-event">{r.Event}</h3>
