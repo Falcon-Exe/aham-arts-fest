@@ -19,8 +19,21 @@ workbox: {
   clientsClaim: true,
   skipWaiting: false,
   navigateFallback: "/offline.html",
-},
 
+  runtimeCaching: [
+    {
+      urlPattern: ({ request }) => request.destination === "image",
+      handler: "CacheFirst",
+      options: {
+        cacheName: "image-cache",
+        expiration: {
+          maxEntries: 100,
+          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+        },
+      },
+    },
+  ],
+},
 
       manifest: {
         name: "AHAM Arts Fest",
