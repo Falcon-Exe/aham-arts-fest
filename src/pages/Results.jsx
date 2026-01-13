@@ -10,7 +10,7 @@ function Results() {
     const url =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vTMLt3l_xtUOyT-YkXSTWhbWXbfXyF7vAIeHP3Nu0x0japM8OuAeA6_ZmHZTmZhouQq61_EOmFFQJ8Z/pub?gid=0&single=true&output=csv";
 
-    fetch(url)
+fetch(csvUrl + "?t=" + Date.now())
       .then((res) => res.text())
       .then((csv) => {
         Papa.parse(csv, {

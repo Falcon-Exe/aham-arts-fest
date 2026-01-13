@@ -14,21 +14,37 @@ export default defineConfig({
         enabled: false,
       },
 
-workbox: {
+orkbox: {
   cleanupOutdatedCaches: true,
   clientsClaim: true,
   skipWaiting: false,
   navigateFallback: "/offline.html",
 
   runtimeCaching: [
+    /* 🧭 HTML & navigation — always try network first */
+    {
+      urlPattern: ({ request }) => request.mode === "navigate",
+      handler: "NetworkFirst",
+      options: {
+        cacheName: "pages",
+      },
+    },
+
+    /* 📊 Google Sheets / CSV — NEVER cache */
+    {
+      urlPattern: ({ url }) => url.pathname.endsWith(".csv"),
+      handler: "NetworkOnly",
+    },
+
+    /* 🖼️ Images — cache safely */
     {
       urlPattern: ({ request }) => request.destination === "image",
       handler: "CacheFirst",
       options: {
         cacheName: "image-cache",
         expiration: {
-          maxEntries: 100,
-          maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+          maxEntries: 80,
+          maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
         },
       },
     },
