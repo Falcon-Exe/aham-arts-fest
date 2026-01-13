@@ -15,8 +15,7 @@ function Header() {
         </h1>
 
         <p className="header-tagline">
-          {/* Where talent meets tradition 🎭 */}
-          hello world
+          Where talent meets tradition 🎭
         </p>
       </div>
     </div>
