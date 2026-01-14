@@ -6,13 +6,15 @@ function Participants() {
   const [participants, setParticipants] = useState([]);
   const [search, setSearch] = useState("");
 
+  const csvUrl =
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7akmZPo8vINBoUN2hF6GdJ3ob-SqZFV2oDNSej9QvfY4z8H7Q9UbRIVmyu31pgiecp2h_2uiunBDJ/pub?gid=885092322&single=true&output=csv";
+
   useEffect(() => {
-    const url =
-      "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7akmZPo8vINBoUN2hF6GdJ3ob-SqZFV2oDNSej9QvfY4z8H7Q9UbRIVmyu31pgiecp2h_2uiunBDJ/pub?gid=885092322&single=true&output=csv";
-
-fetch(csvUrl + "?t=" + Date.now())
-
-      .then((res) => res.text())
+fetch(csvUrl + "&t=" + Date.now())
+      .then((res) => {
+        if (!res.ok) throw new Error("Network error");
+        return res.text();
+      })
       .then((csv) => {
         Papa.parse(csv, {
           header: true,
@@ -21,20 +23,21 @@ fetch(csvUrl + "?t=" + Date.now())
             setParticipants(results.data);
           },
         });
+      })
+      .catch((err) => {
+        console.error("CSV LOAD FAILED:", err);
       });
   }, []);
 
-  /* 🔍 SEARCH FILTER */
   const filteredParticipants = participants.filter((p) => {
-    const query = search.toLowerCase();
-
+    const q = search.toLowerCase();
     return (
-      p["CANDIDATE  FULL NAME"]?.toLowerCase().includes(query) ||
-      p["CIC NUMBER"]?.toLowerCase().includes(query) ||
-      p["CHEST NO"]?.toLowerCase().includes(query) ||
-      p["TEAM NAME"]?.toLowerCase().includes(query) ||
-      p["ON STAGE EVENTS"]?.toLowerCase().includes(query) ||
-      p["OFF STAGE EVENTS"]?.toLowerCase().includes(query)
+      p["CANDIDATE  FULL NAME"]?.toLowerCase().includes(q) ||
+      p["CIC NUMBER"]?.toLowerCase().includes(q) ||
+      p["CHEST NO"]?.toLowerCase().includes(q) ||
+      p["TEAM NAME"]?.toLowerCase().includes(q) ||
+      p["ON STAGE EVENTS"]?.toLowerCase().includes(q) ||
+      p["OFF STAGE EVENTS"]?.toLowerCase().includes(q)
     );
   });
 
@@ -42,7 +45,6 @@ fetch(csvUrl + "?t=" + Date.now())
     <div className="container">
       <h1 className="participants-title">Registered Participants</h1>
 
-      {/* 🔍 SEARCH INPUT */}
       <input
         type="text"
         className="participants-search"
@@ -54,11 +56,9 @@ fetch(csvUrl + "?t=" + Date.now())
       {filteredParticipants.length === 0 ? (
         <p className="participants-empty">No matching participants found.</p>
       ) : (
-        // <div className="participants-grid">
-          <div className="card">
-
+        <div className="participants-grid">
           {filteredParticipants.map((p, i) => (
-            <div key={i} className="participant-card">
+            <div key={i} className="card participant-card">
               <p><strong>Name:</strong> {p["CANDIDATE  FULL NAME"]}</p>
               <p><strong>CIC No:</strong> {p["CIC NUMBER"]}</p>
               <p><strong>Chest No:</strong> {p["CHEST NO"]}</p>

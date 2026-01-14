@@ -1,12 +1,14 @@
 .participants-title {
   text-align: center;
-  margin-bottom: 20px;
-  color: var(--primary);
+  margin-bottom: 16px;
 }
 
-.participants-empty {
-  text-align: center;
-  opacity: 0.7;
+.participants-search {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
 }
 
 .participants-grid {
@@ -15,28 +17,6 @@
   gap: 16px;
 }
 
-.participant-card {
-  background-color: var(--card-bg);
-  border-radius: 12px;
-  padding: 14px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-}
-
 .participant-card p {
-  margin-bottom: 6px;
-}
-.participants-search {
-  width: 100%;
-  max-width: 420px;
-  margin: 0 auto 20px;
-  display: block;
-  padding: 10px 14px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  font-size: 15px;
-}
-
-.participants-search:focus {
-  outline: none;
-  border-color: var(--primary);
+  margin: 4px 0;
 }

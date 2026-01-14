@@ -6,15 +6,11 @@
   column-gap: 14px;
   margin-top: 10px;
 
-  /* ✅ Vertical scroll only */
-  max-height: 500px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* 🔴 REMOVE SCROLL CONSTRAINT */
+  max-height: none;
+  overflow: visible;
 
   width: 100%;
-  box-sizing: border-box;
-
-  scrollbar-width: none;
 }
 
 .gallery-masonry::-webkit-scrollbar {

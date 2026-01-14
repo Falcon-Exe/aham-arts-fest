@@ -1,41 +1,480 @@
-/* SEARCH */
+/* ===============================
+   PAGE BACKGROUND
+   =============================== */
+
+.results-page {
+  background: linear-gradient(
+    to bottom,
+    #f1d9a4 0%,
+    #f6e3b8 40%,
+    #fff6dd 100%
+  );
+  min-height: 100vh;
+  padding-bottom: 60px;
+}
+
+/* ===============================
+   TITLE & STATUS
+   =============================== */
+
+.results-title {
+  text-align: center;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: #8b2f2a;
+  margin-bottom: 8px;
+}
+
+.results-status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #333;
+  margin-bottom: 18px;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  background: #1db954;
+  border-radius: 50%;
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { opacity: 0.3; }
+}
+
+.updated-time {
+  margin-left: 6px;
+  opacity: 0.6;
+}
+
+/* ===============================
+   CONTROLS (SEARCH + REFRESH)
+   =============================== */
+
+.results-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+  flex-wrap: wrap;
+}
+
 .results-search {
-  width: 100%;
-  max-width: 360px;
-  margin: 0 auto 20px;
-  display: block;
+  width: 280px;
   padding: 10px 14px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
+  border-radius: 10px;
+  border: 1px solid #ddd;
   font-size: 15px;
+  background: #fff;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .results-search:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: #913831;
 }
 
-/* TOP PERFORMER */
-.top-performer {
-  background: rgba(145, 56, 49, 0.08);
-  border-radius: 6px;
-  padding: 6px 8px;
+.primary-btn {
+  background: #913831;
+  color: #fff;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.primary-btn:hover {
+  background: #7b2d28;
+}
+
+.primary-btn:active {
+  transform: scale(0.97);
+}
+
+/* ===============================
+   TEAM SUMMARY
+   =============================== */
+
+.team-summary {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+
+.team-card {
+  background: #fff;
+  padding: 14px 18px;
+  border-radius: 14px;
+  text-align: center;
+  min-width: 110px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
+.team-card h4 {
+  margin: 0;
+  font-size: 15px;
+  color: #8b2f2a;
+}
+
+.team-card p {
   margin-top: 6px;
+  font-weight: 700;
+  font-size: 18px;
 }
 
-/* GRADE COLORS */
+/* ===============================
+   RESULTS GRID
+   =============================== */
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+  padding: 0 16px;
+}
+
+/* ===============================
+   RESULT CARD
+   =============================== */
+
+.results-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.results-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 40px rgba(0,0,0,0.12);
+}
+
+/* ===============================
+   EVENT TITLE
+   =============================== */
+
+.results-event {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: #8b2f2a;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #edd3a1;
+  letter-spacing: 0.4px;
+}
+
+/* ===============================
+   WINNER ROWS
+   =============================== */
+
+.results-position {
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 16px;
+}
+.results-position strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+/* 🥇 TOP PERFORMER */
+.top-performer {
+  background: linear-gradient(
+    to right,
+    rgba(145,56,49,0.08),
+    rgba(145,56,49,0.03)
+  );
+  border-left: 4px solid #913831;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+/* ===============================
+   GRADE COLORS
+   =============================== */
+
 .grade-a {
-  color: #1b7f3a; /* green */
+  color: #1b7f3a;
   font-weight: 700;
 }
 
 .grade-b {
-  color: #c47a00; /* amber */
+  color: #c47a00;
   font-weight: 600;
 }
 
 .grade-c {
-  color: #b03030; /* red */
+  color: #b03030;
   font-weight: 600;
 }
-    
+
+/* ===============================
+   EMPTY STATE
+   =============================== */
+
+.results-message {
+  text-align: center;
+  margin-top: 30px;
+  opacity: 0.7;
+  font-size: 15px;
+}
+.champion-banner {
+  background: linear-gradient(135deg, #913831, #b94a3f);
+  color: #fff;
+  padding: 14px 18px;
+  border-radius: 14px;
+  text-align: center;
+  margin: 18px auto;
+  font-size: 18px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
+.champion-points {
+  opacity: 0.9;
+  margin-left: 6px;
+}
+
+.prize-filters {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.prize-filters button {
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  background: #fff;
+  cursor: pointer;
+}
+
+.prize-filters button.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+/* ===============================
+   WINNER BOX (TRANSPARENT)
+   =============================== */
+
+.winner-box {
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-top: 12px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.10);
+  position: relative;
+}
+
+
+/* NAME */
+.winner-name {
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: 0.3px;
+  color: #1f1f1f;
+  margin-bottom: 10px;
+}
+
+
+/* META LINE */
+.winner-meta {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+
+/* CHEST */
+.winner-chest {
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+
+/* TEAM BADGE */
+/* TEAM BADGES */
+.winner-team {
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+
+/* PYRA */
+.team-PYRA {
+  background: #fde6e6;
+  color: #913831;
+}
+
+.team-IGNIS {
+  background: #fff1d6;
+  color: #c47a00;
+}
+
+.team-ATASH {
+  background: #e7f4ea;
+  color: #1b7f3a;
+}
+
+
+/* GRADE */
+.winner-grade {
+  font-weight: 900;
+  font-size: 14px;
+}
+
+/* ===============================
+   HIERARCHY (1st / 2nd / 3rd)
+   =============================== */
+/* 🥇 FIRST */
+.prize-first {
+  border-left: 5px solid #d4af37;
+  transform: scale(1.05);
+  box-shadow: 0 0 18px rgba(212,175,55,0.35);
+}
+
+/* 🥈 SECOND */
+.prize-second {
+  border-left: 5px solid #b0b0b0;
+  opacity: 0.95;
+}
+
+/* 🥉 THIRD */
+.prize-third {
+  border-left: 5px solid #cd7f32;
+  opacity: 0.88;
+}
+
+/* ===============================
+   GRADE COLORS
+   =============================== */
+
+.grade-a {
+  color: #1b7f3a;
+}
+
+.grade-b {
+  color: #c47a00;
+}
+
+.grade-c {
+  color: #b03030;
+}
+/* 🥇 GOLD GLOW */
+.prize-first {
+  border-left: 4px solid #d4af37;
+  animation: goldGlow 2.5s ease-in-out infinite;
+}
+/* MEDAL STRIP */
+.prize-first::before,
+.prize-second::before,
+.prize-third::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-radius: 14px 0 0 14px;
+}
+
+.prize-first::before {
+  background: linear-gradient(#ffd700, #d4af37);
+}
+
+.prize-second::before {
+  background: linear-gradient(#dcdcdc, #b0b0b0);
+}
+
+.prize-third::before {
+  background: linear-gradient(#e3b873, #cd7f32);
+}
+
+@keyframes goldGlow {
+  0% {
+    box-shadow: 0 0 0 rgba(212,175,55,0.0);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(212,175,55,0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(212,175,55,0.0);
+  }
+}
+
+/* ===============================
+   MOBILE OPTIMIZATION
+   =============================== */
+
+@media (max-width: 480px) {
+  .results-title {
+    font-size: 26px;
+  }
+
+  .results-search {
+    width: 100%;
+  }
+
+  .results-card {
+    padding: 16px;
+  }
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.winner-box {
+  animation: reveal 0.35s ease both;
+}
+.team-btn {
+  cursor: pointer;
+  border: none;
+  background: #fff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.team-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.12);
+}
+
+.team-btn.active {
+  outline: 2px solid #913831;
+}
+
+.team-action {
+  display: block;
+  margin-top: 6px;
+  font-size: 11px;
+  opacity: 0.7;
+}
