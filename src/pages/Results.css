@@ -459,7 +459,7 @@
 .team-btn {
   cursor: pointer;
   border: none;
-  background: #fff;
+  background: #ffffff;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 

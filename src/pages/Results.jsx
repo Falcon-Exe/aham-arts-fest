@@ -168,8 +168,6 @@ function Results() {
     </button>
   ))}
 </div>
-
-
       {/* RESULTS GRID */}
       <div className="results-grid">
         {filteredEvents.map(([event, list]) => (

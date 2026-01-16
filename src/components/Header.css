@@ -18,13 +18,13 @@
 .header-logo {
   max-width: 380px;
   width: 100%;
-  margin: 0 auto 20px;
+  margin: 0 auto 10px;
 }
 
 .header-title {
   font-size: 34px;
   color: var(--primary);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .header-tagline {
@@ -37,7 +37,7 @@
 }
 @media (max-width: 600px) {
   .header-title {
-    font-size: 26px;
+    font-size: 30px;
   }
 
   .header-logo {
