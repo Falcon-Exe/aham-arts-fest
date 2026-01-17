@@ -1,11 +1,12 @@
 /* FEATURED IMAGE */
 .featured-image {
   width: 100%;
-  height: 420px;
+  height: 320px;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 20px 45px rgba(0,0,0,0.25);
+  margin-bottom: 30px;
   cursor: pointer;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
 }
 
 .featured-image img {
@@ -16,21 +17,20 @@
 
 /* SLIDER */
 .slider-container {
-  margin-top: 35px;
   overflow: hidden;
 }
 
 .slider-track {
   display: flex;
-  gap: 18px;
-  animation: slide 28s linear infinite;
+  gap: 16px;
+  animation: slide 30s linear infinite;
 }
 
 .slider-track img {
-  width: 180px;
-  height: 120px;
+  width: 160px;
+  height: 110px;
+  border-radius: 14px;
   object-fit: cover;
-  border-radius: 12px;
   cursor: pointer;
   transition: transform 0.3s ease;
 }
@@ -39,72 +39,65 @@
   transform: scale(1.08);
 }
 
-/* FULLSCREEN OVERLAY */
-.fullscreen-overlay {
+/* SLIDER ANIMATION */
+@keyframes slide {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* FULLSCREEN */
+.fullscreen {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.95);
   z-index: 9999;
-
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* FULL IMAGE */
 .fullscreen-img {
-  max-width: 92vw;
-  max-height: 92dvh;
+  max-width: 100vw;
+  max-height: 100vh;
   object-fit: contain;
 }
 
 /* CLOSE BUTTON */
 .close-btn {
   position: absolute;
-  top: 22px;
-  right: 26px;
+  top: 18px;
+  right: 22px;
+  font-size: 2rem;
   background: none;
   border: none;
-  font-size: 2.4rem;
-  color: white;
+  color: #fff;
   cursor: pointer;
   z-index: 10001;
 }
 
-/* NAV BUTTONS */
+/* NAV */
 .nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 3.8rem;
-  color: white;
   background: none;
   border: none;
+  font-size: 3.5rem;
+  color: #fff;
   cursor: pointer;
-  opacity: 0.85;
 }
 
 .nav.prev { left: 20px; }
 .nav.next { right: 20px; }
 
-/* RESPONSIVE */
+/* MOBILE */
 @media (max-width: 480px) {
   .featured-image {
-    height: 260px;
+    height: 220px;
   }
 
   .slider-track img {
-    width: 140px;
-    height: 95px;
+    width: 130px;
+    height: 90px;
   }
-
-  .nav {
-    font-size: 2.8rem;
-  }
-}
-
-/* SLIDER ANIMATION */
-@keyframes slide {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
 }

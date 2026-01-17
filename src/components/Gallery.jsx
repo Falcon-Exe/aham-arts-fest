@@ -1,4 +1,6 @@
 import { useState, useEffect, memo } from "react";
+import "./Gallery.css";
+
 import pic1 from "../assets/pic1.jpg";
 import pic2 from "../assets/pic2.jpg";
 import pic3 from "../assets/pic3.jpg";
@@ -9,7 +11,6 @@ import p1 from "../assets/p1.jpeg";
 import p2 from "../assets/p2.png";
 import p3 from "../assets/p3.jpeg";
 import p4 from "../assets/p4.jpeg";
-import "./Gallery.css";
 
 const images = [pic1, pic2, pic3, pic4, pic5, pic6, p1, p2, p3, p4];
 
@@ -18,25 +19,14 @@ function Gallery() {
   const [fullscreen, setFullscreen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  /* FEATURED AUTO ROTATE */
+  /* AUTO FEATURED */
   useEffect(() => {
-    const id = setInterval(
-      () => setFeaturedIndex((i) => (i + 1) % images.length),
-      3500
-    );
-    return () => clearInterval(id);
+    const timer = setInterval(() => {
+      setFeaturedIndex((i) => (i + 1) % images.length);
+    }, 3500);
+
+    return () => clearInterval(timer);
   }, []);
-
-  /* SLIDESHOW AUTO */
-  useEffect(() => {
-    if (!fullscreen) return;
-
-    const id = setInterval(
-      () => setActiveIndex((i) => (i + 1) % images.length),
-      2800
-    );
-    return () => clearInterval(id);
-  }, [fullscreen]);
 
   return (
     <>
@@ -54,11 +44,11 @@ function Gallery() {
       {/* SLIDER */}
       <div className="slider-container">
         <div className="slider-track">
-          {[...images, ...images].map((src, i) => (
+          {images.concat(images).map((src, i) => (
             <img
               key={i}
               src={src}
-              alt="Slide"
+              alt="thumb"
               onClick={() => {
                 setActiveIndex(i % images.length);
                 setFullscreen(true);
@@ -68,13 +58,10 @@ function Gallery() {
         </div>
       </div>
 
-      {/* FULLSCREEN SLIDESHOW */}
+      {/* FULLSCREEN */}
       {fullscreen && (
-        <div className="fullscreen-overlay">
-          <button
-            className="close-btn"
-            onClick={() => setFullscreen(false)}
-          >
+        <div className="fullscreen">
+          <button className="close-btn" onClick={() => setFullscreen(false)}>
             ✕
           </button>
 
@@ -92,7 +79,7 @@ function Gallery() {
           <img
             className="fullscreen-img"
             src={images[activeIndex]}
-            alt="Fullscreen"
+            alt="fullscreen"
           />
 
           <button
