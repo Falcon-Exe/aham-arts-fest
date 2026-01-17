@@ -39,41 +39,36 @@
   transform: scale(1.08);
 }
 
-/* FULLSCREEN */
-.fullscreen {
+/* FULLSCREEN OVERLAY */
+.fullscreen-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.95);
   z-index: 9999;
-  display: block;
-}
 
-/* CLOSE BUTTON */
-.close-btn {
-  position: absolute;
-  top: 20px;
-  right: 24px;
-  background: none;
-  border: none;
-  color: white;
-  font-size: 2rem;
-  cursor: pointer;
-  z-index: 10000;
-}
-
-/* SLIDESHOW */
-.slideshow {
-  width: 100vw;
-  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.slideshow img {
-  width: 100vw;
-  height: 100vh;
+/* FULL IMAGE */
+.fullscreen-img {
+  max-width: 92vw;
+  max-height: 92dvh;
   object-fit: contain;
+}
+
+/* CLOSE BUTTON */
+.close-btn {
+  position: absolute;
+  top: 22px;
+  right: 26px;
+  background: none;
+  border: none;
+  font-size: 2.4rem;
+  color: white;
+  cursor: pointer;
+  z-index: 10001;
 }
 
 /* NAV BUTTONS */
@@ -81,53 +76,19 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 3.5rem;
+  font-size: 3.8rem;
   color: white;
   background: none;
   border: none;
   cursor: pointer;
+  opacity: 0.85;
 }
 
 .nav.prev { left: 20px; }
 .nav.next { right: 20px; }
 
-/* FULLSCREEN GRID – 3 PER ROW */
-.fullscreen-grid {
-  width: 100vw;
-  height: 100vh;
-  padding: 80px 30px 30px;
-  box-sizing: border-box;
-
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-
-  overflow-y: auto;
-}
-
-.fullscreen-grid img {
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  border-radius: 12px;
-}
-
-/* RESPONSIVE GRID CONTROL */
-
-/* Tablets & PWA */
-@media (max-width: 900px) {
-  .fullscreen-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* Small phones – STILL 2 columns */
+/* RESPONSIVE */
 @media (max-width: 480px) {
-  .fullscreen-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
   .featured-image {
     height: 260px;
   }
@@ -137,7 +98,12 @@
     height: 95px;
   }
 
-/* ANIMATION */
+  .nav {
+    font-size: 2.8rem;
+  }
+}
+
+/* SLIDER ANIMATION */
 @keyframes slide {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }

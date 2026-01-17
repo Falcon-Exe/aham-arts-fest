@@ -15,28 +15,28 @@ const images = [pic1, pic2, pic3, pic4, pic5, pic6, p1, p2, p3, p4];
 
 function Gallery() {
   const [featuredIndex, setFeaturedIndex] = useState(0);
-  const [fullscreenMode, setFullscreenMode] = useState(null); // "slideshow" | "grid"
+  const [fullscreen, setFullscreen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  /* AUTO FEATURED SLIDE */
+  /* FEATURED AUTO ROTATE */
   useEffect(() => {
-    const interval = setInterval(() => {
-      setFeaturedIndex((i) => (i + 1) % images.length);
-    }, 3000);
-
-    return () => clearInterval(interval);
+    const id = setInterval(
+      () => setFeaturedIndex((i) => (i + 1) % images.length),
+      3500
+    );
+    return () => clearInterval(id);
   }, []);
 
   /* SLIDESHOW AUTO */
   useEffect(() => {
-    if (fullscreenMode !== "slideshow") return;
+    if (!fullscreen) return;
 
-    const interval = setInterval(() => {
-      setActiveIndex((i) => (i + 1) % images.length);
-    }, 2500);
-
-    return () => clearInterval(interval);
-  }, [fullscreenMode]);
+    const id = setInterval(
+      () => setActiveIndex((i) => (i + 1) % images.length),
+      2800
+    );
+    return () => clearInterval(id);
+  }, [fullscreen]);
 
   return (
     <>
@@ -45,7 +45,7 @@ function Gallery() {
         className="featured-image"
         onClick={() => {
           setActiveIndex(featuredIndex);
-          setFullscreenMode("slideshow");
+          setFullscreen(true);
         }}
       >
         <img src={images[featuredIndex]} alt="Featured" />
@@ -61,53 +61,48 @@ function Gallery() {
               alt="Slide"
               onClick={() => {
                 setActiveIndex(i % images.length);
-                setFullscreenMode("grid");
+                setFullscreen(true);
               }}
             />
           ))}
         </div>
       </div>
 
-      {/* FULLSCREEN OVERLAY */}
-      {fullscreenMode && (
-        <div className="fullscreen" onClick={() => setFullscreenMode(null)}>
-          
-          {/* SLIDESHOW MODE */}
-          {fullscreenMode === "slideshow" && (
-            <div className="slideshow" onClick={(e) => e.stopPropagation()}>
-              <img src={images[activeIndex]} alt="Slide view" />
+      {/* FULLSCREEN SLIDESHOW */}
+      {fullscreen && (
+        <div className="fullscreen-overlay">
+          <button
+            className="close-btn"
+            onClick={() => setFullscreen(false)}
+          >
+            ✕
+          </button>
 
-              <button
-                className="nav prev"
-                onClick={() =>
-                  setActiveIndex(
-                    (i) => (i - 1 + images.length) % images.length
-                  )
-                }
-              >
-                ‹
-              </button>
+          <button
+            className="nav prev"
+            onClick={() =>
+              setActiveIndex(
+                (i) => (i - 1 + images.length) % images.length
+              )
+            }
+          >
+            ‹
+          </button>
 
-              <button
-                className="nav next"
-                onClick={() =>
-                  setActiveIndex((i) => (i + 1) % images.length)
-                }
-              >
-                ›
-              </button>
-            </div>
-          )}
+          <img
+            className="fullscreen-img"
+            src={images[activeIndex]}
+            alt="Fullscreen"
+          />
 
-          {/* GRID MODE */}
-          {fullscreenMode === "grid" && (
-            <div className="fullscreen-grid" onClick={(e) => e.stopPropagation()}>
-              {images.map((src, i) => (
-                <img key={i} src={src} alt={`Grid ${i}`} />
-              ))}
-            </div>
-          )}
-
+          <button
+            className="nav next"
+            onClick={() =>
+              setActiveIndex((i) => (i + 1) % images.length)
+            }
+          >
+            ›
+          </button>
         </div>
       )}
     </>
