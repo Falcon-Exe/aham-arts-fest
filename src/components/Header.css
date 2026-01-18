@@ -1,46 +1,149 @@
-.header {
-  background-color: var(--primary); /* red hero */
-  padding: 60px 20px;
+/* ===============================
+   HERO HEADER
+   =============================== */
+
+.hero-header {
+  width: 100%;
+  padding: 52px 20px 42px;
+  background: linear-gradient(
+    to bottom,
+    hsl(0, 0%, 100%) 0%,
+    #b94a3f 45%,
+    #f6e3b8 100%
+  );
   display: flex;
   justify-content: center;
+  transition: padding 0.3s ease;
 }
 
-.header-card {
-  background-color: #fffaf0;
-  border-radius: 16px;
-  padding: 40px 30px;
-  max-width: 700px;
+/* SHRINK ON SCROLL */
+.hero-header.shrink {
+  padding: 24px 20px;
+}
+
+/* CONTENT */
+.hero-content {
+  max-width: 840px;
   width: 100%;
   text-align: center;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px);
+  border-radius: 24px;
+  padding: 38px 28px;
+  box-shadow: 0 22px 55px rgba(0,0,0,0.25);
+  animation: heroFade 0.8s ease forwards;
 }
 
-.header-logo {
-  max-width: 380px;
-  width: 100%;
-  margin: 0 auto 10px;
+/* FEST BADGE */
+.fest-badge {
+  display: inline-block;
+  background: #913831;
+  color: #fff;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 14px;
 }
 
-.header-title {
-  font-size: 34px;
-  color: var(--primary);
-  margin-bottom: 4px;
+/* LOGO */
+.hero-logo {
+  max-width: 280px;
+  margin-bottom: 18px;
+  animation: glow 3s ease-in-out infinite;
 }
 
-.header-tagline {
-  font-size: 16px;
-  color: var(--muted);
+/* LOGO GLOW */
+@keyframes glow {
+  0% { filter: drop-shadow(0 0 0 rgba(145,56,49,0)); }
+  50% { filter: drop-shadow(0 0 18px rgba(145,56,49,0.45)); }
+  100% { filter: drop-shadow(0 0 0 rgba(145,56,49,0)); }
 }
-.header,
-.header:hover {
-  background-color: transparent !important;
+
+/* TITLE */
+.hero-title {
+  font-size: 36px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #913831;
 }
+
+.hero-title span {
+  display: block;
+  font-size: 26px;
+  font-weight: 800;
+  opacity: 0.85;
+}
+
+/* TAGLINE */
+.hero-tagline {
+  font-size: 15px;
+  margin-top: 6px;
+  color: #555;
+}
+
+/* COUNTDOWN */
+.countdown {
+  margin-top: 14px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #913831;
+}
+
+/* FADE */
+@keyframes heroFade {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===============================
+   DARK MODE (AUTO)
+   =============================== */
+
+@media (prefers-color-scheme: dark) {
+  .hero-header {
+    background: linear-gradient(
+      to bottom,
+      #2b0f0c,
+      #4a1c18,
+      #1e1e1e
+    );
+  }
+
+  .hero-content {
+    background: rgba(30,30,30,0.9);
+    color: #eee;
+  }
+
+  .hero-title,
+  .countdown {
+    color: #ffb8b0;
+  }
+
+  .hero-tagline {
+    color: #ccc;
+  }
+}
+
+/* ===============================
+   MOBILE
+   =============================== */
+
 @media (max-width: 600px) {
-  .header-title {
+  .hero-content {
+    padding: 26px 20px;
+  }
+
+  .hero-logo {
+    max-width: 220px;
+  }
+
+  .hero-title {
     font-size: 30px;
   }
 
-  .header-logo {
-    max-width: 260px;
+  .hero-title span {
+    font-size: 22px;
   }
 }

@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import Papa from "papaparse";
 import "./Participants.css";
 
+
+
 function Participants() {
   const [participants, setParticipants] = useState([]);
   const [search, setSearch] = useState("");
@@ -42,6 +44,7 @@ fetch(csvUrl + "&t=" + Date.now())
   });
 
   return (
+    
     <div className="container">
       <h1 className="participants-title">Registered Participants</h1>
 
@@ -67,6 +70,7 @@ fetch(csvUrl + "&t=" + Date.now())
               <p><strong>On Stage:</strong> {p["ON STAGE EVENTS"]}</p>
             </div>
           ))}
+
         </div>
       )}
     </div>

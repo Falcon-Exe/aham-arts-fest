@@ -14,7 +14,7 @@ export default defineConfig({
         enabled: false,
       },
 
-orkbox: {
+    workbox: {
   cleanupOutdatedCaches: true,
   clientsClaim: true,
   skipWaiting: false,

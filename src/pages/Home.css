@@ -101,17 +101,21 @@ padding-bottom: px;
 
 /* GALLERY SECTION */
 .home-gallery {
-padding: 50px 20px 70px;
-padding-top: 5px;
+  width: 100%;
+  min-height: 50vh;
+
+  padding: 5px 20px 70px;
+
   background: linear-gradient(
     to bottom,
-    #ffffff 0%,
-    #ffffff 100%
+    #ffffff,
+    #faf7f1
   );
 
   display: flex;
   flex-direction: column;
   align-items: center;
+
   animation: festFadeUp 1.3s ease forwards;
 }
 
@@ -243,7 +247,7 @@ padding-top: 5px;
 }
 /* FOOTER DIVIDER */
 .footer-divider {
-  width: 410px;
+  width: 100%;
   height: 5px;
   background: var(--fest-primary);
   border-radius: 5px;

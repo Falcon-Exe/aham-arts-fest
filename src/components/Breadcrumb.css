@@ -1,0 +1,37 @@
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 14px 20px;
+  margin-bottom: 20px;
+
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+}
+
+.breadcrumb-home {
+  text-decoration: none;
+  color: #913831;
+}
+
+.breadcrumb-home:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb-sep {
+  opacity: 0.5;
+}
+
+.breadcrumb-current {
+  color: #222;
+}
+
+/* Mobile spacing */
+@media (max-width: 600px) {
+  .breadcrumb {
+    font-size: 13px;
+    padding: 12px 14px;
+  }
+}

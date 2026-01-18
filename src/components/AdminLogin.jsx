@@ -1,5 +1,5 @@
-// src/components/AdminLogin.jsx
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 
@@ -7,16 +7,16 @@ export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const navigate = useNavigate(); // Hook
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       const user = await signInWithEmailAndPassword(auth, email, password);
       console.log("Admin logged in:", user.user.email);
-      alert("Logged in successfully!");
-      // redirect to admin dashboard
+      navigate("/dashboard"); // Clean navigation
     } catch (err) {
-      setError(err.message);
+
     }
   };
 

@@ -1,0 +1,19 @@
+.app-layout {
+  width: 100%;
+}
+
+.app-header {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  padding: 10px 20px;
+}
+
+.app-content {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+
+  padding: 0 20px 40px;
+}

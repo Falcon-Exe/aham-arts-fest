@@ -16,16 +16,15 @@ const images = [pic1, pic2, pic3, pic4, pic5, pic6, p1, p2, p3, p4];
 
 function Gallery() {
   const [featuredIndex, setFeaturedIndex] = useState(0);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  /* AUTO FEATURED */
+  /* AUTO FEATURED ROTATION */
   useEffect(() => {
-    const timer = setInterval(() => {
+    const interval = setInterval(() => {
       setFeaturedIndex((i) => (i + 1) % images.length);
     }, 3500);
-
-    return () => clearInterval(timer);
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -35,43 +34,45 @@ function Gallery() {
         className="featured-image"
         onClick={() => {
           setActiveIndex(featuredIndex);
-          setFullscreen(true);
+          setIsFullscreen(true);
         }}
       >
         <img src={images[featuredIndex]} alt="Featured" />
       </div>
 
-      {/* SLIDER */}
-      <div className="slider-container">
-        <div className="slider-track">
-          {images.concat(images).map((src, i) => (
-            <img
-              key={i}
-              src={src}
-              alt="thumb"
-              onClick={() => {
-                setActiveIndex(i % images.length);
-                setFullscreen(true);
-              }}
-            />
-          ))}
-        </div>
+      {/* 3×3 MASONRY GRID */}
+      <div className="masonry-grid">
+        {images.map((src, i) => (
+          <img
+            key={i}
+            src={src}
+            alt={`Gallery ${i}`}
+            onClick={() => {
+              setActiveIndex(i);
+              setIsFullscreen(true);
+            }}
+          />
+        ))}
       </div>
 
-      {/* FULLSCREEN */}
-      {fullscreen && (
-        <div className="fullscreen">
-          <button className="close-btn" onClick={() => setFullscreen(false)}>
+      {/* FULLSCREEN VIEW */}
+      {isFullscreen && (
+        <div className="fullscreen" onClick={() => setIsFullscreen(false)}>
+          <button
+            className="close-btn"
+            onClick={() => setIsFullscreen(false)}
+          >
             ✕
           </button>
 
           <button
             className="nav prev"
-            onClick={() =>
+            onClick={(e) => {
+              e.stopPropagation();
               setActiveIndex(
                 (i) => (i - 1 + images.length) % images.length
-              )
-            }
+              );
+            }}
           >
             ‹
           </button>
@@ -79,14 +80,16 @@ function Gallery() {
           <img
             className="fullscreen-img"
             src={images[activeIndex]}
-            alt="fullscreen"
+            alt="Fullscreen"
+            onClick={(e) => e.stopPropagation()}
           />
 
           <button
             className="nav next"
-            onClick={() =>
-              setActiveIndex((i) => (i + 1) % images.length)
-            }
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveIndex((i) => (i + 1) % images.length);
+            }}
           >
             ›
           </button>

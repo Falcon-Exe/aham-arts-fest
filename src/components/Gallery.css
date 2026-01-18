@@ -1,19 +1,29 @@
 /* FEATURED IMAGE */
 .featured-image {
   width: 100%;
+  max-width: 1200px;          /* prevents over-stretch on large screens */
   height: 320px;
+
   border-radius: 18px;
   overflow: hidden;
   margin-bottom: 30px;
+
   cursor: pointer;
+
   box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+
+  position: relative;         /* REQUIRED for overlay & fullscreen logic */
 }
 
+/* IMAGE */
 .featured-image img {
   width: 100%;
   height: 100%;
+
   object-fit: cover;
+  display: block;             /* fixes image collapsing issues */
 }
+
 
 /* SLIDER */
 .slider-container {
@@ -49,7 +59,7 @@
 .fullscreen {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.95);
+  background: rgba(255, 255, 255, 0.95);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -67,10 +77,10 @@
   position: absolute;
   top: 18px;
   right: 22px;
-  font-size: 2rem;
+  font-size: 1rem;
   background: none;
   border: none;
-  color: #fff;
+  color: #ff0000;
   cursor: pointer;
   z-index: 10001;
 }
@@ -82,22 +92,81 @@
   transform: translateY(-50%);
   background: none;
   border: none;
-  font-size: 3.5rem;
-  color: #fff;
+  font-size: 2.5rem;
+  color: #cc505081;
   cursor: pointer;
 }
 
 .nav.prev { left: 20px; }
 .nav.next { right: 20px; }
 
-/* MOBILE */
+/* ===============================
+   3×3 GRID – PWA LOCKED
+   =============================== */
+
+.masonry-grid {
+  width: 100%;
+  max-width: 100%;
+  padding: 0 4px;
+
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)); /* 🔒 KEY FIX */
+  gap: 10px;
+
+  box-sizing: border-box;
+}
+
+/* IMAGES */
+.masonry-grid img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1 / 1;
+
+  object-fit: cover;
+  border-radius: 12px;
+
+  cursor: pointer;
+  user-select: none;
+
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.masonry-grid img:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.25);
+}
+
+
+/* ===============================
+   RESPONSIVE MASONRY
+   =============================== */
+
+@media (max-width: 900px) {
+  .masonry-grid {
+    column-count: 2;
+  }
+}
+
 @media (max-width: 480px) {
+  .masonry-grid {
+    column-count: 1;
+  }
+}
+
+/* MOBILE */
+@media (max-width: 800px) {
   .featured-image {
-    height: 220px;
+    height: 100%;
   }
 
   .slider-track img {
-    width: 130px;
-    height: 90px;
+    width: 100px;
+    height: 100px;
+  }
+}
+@media (max-width: 600px) {
+  .masonry-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
 }

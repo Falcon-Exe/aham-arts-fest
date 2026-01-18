@@ -1,6 +1,9 @@
 import "./Register.css";
+import Breadcrumb from "../components/Breadcrumb";
+
 export default function Register() {
   return (
+    
     <div style={{ padding: "20px" }}>
       <h2>Candidate Registration</h2>
 
@@ -12,7 +15,11 @@ export default function Register() {
 >
   Loading…
 </iframe>
+<div className="container">
+      <Breadcrumb current="Results" />
 
+      {/* existing results content */}
+    </div>
     </div>
   );
 }
