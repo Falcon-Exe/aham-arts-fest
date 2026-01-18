@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 import AppLayout from "./components/AppLayout";
 
@@ -54,6 +55,9 @@ export default function App() {
 
       {/* 🔔 PWA UPDATE BANNER (OUTSIDE ROUTES, INSIDE ROUTER) */}
       <PwaUpdate />
+
+      {/* 📊 VERCEL SPEED INSIGHTS */}
+      <SpeedInsights />
     </Router>
   );
 }
