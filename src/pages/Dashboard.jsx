@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../firebase";
+import "./Dashboard.css"; // Import the new CSS
 
 import ManageEvents from "../components/ManageEvents";
 import ManageResults from "../components/ManageResults";
-import ManageAnnouncements from "../components/ManageAnnouncements"; // Add import
+import ManageAnnouncements from "../components/ManageAnnouncements";
 
 function Dashboard() {
     const [user, setUser] = useState(null);
@@ -30,71 +31,49 @@ function Dashboard() {
         navigate("/");
     };
 
-    if (loading) return <div className="container">Loading...</div>;
+    if (loading) return <div className="loader">Loading...</div>;
 
     return (
-        <div className="container" style={{ marginTop: "30px" }}>
-            <div className="card">
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                    <h2 style={{ color: "var(--primary)" }}>Admin Dashboard 🛡️</h2>
-                    <button onClick={handleLogout} style={{ background: "#d9534f", color: "white", padding: "5px 10px", borderRadius: "4px", border: "none", cursor: "pointer" }}>Logout</button>
-                </div>
-
-                {/* TABS */}
-                <div style={{ display: "flex", gap: "10px", marginBottom: "20px", borderBottom: "2px solid #eee", paddingBottom: "10px", overflowX: "auto" }}>
-                    <button
-                        onClick={() => setActiveTab("events")}
-                        style={{
-                            padding: "8px 16px",
-                            background: activeTab === "events" ? "var(--primary)" : "transparent",
-                            color: activeTab === "events" ? "white" : "var(--muted)",
-                            border: "none",
-                            borderRadius: "20px",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            whiteSpace: "nowrap"
-                        }}
-                    >
-                        Events
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("results")}
-                        style={{
-                            padding: "8px 16px",
-                            background: activeTab === "results" ? "var(--primary)" : "transparent",
-                            color: activeTab === "results" ? "white" : "var(--muted)",
-                            border: "none",
-                            borderRadius: "20px",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            whiteSpace: "nowrap"
-                        }}
-                    >
-                        Results
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("announcements")}
-                        style={{
-                            padding: "8px 16px",
-                            background: activeTab === "announcements" ? "var(--primary)" : "transparent",
-                            color: activeTab === "announcements" ? "white" : "var(--muted)",
-                            border: "none",
-                            borderRadius: "20px",
-                            cursor: "pointer",
-                            fontWeight: "bold",
-                            whiteSpace: "nowrap"
-                        }}
-                    >
-                        Announcements
-                    </button>
-                </div>
-
-                {/* CONTENT */}
+        <div className="dashboard-container">
+            <header className="dashboard-header">
                 <div>
-                    {activeTab === "events" && <ManageEvents />}
-                    {activeTab === "results" && <ManageResults />}
-                    {activeTab === "announcements" && <ManageAnnouncements />}
+                    <h2 className="dashboard-title">Admin Dashboard</h2>
+                    <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginTop: '4px' }}>
+                        Welcome, {user?.email}
+                    </p>
                 </div>
+                <button onClick={handleLogout} className="logout-btn">
+                    Scan Logout ➜
+                </button>
+            </header>
+
+            {/* TABS */}
+            <div className="dashboard-tabs">
+                <button
+                    className={`tab-btn ${activeTab === "events" ? "active" : ""}`}
+                    onClick={() => setActiveTab("events")}
+                >
+                    📅 Manage Events
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === "results" ? "active" : ""}`}
+                    onClick={() => setActiveTab("results")}
+                >
+                    🏆 Publish Results
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === "announcements" ? "active" : ""}`}
+                    onClick={() => setActiveTab("announcements")}
+                >
+                    📢 Announcements
+                </button>
+            </div>
+
+            {/* CONTENT */}
+            <div className="dashboard-content">
+                {activeTab === "events" && <ManageEvents />}
+                {activeTab === "results" && <ManageResults />}
+                {activeTab === "announcements" && <ManageAnnouncements />}
             </div>
         </div>
     );

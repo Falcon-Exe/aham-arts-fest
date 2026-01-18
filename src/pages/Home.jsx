@@ -8,71 +8,87 @@ const Header = lazy(() => import("../components/Header"));
 const Gallery = lazy(() => import("../components/Gallery"));
 
 function Home() {
-  console.log("HOME RENDERED");
-
   return (
-    <div className="home-container">
-
+    <div className="avant-garde-container">
       {/* HEADER */}
-      <Suspense fallback={<div className="loader">Loading header...</div>}>
+      <Suspense fallback={null}>
+        {/* ISLAND HEADER */}
         <Header />
+
+        {/* WELCOME INDICATOR */}
+        <div className="welcome-indicator">
+          <div className="welcome-dot"></div>
+          <span>WELCOME</span>
+        </div>
       </Suspense>
 
-      {/* HERO / INTRO */}
-      <section className="home-intro">
-  <h1>AHAM 2026</h1>
-  <p>
-    A platform where creativity meets competition.
-    Experience events, talent, and excellence.
-  </p>
+      {/* HERO SECTION */}
+      <section className="cinematic-hero">
+        <div className="noise-overlay"></div>
 
-  {/* CENTER BUTTONS (2 × 2) */}
-  <div className="center-buttons">
-    <Link to="/schedule">Schedule</Link>
-    <Link to="/register" className="primary">Register</Link>
-    <Link to="/participants">Participants</Link>
-    <Link to="/results">Results</Link>
-  </div>
-</section>
+        {/* CENTERED TYPOGRAPHY */}
+        <div className="hero-typography-centered">
+          <h1>AHAM2026</h1>
+        </div>
 
+        {/* FLOATING RED CIRCLE BADGE */}
+        <div className="hero-center-badge">
+          <div className="circle-frame">
+            <span className="visual-text">ARTS FEST</span>
+          </div>
+        </div>
 
+        {/* BENTO GRID NAVIGATION (2x2) */}
+        <div className="bento-nav-grid">
+          <Link to="/events" className="bento-card card-events">
+            <span className="card-num">01</span>
+            <span className="card-label">EVENTS</span>
+            <span className="card-icon">🎭</span>
+          </Link>
 
-      {/* GALLERY */}
-      <section className="home-gallery">
-        <h2>MOMENTS:</h2>
+          <Link to="/results" className="bento-card card-results">
+            <div className="card-header">
+              <span className="card-num">02</span>
+              <span className="live-badge">LIVE</span>
+            </div>
+            <span className="card-label">RESULTS</span>
+          </Link>
 
-        <Suspense fallback={<div className="loader">Loading gallery...</div>}>
+          <Link to="/register" className="bento-card card-register">
+            <span className="card-num">03</span>
+            <span className="card-label">REGISTER</span>
+            <span className="card-icon">✍️</span>
+          </Link>
+
+          <Link to="/participants" className="bento-card card-players">
+            <span className="card-num">04</span>
+            <span className="card-label">PLAYERS</span>
+            <span className="card-icon">👥</span>
+          </Link>
+        </div>
+      </section>
+
+      {/* GALLERY STRIP */}
+      <section className="film-strip-section">
+        <div className="section-label">FEATURED HIGHLIGHTS</div>
+        <Suspense fallback={<div className="loader">Loading...</div>}>
           <Gallery />
         </Suspense>
       </section>
-      {/* UNION FOOTER */}
-<footer className="union-footer">
-  <div className="footer-divider"></div>
 
-  <img src="/union-logo.png" alt="Union Logo" className="union-logo" />
-
-  <h3>MAJLIS UMARIYYA STUDENTS' FEDERATION</h3>
-  <p>Majlis Umariyya Wafy College</p>
-
-  <div className="union-socials">
-    <a href="https://www.instagram.com/musf_puramannur/" target="_blank" aria-label="Instagram">
-      <i className="fab fa-instagram"></i>
-    </a>
-    <a href="https://www.facebook.com/musf.puramannur" target="_blank" aria-label="Facebook">
-      <i className="fab fa-facebook-f"></i>
-    </a>
-    <a href="https://www.youtube.com/channel/UCQELHz-keYmmQqSG0vX2jwA" target="_blank" aria-label="YouTube">
-      <i className="fab fa-youtube"></i>
-    </a>
-  </div>
-
-  <span className="footer-copy">
-    © 2026 Majlis Umariyya Students' Federation
-  </span>
-</footer>
-
+      {/* FOOTER */}
+      <div className="footer-container-styled">
+        <footer className="minimal-footer">
+          <div className="footer-content">
+            <img src={unionLogo} alt="Union" className="footer-logo" />
+            <div className="footer-text">
+              <h3>MAJLIS UMARIYYA STUDENTS' FEDERATION</h3>
+              <p>Majlis Umariyya Wafy College</p>
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
-    
   );
 }
 

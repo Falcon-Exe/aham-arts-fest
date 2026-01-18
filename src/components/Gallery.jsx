@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from "react";
+import { useState, useRef, memo } from "react";
 import "./Gallery.css";
 
 import pic1 from "../assets/pic1.jpg";
@@ -12,90 +12,54 @@ import p2 from "../assets/p2.png";
 import p3 from "../assets/p3.jpeg";
 import p4 from "../assets/p4.jpeg";
 
-const images = [pic1, pic2, pic3, pic4, pic5, pic6, p1, p2, p3, p4];
+const featuredItems = [
+  { src: pic1, title: "PYRA '26", category: "GRAND INAUGURAL" },
+  { src: pic2, title: "KALA", category: "ARTISTIC DUEL" },
+  { src: pic3, title: "MOSAIC", category: "LITERARY FEST" },
+  { src: pic4, title: "VISION", category: "CULTURAL NIGHT" },
+  { src: p1, title: "HARMONY", category: "MUSIC STAGE" },
+  { src: p2, title: "LEGACY", category: "HISTORIC WIN" },
+  { src: pic1, title: "PYRA '26", category: "GRAND INAUGURAL" },
+  { src: pic2, title: "KALA", category: "ARTISTIC DUEL" },
+];
 
 function Gallery() {
-  const [featuredIndex, setFeaturedIndex] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-
-  /* AUTO FEATURED ROTATION */
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setFeaturedIndex((i) => (i + 1) % images.length);
-    }, 3500);
-    return () => clearInterval(interval);
-  }, []);
+  const [paused, setPaused] = useState(false);
 
   return (
-    <>
-      {/* FEATURED IMAGE */}
-      <div
-        className="featured-image"
-        onClick={() => {
-          setActiveIndex(featuredIndex);
-          setIsFullscreen(true);
-        }}
-      >
-        <img src={images[featuredIndex]} alt="Featured" />
-      </div>
-
-      {/* 3×3 MASONRY GRID */}
-      <div className="masonry-grid">
-        {images.map((src, i) => (
-          <img
-            key={i}
-            src={src}
-            alt={`Gallery ${i}`}
-            onClick={() => {
-              setActiveIndex(i);
-              setIsFullscreen(true);
-            }}
-          />
+    <div
+      className="featured-gallery-container"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      <div className={`featured-track ${paused ? "paused" : ""}`}>
+        {featuredItems.map((item, i) => (
+          <div className="featured-frame" key={i}>
+            <div className="image-wrapper">
+              <img src={item.src} alt={item.title} />
+              <div className="frame-overlay"></div>
+            </div>
+            <div className="frame-info">
+              <span className="frame-category">{item.category}</span>
+              <h3 className="frame-title">{item.title}</h3>
+            </div>
+          </div>
+        ))}
+        {/* Loop for seamless scroll */}
+        {featuredItems.map((item, i) => (
+          <div className="featured-frame" key={`dup-${i}`}>
+            <div className="image-wrapper">
+              <img src={item.src} alt={item.title} />
+              <div className="frame-overlay"></div>
+            </div>
+            <div className="frame-info">
+              <span className="frame-category">{item.category}</span>
+              <h3 className="frame-title">{item.title}</h3>
+            </div>
+          </div>
         ))}
       </div>
-
-      {/* FULLSCREEN VIEW */}
-      {isFullscreen && (
-        <div className="fullscreen" onClick={() => setIsFullscreen(false)}>
-          <button
-            className="close-btn"
-            onClick={() => setIsFullscreen(false)}
-          >
-            ✕
-          </button>
-
-          <button
-            className="nav prev"
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveIndex(
-                (i) => (i - 1 + images.length) % images.length
-              );
-            }}
-          >
-            ‹
-          </button>
-
-          <img
-            className="fullscreen-img"
-            src={images[activeIndex]}
-            alt="Fullscreen"
-            onClick={(e) => e.stopPropagation()}
-          />
-
-          <button
-            className="nav next"
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveIndex((i) => (i + 1) % images.length);
-            }}
-          >
-            ›
-          </button>
-        </div>
-      )}
-    </>
+    </div>
   );
 }
 

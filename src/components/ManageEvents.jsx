@@ -16,12 +16,19 @@ export default function ManageEvents() {
     const fetchEvents = async () => {
         setLoading(true);
         try {
+            // timeout after 5 seconds
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Connection timed out. Check your internet or Firebase config.")), 5000)
+            );
+
             const q = query(collection(db, "events"), orderBy("name"));
-            const snapshot = await getDocs(q);
+            const snapshot = await Promise.race([getDocs(q), timeoutPromise]);
+
             const list = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
             setEvents(list);
         } catch (err) {
             console.error("Error fetching events:", err);
+            // alert(`Error: ${err.message}`); // Silent fail better for UX, logs are enough
         }
         setLoading(false);
     };
@@ -61,45 +68,49 @@ export default function ManageEvents() {
 
     return (
         <div className="manage-events">
-            <h3>Manage Events</h3>
+            <h3 className="section-title">Manage Events</h3>
 
             {/* ADD FORM */}
-            <form onSubmit={handleSubmit} style={{ background: "#f9f9f9", padding: "16px", borderRadius: "8px", marginBottom: "20px" }}>
+            <form onSubmit={handleSubmit} className="admin-form">
                 <h4>Add New Event</h4>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                    <input name="name" placeholder="Event Name" value={formData.name} onChange={handleChange} required style={{ padding: "8px" }} />
-                    <input name="category" placeholder="Category (e.g. Dance)" value={formData.category} onChange={handleChange} style={{ padding: "8px" }} />
-                    <input name="venue" placeholder="Venue" value={formData.venue} onChange={handleChange} style={{ padding: "8px" }} />
-                    <input name="time" placeholder="Time (e.g. 10:00 AM)" value={formData.time} onChange={handleChange} style={{ padding: "8px" }} />
-                    <input name="stage" placeholder="Stage" value={formData.stage} onChange={handleChange} style={{ padding: "8px" }} />
+                <div className="form-grid">
+                    <input className="admin-input" name="name" placeholder="Event Name" value={formData.name} onChange={handleChange} required />
+                    <input className="admin-input" name="category" placeholder="Category (e.g. Dance)" value={formData.category} onChange={handleChange} />
+                    <input className="admin-input" name="venue" placeholder="Venue" value={formData.venue} onChange={handleChange} />
+                    <input className="admin-input" name="time" placeholder="Time (e.g. 10:00 AM)" value={formData.time} onChange={handleChange} />
+                    <input className="admin-input" name="stage" placeholder="Stage" value={formData.stage} onChange={handleChange} />
                 </div>
-                <button type="submit" className="primary-btn">Add Event</button>
+                <button type="submit" className="submit-btn">Add Event +</button>
             </form>
 
             {/* LIST */}
-            {loading ? <p>Loading...</p> : (
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
-                    <thead>
-                        <tr style={{ background: "#eee", textAlign: "left" }}>
-                            <th style={{ padding: "8px" }}>Name</th>
-                            <th style={{ padding: "8px" }}>Time</th>
-                            <th style={{ padding: "8px" }}>Venue</th>
-                            <th style={{ padding: "8px" }}>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {events.map((ev) => (
-                            <tr key={ev.id} style={{ borderBottom: "1px solid #ddd" }}>
-                                <td style={{ padding: "8px" }}>{ev.name}</td>
-                                <td style={{ padding: "8px" }}>{ev.time}</td>
-                                <td style={{ padding: "8px" }}>{ev.venue}</td>
-                                <td style={{ padding: "8px" }}>
-                                    <button onClick={() => handleDelete(ev.id)} style={{ background: "red", color: "white", border: "none", padding: "4px 8px", borderRadius: "4px", cursor: "pointer" }}>Delete</button>
-                                </td>
+            {loading ? <p>Loading events...</p> : (
+                <div className="admin-table-container">
+                    <table className="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Time</th>
+                                <th>Venue</th>
+                                <th>Action</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {events.map((ev) => (
+                                <tr key={ev.id}>
+                                    <td style={{ fontWeight: '600' }}>{ev.name}</td>
+                                    <td>{ev.category}</td>
+                                    <td>{ev.time}</td>
+                                    <td>{ev.venue}</td>
+                                    <td>
+                                        <button onClick={() => handleDelete(ev.id)} className="delete-btn">Delete</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             )}
         </div>
     );

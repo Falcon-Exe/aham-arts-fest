@@ -15,5 +15,13 @@
   max-width: 1200px;
   margin: 0 auto;
 
+
   padding: 0 20px 40px;
+}
+
+.app-content.full-bleed {
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
 }

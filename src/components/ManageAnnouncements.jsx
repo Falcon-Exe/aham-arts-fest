@@ -41,35 +41,37 @@ export default function ManageAnnouncements() {
 
     return (
         <div className="manage-announcements">
-            <h3>Manage Announcement Ticker</h3>
-            <p style={{ color: "var(--muted)", marginBottom: "16px" }}>
-                This message will scroll at the bottom of every page.
+            <h3 className="section-title">Manage Announcement Ticker</h3>
+            <p style={{ color: "var(--muted)", marginBottom: "20px", fontSize: "0.95rem" }}>
+                This message will scroll at the top of every page.
             </p>
 
-            <form onSubmit={handleSave} style={{ background: "#fffaf0", padding: "20px", borderRadius: "8px", border: "1px solid #ead19b" }}>
+            <form onSubmit={handleSave} className="admin-form">
                 <div style={{ marginBottom: "16px" }}>
-                    <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold" }}>Announcement Message</label>
+                    <label style={{ display: "block", marginBottom: "8px", fontWeight: "bold", color: "var(--text-color)" }}>
+                        Announcement Message
+                    </label>
                     <input
+                        className="admin-input"
                         value={message}
                         onChange={e => setMessage(e.target.value)}
                         placeholder="e.g. Results for Dance are out!"
-                        style={{ width: "100%", padding: "10px", fontSize: "1rem" }}
                     />
                 </div>
 
                 <div style={{ marginBottom: "20px" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "10px", cursor: "pointer", fontSize: "1rem" }}>
                         <input
                             type="checkbox"
                             checked={active}
                             onChange={e => setActive(e.target.checked)}
-                            style={{ transform: "scale(1.2)" }}
+                            style={{ width: "20px", height: "20px", accentColor: "var(--primary)" }}
                         />
-                        Show Ticker on Website
+                        <span style={{ fontWeight: "500" }}>Show Ticker on Website</span>
                     </label>
                 </div>
 
-                <button disabled={loading} type="submit" className="primary-btn">
+                <button disabled={loading} type="submit" className="submit-btn" style={{ width: "auto", padding: "12px 30px" }}>
                     {loading ? "Saving..." : "Update Announcement"}
                 </button>
             </form>

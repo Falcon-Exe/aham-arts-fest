@@ -7,61 +7,40 @@ function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [timeLeft, setTimeLeft] = useState("");
 
-  /* SCROLL SHRINK */
+  /* SCROLL DIRECTION DETECTION */
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 30);
+    let lastScrollY = window.scrollY;
+
+    const onScroll = () => {
+      const currentScrollY = window.scrollY;
+      setScrolled(currentScrollY > 50 && currentScrollY > lastScrollY); // Hide on scroll down
+      setTimeLeft(prev => prev); // dummy update
+      lastScrollY = currentScrollY;
+    };
+
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  /* COUNTDOWN */
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      const diff = FEST_DATE - now;
-
-      if (diff <= 0) {
-        setTimeLeft("Live Now 🎉");
-        clearInterval(timer);
-        return;
-      }
-
-      const d = Math.floor(diff / (1000 * 60 * 60 * 24));
-      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const m = Math.floor((diff / (1000 * 60)) % 60);
-
-      setTimeLeft(`${d}d ${h}h ${m}m`);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
   return (
-    <header className={`hero-header ${scrolled ? "shrink" : ""}`}>
-      <div className="hero-content">
-        {/* FEST BADGE */}
-        <div className="fest-badge">FEB 2026</div>
+    <header className={`island-header ${scrolled ? "hidden" : "visible"}`}>
+      <div className="island-capsule">
+        {/* LOGO ICON */}
+        <div className="island-logo">
+          <img src="/pwa-512x512.png" alt="Logo" />
+        </div>
 
-        {/* LOGO */}
-        <img
-          src="/pwa-512x512.png"
-          alt="AHAM Arts Fest official logo"
-          className="hero-logo"
-        />
+        {/* TITLE COMPACT */}
+        <div className="island-title">
+          <span className="bold">AHAM</span>
+          <span className="thin">2026</span>
+        </div>
 
-        {/* TITLE */}
-        <h1 className="hero-title">
-          AHAM ARTS FEST
-          <span>2025–26</span>
-        </h1>
-
-        {/* TAGLINE */}
-        <p className="hero-tagline">
-          Where talent meets tradition 🎭
-        </p>
-
-        {/* COUNTDOWN */}
-        <div className="countdown">{timeLeft}</div>
+        {/* LIVE INDICATOR */}
+        <div className="island-status">
+          <span className="pulse-dot"></span>
+          LIVE
+        </div>
       </div>
     </header>
   );
