@@ -108,34 +108,31 @@ body {
   pointer-events: none;
 }
 
-/* FOOTER STYLED CARD */
+/* FOOTER FULL-WIDTH SECTION */
 .footer-container-styled {
   width: 100%;
-  padding: 40px 20px;
-  background: var(--bg-color);
-  box-sizing: border-box;
-  /* Ensure padding doesn't break width */
-  /* Match page bg */
+  padding: 0;
+  background: #0a0a0a;
+  /* Pure Dark */
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  margin-top: 60px;
 }
 
 /* FOOTER */
 .minimal-footer {
   width: 100%;
-  max-width: 1000px;
-  /* Limit max width on large screens */
-  margin: 0 auto;
-  padding: 60px 20px;
-  background: #111 url('/assets/noise.png');
-  /* Dark textured background */
+  max-width: 100%;
+  margin: 0;
+  padding: 100px 20px;
+  background: transparent;
   color: #fff;
-  border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  border-radius: 0;
+  /* Remove radius to fit page edges */
+  box-shadow: none;
   position: relative;
   overflow: hidden;
   text-align: center;
-  /* Center align reset */
   display: block;
-  /* Reset flex */
 }
 
 .footer-content {
@@ -578,17 +575,5 @@ body {
 
   .card-results .card-header {
     width: 100%;
-  }
-
-  /* FOOTER MOBILE FIX */
-  .footer-container-styled {
-    padding: 30px 10px;
-    /* Tighter edges on mobile */
-  }
-
-  .minimal-footer {
-    border-radius: 16px;
-    /* Slightly smaller radius */
-    padding: 40px 10px;
   }
 }

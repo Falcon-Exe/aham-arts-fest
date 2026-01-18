@@ -41,7 +41,25 @@ export default function ManageAnnouncements() {
 
     return (
         <div className="manage-announcements">
-            <h3 className="section-title">Manage Announcement Ticker</h3>
+            <h3 className="section-title">
+                Manage Announcement Ticker
+                {active && (
+                    <span className="live-pill" style={{
+                        marginLeft: '15px',
+                        fontSize: '0.7rem',
+                        background: 'rgba(230, 57, 70, 0.1)',
+                        color: '#e63946',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        border: '1px solid #e63946',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        verticalAlign: 'middle'
+                    }}>
+                        • Live Now
+                    </span>
+                )}
+            </h3>
             <p style={{ color: "var(--muted)", marginBottom: "20px", fontSize: "0.95rem" }}>
                 This message will scroll at the top of every page.
             </p>

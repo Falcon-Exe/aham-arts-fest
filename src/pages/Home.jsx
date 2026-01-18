@@ -62,7 +62,7 @@ function Home() {
 
           <Link to="/participants" className="bento-card card-players">
             <span className="card-num">04</span>
-            <span className="card-label">PLAYERS</span>
+            <span className="card-label">PARTICIPANTS</span>
             <span className="card-icon">👥</span>
           </Link>
         </div>
@@ -82,7 +82,9 @@ function Home() {
           <div className="footer-content">
             <img src={unionLogo} alt="Union" className="footer-logo" />
             <div className="footer-text">
-              <h3>MAJLIS UMARIYYA STUDENTS' FEDERATION</h3>
+              <Link to="/admin" style={{ textDecoration: 'none', color: 'inherit', cursor: 'default' }}>
+                <h3>MAJLIS UMARIYYA STUDENTS' FEDERATION</h3>
+              </Link>
               <p>Majlis Umariyya Wafy College</p>
             </div>
           </div>
