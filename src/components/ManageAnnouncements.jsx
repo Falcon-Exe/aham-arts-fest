@@ -1,14 +1,24 @@
 import { useState, useEffect } from "react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import Toast from "./Toast";
+
+// We'll use a single document 'config/ticker' for the global announcement
+const DOC_REF = doc(db, "announcements", "ticker");
 
 export default function ManageAnnouncements() {
     const [message, setMessage] = useState("");
     const [active, setActive] = useState(true);
     const [loading, setLoading] = useState(false);
+    const [toast, setToast] = useState(null);
 
-    // We'll use a single document 'config/ticker' for the global announcement
-    const DOC_REF = doc(db, "announcements", "ticker");
+    const showToast = (message, type = 'info') => {
+        setToast({ message, type });
+    };
+
+    const handleToastClose = () => {
+        setToast(null);
+    };
 
     useEffect(() => {
         const fetchTicker = async () => {
@@ -31,17 +41,36 @@ export default function ManageAnnouncements() {
         setLoading(true);
         try {
             await setDoc(DOC_REF, { message, active });
-            alert("Announcement updated!");
+            showToast("Announcement updated!", "success");
         } catch (err) {
             console.error(err);
-            alert("Error updating announcement");
+            showToast("Error updating announcement", "error");
         }
         setLoading(false);
     };
 
     return (
         <div className="manage-announcements">
-            <h3 className="section-title">Manage Announcement Ticker</h3>
+            {toast && <Toast message={toast.message} type={toast.type} onClose={handleToastClose} />}
+            <h3 className="section-title">
+                Manage Announcement Ticker
+                {active && (
+                    <span className="live-pill" style={{
+                        marginLeft: '15px',
+                        fontSize: '0.7rem',
+                        background: 'rgba(230, 57, 70, 0.1)',
+                        color: '#e63946',
+                        padding: '4px 10px',
+                        borderRadius: '20px',
+                        border: '1px solid #e63946',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        verticalAlign: 'middle'
+                    }}>
+                        • Live Now
+                    </span>
+                )}
+            </h3>
             <p style={{ color: "var(--muted)", marginBottom: "20px", fontSize: "0.95rem" }}>
                 This message will scroll at the top of every page.
             </p>

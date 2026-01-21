@@ -13,19 +13,23 @@
 
 .breadcrumb-home {
   text-decoration: none;
-  color: #913831;
+  color: var(--primary);
+  transition: opacity 0.2s;
 }
 
 .breadcrumb-home:hover {
-  text-decoration: underline;
+  text-decoration: none;
+  opacity: 0.8;
 }
 
 .breadcrumb-sep {
-  opacity: 0.5;
+  opacity: 0.4;
+  color: var(--text-muted);
 }
 
 .breadcrumb-current {
-  color: #222;
+  color: var(--text-color);
+  opacity: 0.9;
 }
 
 /* Mobile spacing */

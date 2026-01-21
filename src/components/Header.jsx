@@ -1,11 +1,8 @@
 import { memo, useEffect, useState } from "react";
 import "./Header.css";
 
-const FEST_DATE = new Date("2026-02-10T09:00:00"); // 🔴 CHANGE FEST DATE HERE
-
 function Header() {
   const [scrolled, setScrolled] = useState(false);
-  const [timeLeft, setTimeLeft] = useState("");
 
   /* SCROLL DIRECTION DETECTION */
   useEffect(() => {
@@ -14,7 +11,6 @@ function Header() {
     const onScroll = () => {
       const currentScrollY = window.scrollY;
       setScrolled(currentScrollY > 50 && currentScrollY > lastScrollY); // Hide on scroll down
-      setTimeLeft(prev => prev); // dummy update
       lastScrollY = currentScrollY;
     };
 

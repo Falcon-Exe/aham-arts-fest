@@ -1,0 +1,317 @@
+.events-page {
+    background: var(--bg-color);
+    min-height: 100vh;
+    padding-bottom: 60px;
+}
+
+.events-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    padding-top: 40px;
+    /* Minimal padding */
+    flex-wrap: wrap;
+    /* Allow wrapping for massive text */
+}
+
+.events-title {
+    font-size: 10vw;
+    /* MASSIVE SIZE */
+    font-weight: 950;
+    line-height: 0.9;
+    text-transform: uppercase;
+    letter-spacing: -2px;
+    /* Tight tracking */
+    background: linear-gradient(135deg, #ffffff 0%, #a855f7 50%, #00e5ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+    width: 100%;
+    /* Take full width */
+}
+
+/* ===============================
+   CONTROLS & TEAM FILTER
+   =============================== */
+.dashboard-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    /* Increased space */
+    margin-bottom: 40px;
+}
+
+/* FILTER BUTTONS (TRANSPARENT) */
+/* FILTER BUTTONS (TRANSPARENT) */
+/* Container spacing for buttons */
+.events-tabs {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Custom Scrollbar Styling */
+.events-tabs::-webkit-scrollbar {
+    height: 4px;
+    /* Thin horizontal scrollbar */
+}
+
+.events-tabs::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.events-tabs::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+}
+
+.events-tabs .team-pill {
+    min-width: auto;
+    /* Let content dictate width to fit more */
+    background: rgba(255, 255, 255, 0.05);
+    /* Transparent Glass */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 12px 20px;
+    color: var(--muted);
+    font-weight: 700;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.events-tabs .team-pill:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    color: #fff;
+}
+
+.events-tabs .team-pill.active {
+    background: rgba(230, 57, 70, 0.1);
+    /* VERY Transparent Red Effect */
+    color: #fff;
+    border: 1px solid rgba(230, 57, 70, 0.5) !important;
+    /* Glowing border instead of fill */
+    box-shadow: 0 0 15px rgba(230, 57, 70, 0.15);
+}
+
+.events-tabs .team-pill .pill-name {
+    color: inherit;
+}
+
+.search-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: var(--muted);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.events-search {
+    width: 100%;
+    padding: 14px 16px 14px 48px;
+    border-radius: 12px;
+    border: 1px solid var(--border-soft);
+    font-size: 16px;
+    background: var(--card-bg);
+    color: var(--text-color);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.events-search:focus {
+    outline: none;
+    border-color: #00e5ff;
+    box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.1), 0 8px 25px rgba(0, 229, 255, 0.1);
+    transform: translateY(-1px);
+}
+
+.events-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 20px;
+}
+
+.event-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 0 1 360px;
+    /* Don't grow too much, shrink if needed, basis 360px */
+    width: 100%;
+    min-width: 300px;
+    /* Prevent being too thin */
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+}
+
+.event-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.event-name {
+    font-size: 22px;
+    font-weight: 900;
+    margin: 0;
+    color: #fff;
+    line-height: 1.2;
+}
+
+.badge-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.type-badge {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+.badge-on-stage {
+    background: rgba(0, 229, 255, 0.1);
+    color: #00e5ff;
+    border: 1px solid rgba(0, 229, 255, 0.2);
+}
+
+.badge-off-stage {
+    background: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.badge-general {
+    background: rgba(168, 85, 247, 0.1);
+    color: #a855f7;
+    border: 1px solid rgba(168, 85, 247, 0.2);
+}
+
+.event-category {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+
+
+.event-details {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.detail-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.detail-icon {
+    font-size: 16px;
+}
+
+.detail-content label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+}
+
+.detail-content p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.loading-box {
+    text-align: center;
+    padding: 100px 0;
+    color: var(--muted);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(0, 229, 255, 0.1);
+    border-top: 3px solid #00e5ff;
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 0;
+    color: var(--muted);
+}
+
+@media (max-width: 600px) {
+    .events-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .events-tabs .team-pill {
+        min-width: 100px;
+        padding: 10px 12px;
+    }
+
+    .events-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .event-card {
+        padding: 24px;
+    }
+}

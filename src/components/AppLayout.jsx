@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import Breadcrumb from "./Breadcrumb";
 import "./AppLayout.css";
 import AnnouncementTicker from "./AnnouncementTicker";
+import { Helmet } from "react-helmet-async";
 
 export default function AppLayout() {
   const location = useLocation();
@@ -15,15 +16,20 @@ export default function AppLayout() {
     { label: "Register", path: "/register" },
   ];
   const isHome = location.pathname === "/";
+  const currentItem = NAV_ITEMS.find(item => item.path === location.pathname);
 
   return (
     <div className="app-layout">
+      <Helmet>
+        <title>AHAM Arts Fest 2026</title>
+        <meta name="description" content="Majlis Umariyya Students' Federation Arts Festival - Live Results and Updates" />
+      </Helmet>
       {/* GLOBAL ANNOUNCEMENT TICKER (TOP) */}
       <AnnouncementTicker />
 
       {!isHome && (
         <div className="app-header">
-          <Breadcrumb />
+          <Breadcrumb current={currentItem ? currentItem.label : "Page"} />
         </div>
       )}
 

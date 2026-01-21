@@ -7,49 +7,49 @@ export default defineConfig({
 
   plugins: [
     react(),
-   VitePWA({
+    VitePWA({
       registerType: "prompt", // 🔔 enables update prompt
 
       devOptions: {
         enabled: false,
       },
 
-    workbox: {
-  cleanupOutdatedCaches: true,
-  clientsClaim: true,
-  skipWaiting: false,
-  navigateFallback: "/offline.html",
+      workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: false,
+        navigateFallback: "/offline.html",
 
-  runtimeCaching: [
-    /* 🧭 HTML & navigation — always try network first */
-    {
-      urlPattern: ({ request }) => request.mode === "navigate",
-      handler: "NetworkFirst",
-      options: {
-        cacheName: "pages",
+        runtimeCaching: [
+          /* 🧭 HTML & navigation — always try network first */
+          {
+            urlPattern: ({ request }) => request.mode === "navigate",
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "pages",
+            },
+          },
+
+          /* 📊 Google Sheets / CSV — NEVER cache */
+          {
+            urlPattern: ({ url }) => url.pathname.endsWith(".csv"),
+            handler: "NetworkOnly",
+          },
+
+          /* 🖼️ Images — cache safely */
+          {
+            urlPattern: ({ request }) => request.destination === "image",
+            handler: "CacheFirst",
+            options: {
+              cacheName: "image-cache",
+              expiration: {
+                maxEntries: 80,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+              },
+            },
+          },
+        ],
       },
-    },
-
-    /* 📊 Google Sheets / CSV — NEVER cache */
-    {
-      urlPattern: ({ url }) => url.pathname.endsWith(".csv"),
-      handler: "NetworkOnly",
-    },
-
-    /* 🖼️ Images — cache safely */
-    {
-      urlPattern: ({ request }) => request.destination === "image",
-      handler: "CacheFirst",
-      options: {
-        cacheName: "image-cache",
-        expiration: {
-          maxEntries: 80,
-          maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
-        },
-      },
-    },
-  ],
-},
 
       manifest: {
         name: "AHAM Arts Fest",
@@ -63,26 +63,20 @@ export default defineConfig({
         icons: [
           {
             src: "./pwa-192x192.png",
-            sizes: "512x512",
+            sizes: "192x192",
             type: "image/png",
             purpose: "maskable",
           },
-          // {
-          //   src: "./pwa-192x192.png",
-          //   sizes: "192x192",
-          //   type: "image/png",
-          // },
+          {
+            src: "./pwa-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
           {
             src: "./pwa-512x512.png",
             sizes: "512x512",
             type: "image/png",
           },
-          // {
-          //   src: "./pwa-192x192.png",
-          //   sizes: "512x512",
-          //   type: "image/png",
-          //   purpose: "maskable",
-          // },
         ],
       },
     }),
