@@ -130,6 +130,35 @@
   border: 1px solid rgba(30, 215, 96, 0.25);
 }
 
+.source-badge {
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.source-badge.new-registration {
+  background: linear-gradient(135deg, rgba(138, 43, 226, 0.15), rgba(75, 0, 130, 0.15));
+  color: #da70d6;
+  border: 1px solid rgba(138, 43, 226, 0.3);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 5px rgba(138, 43, 226, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 15px rgba(138, 43, 226, 0.5);
+  }
+}
+
+
 .p-details {
   display: flex;
   flex-direction: column;

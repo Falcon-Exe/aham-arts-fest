@@ -1,34 +1,89 @@
 import { useState, useEffect } from "react";
 import Papa from "papaparse";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { db } from "../firebase";
 import "./Participants.css";
-
-
 
 function Participants() {
   const [participants, setParticipants] = useState([]);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const csvUrl =
     "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7akmZPo8vINBoUN2hF6GdJ3ob-SqZFV2oDNSej9QvfY4z8H7Q9UbRIVmyu31pgiecp2h_2uiunBDJ/pub?gid=885092322&single=true&output=csv";
 
   useEffect(() => {
-    fetch(csvUrl + "&t=" + Date.now())
-      .then((res) => {
-        if (!res.ok) throw new Error("Network error");
-        return res.text();
-      })
-      .then((csv) => {
-        Papa.parse(csv, {
-          header: true,
-          skipEmptyLines: true,
-          complete: (results) => {
-            setParticipants(results.data);
-          },
-        });
-      })
-      .catch((err) => {
-        console.error("CSV LOAD FAILED:", err);
-      });
+    const fetchAllParticipants = async () => {
+      try {
+        // Fetch CSV data
+        const csvPromise = fetch(csvUrl + "&t=" + Date.now())
+          .then((res) => {
+            if (!res.ok) throw new Error("Network error");
+            return res.text();
+          })
+          .then((csv) => {
+            return new Promise((resolve) => {
+              Papa.parse(csv, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                  // Mark CSV participants with source
+                  const csvData = results.data.map(p => ({ ...p, _source: "csv" }));
+                  resolve(csvData);
+                },
+              });
+            });
+          })
+          .catch((err) => {
+            console.error("CSV LOAD FAILED:", err);
+            return [];
+          });
+
+        // Fetch Firestore registrations
+        const firestorePromise = getDocs(query(collection(db, "registrations"), orderBy("submittedAt", "desc")))
+          .then((snapshot) => {
+            // Normalize Firestore data to match CSV structure
+            return snapshot.docs.map(doc => {
+              const data = doc.data();
+              return {
+                "CANDIDATE NAME": data.fullName,
+                "CANDIDATE  FULL NAME": data.fullName,
+                "CIC NO": data.cicNumber,
+                "CIC NUMBER": data.cicNumber,
+                "CHEST NUMBER": data.chestNumber,
+                "CHEST NO": data.chestNumber,
+                "TEAM": data.team,
+                "TEAM NAME": data.team,
+                "ON STAGE ITEMS": data.onStageEvents?.join(", ") || "",
+                "ON STAGE EVENTS": data.onStageEvents?.join(", ") || "",
+                "OFF STAGE ITEMES": data.offStageEvents?.join(", ") || "",
+                "OFF STAGE ITEMS": data.offStageEvents?.join(", ") || "",
+                "OFF STAGE EVENTS": data.offStageEvents?.join(", ") || "",
+                _source: "firestore",
+                _submittedAt: data.submittedAt,
+                _generalEvents: data.generalEvents?.join(", ") || ""
+              };
+            });
+          })
+          .catch((err) => {
+            console.error("FIRESTORE LOAD FAILED:", err);
+            return [];
+          });
+
+        // Wait for both sources
+        const [csvData, firestoreData] = await Promise.all([csvPromise, firestorePromise]);
+
+        // Merge both datasets (Firestore first, then CSV)
+        const mergedData = [...firestoreData, ...csvData];
+        setParticipants(mergedData);
+      } catch (err) {
+        console.error("Error fetching participants:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllParticipants();
   }, []);
 
   const filteredParticipants = participants.filter((p) => {
@@ -66,7 +121,12 @@ function Participants() {
         </div>
       </div>
 
-      {filteredParticipants.length === 0 ? (
+      {loading ? (
+        <div className="empty-state">
+          <div className="spinner" style={{ width: '40px', height: '40px', margin: '0 auto' }}></div>
+          <p>Loading participants...</p>
+        </div>
+      ) : filteredParticipants.length === 0 ? (
         <div className="empty-state">
           <p>No matching participants found.</p>
         </div>
@@ -83,6 +143,9 @@ function Participants() {
                     <span className={`p-team team-badge team-${(p["TEAM"] || p["TEAM NAME"])?.toUpperCase()}`}>
                       {p["TEAM"] || p["TEAM NAME"]}
                     </span>
+                    {p._source === "firestore" && (
+                      <span className="source-badge new-registration">✨ New</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -102,6 +165,12 @@ function Participants() {
                     <label>📝 Off Stage Events</label>
                     <p>{p["OFF STAGE ITEMES"] || p["OFF STAGE ITEMS"] || p["OFF STAGE EVENTS"] || "None"}</p>
                   </div>
+                  {p._source === "firestore" && p._generalEvents && (
+                    <div className="p-item-group">
+                      <label>🌐 General Events</label>
+                      <p>{p._generalEvents || "None"}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
