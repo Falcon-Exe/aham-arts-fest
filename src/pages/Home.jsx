@@ -68,7 +68,7 @@ function Home() {
       </Suspense>
 
       {/* HERO SECTION */}
-      <section className="cinematic-hero">
+      <section className="cinematic-hero" aria-label="Welcome to AHAM 2026">
         <div className="noise-overlay"></div>
 
         {/* CENTERED TYPOGRAPHY */}
@@ -87,7 +87,7 @@ function Home() {
         </div>
 
         {/* BENTO GRID NAVIGATION (2x2) */}
-        <div className="bento-nav-grid">
+        <div className="bento-nav-grid" role="navigation" aria-label="Main Menu">
           <Link to="/events" className="bento-card card-events">
             <span className="card-num">01</span>
             <span className="card-label">EVENTS</span>

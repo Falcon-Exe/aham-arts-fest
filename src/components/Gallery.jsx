@@ -6,13 +6,13 @@ import "./Gallery.css";
 import pic1 from "../assets/pic1.jpg";
 import pic2 from "../assets/pic2.jpg";
 import pic3 from "../assets/pic3.jpg";
-import pic4 from "../assets/pic4.jpg";
+// import pic4 from "../assets/pic4.jpg";
 
 const defaultItems = [
-  { src: pic1, title: "PYRA '26", category: "GRAND INAUGURAL" },
-  { src: pic2, title: "KALA", category: "ARTISTIC DUEL" },
-  { src: pic3, title: "MOSAIC", category: "LITERARY FEST" },
-  { src: pic4, title: "VISION", category: "CULTURAL NIGHT" },
+  { src: pic1, title: "COMMITTE" },
+  { src: pic2, title: "LOGO LAUNCHING" },
+  { src: pic3, title: "LOGO DETAILS" },
+  // { src: pic4, title: "VISION" },
 ];
 
 function Gallery() {

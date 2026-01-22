@@ -1,3 +1,4 @@
+optimise
 /* ===============================
    AVANT-GARDE HOME STYLES
    =============================== */
@@ -107,7 +108,7 @@ body {
 /* CENTER BADGE - MOVED LOWER */
 .hero-center-badge {
   position: absolute;
-  top: 60%;
+  top: 45%;
   /* Moved down to clear text */
   left: 50%;
   transform: translate(-50%, -50%);
@@ -401,6 +402,9 @@ body {
 }
 
 .live-badge {
+  position: absolute;
+  top: 25px;
+  right: 25px;
   background: #ff5f57;
   color: white;
   padding: 4px 10px;
@@ -547,12 +551,17 @@ body {
 }
 
 /* MOBILE ADJUSTMENTS */
-@media (max-width: 768px) {
-
-  /* HERO TYPOGRAPHY */
+/* TABLET / SMALL LAPTOP ADJUSTMENTS */
+@media (max-width: 1024px) {
   .hero-typography-centered h1 {
-    font-size: 19vw;
-    /* Larger for prominence on mobile */
+    font-size: 15vw;
+  }
+}
+
+/* TABLET (768px) */
+@media (max-width: 768px) {
+  .hero-typography-centered h1 {
+    font-size: 18vw;
     letter-spacing: -2px;
   }
 
@@ -562,47 +571,94 @@ body {
   }
 
   .hero-center-badge {
+    top: 45%;
+  }
+
+  /* Ensure Bento Grid is 2 columns on tablet, but allows 1 column on mobile */
+  .bento-nav-grid {
+    gap: 16px;
+    padding: 0 20px;
+    margin-top: 80px;
+  }
+}
+
+/* MOBILE (600px) */
+@media (max-width: 600px) {
+  .hero-typography-centered h1 {
+    font-size: 20vw;
+  }
+
+  .hero-center-badge {
     top: 40%;
   }
 
-  /* BENTO GRID - FULL 2x2 ON MOBILE */
+  /* Force 2 columns on mobile as requested (Undo 1-col change) */
   .bento-nav-grid {
     grid-template-columns: repeat(2, 1fr) !important;
-    /* Force 2 columns */
     gap: 12px;
-    padding: 0 16px;
-    margin-top: 130px;
+    margin-top: 140px;
+    /* Increased to avoid overlap with Red Circle Badge */
   }
 
   .bento-card {
-    height: 150px;
-    /* Adjust height */
-    padding: 20px;
-    align-items: flex-start;
-    /* Reset align */
+    height: 130px;
     flex-direction: column;
+    align-items: flex-start;
+    padding: 16px;
+    justify-content: space-between;
   }
 
   .card-label {
     font-size: 1.1rem;
-    /* Readable size */
-    margin-top: auto;
+    /* Smaller font to fit PARTICIPANTS */
+    margin-top: 0;
+    word-break: break-word;
+    /* Safety net */
+    line-height: 1.1;
   }
 
   .card-num {
     font-size: 0.8rem;
+    margin-right: 0;
+    margin-bottom: 4px;
+    opacity: 0.6;
   }
 
-  /* Keep icons visible */
+  /* Keep icons visible but smaller/subtle */
   .card-icon {
     display: block !important;
-    font-size: 1.5rem;
-    top: 15px;
-    right: 15px;
+    font-size: 1.4rem;
+    top: 12px;
+    right: 12px;
+    transform: none;
+    opacity: 0.2;
   }
 
   .card-results .card-header {
-    width: 100%;
+    width: auto;
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-start;
+  }
+
+  /* Battle Arena Mobile Optimizations */
+  .arena-card {
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  .arena-rank {
+    font-size: 1.2rem;
+    width: 24px;
+  }
+
+  .arena-team-name {
+    font-size: 0.95rem;
+  }
+
+  .sc-breakdown {
+    display: none;
+    /* Hide detailed breakdown on very small screens to save space */
   }
 }
 

@@ -13,7 +13,6 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-console.log("🔥 Firebase Initialized for Project ID:", firebaseConfig.projectId); // Debug Log
 
 export const auth = getAuth(app);
 
