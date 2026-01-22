@@ -80,29 +80,62 @@ export default function ManageResults() {
         setResults(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, []);
 
-    const fetchMasterList = useCallback(() => {
-        fetch(csvUrl + "&t=" + Date.now())
-            .then(res => res.text())
-            .then(csv => {
-                Papa.parse(csv, {
-                    header: true,
-                    skipEmptyLines: true,
-                    complete: (results) => {
-                        setMasterParticipants(results.data);
-                    },
+    const fetchAllParticipants = useCallback(async () => {
+        try {
+            // 1. Fetch CSV
+            const csvPromise = fetch(csvUrl + "&t=" + Date.now())
+                .then(res => res.text())
+                .then(csv => {
+                    return new Promise((resolve) => {
+                        Papa.parse(csv, {
+                            header: true,
+                            skipEmptyLines: true,
+                            complete: (results) => resolve(results.data)
+                        });
+                    });
                 });
-            })
-            .catch(err => console.error("Master list failed:", err));
+
+            // 2. Fetch Firestore
+            const firestorePromise = getDocs(query(collection(db, "registrations"), orderBy("submittedAt", "desc")))
+                .then((snapshot) => {
+                    return snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return {
+                            "CANDIDATE NAME": data.fullName,
+                            "CANDIDATE  FULL NAME": data.fullName,
+                            "CIC NO": data.cicNumber,
+                            "CIC NUMBER": data.cicNumber,
+                            "CHEST NUMBER": data.chestNumber,
+                            "CHEST NO": data.chestNumber,
+                            "TEAM": data.team,
+                            "TEAM NAME": data.team,
+                            "ON STAGE ITEMS": data.onStageEvents?.join(", ") || "",
+                            "ON STAGE EVENTS": data.onStageEvents?.join(", ") || "",
+                            "OFF STAGE ITEMES": data.offStageEvents?.join(", ") || "",
+                            "OFF STAGE ITEMS": data.offStageEvents?.join(", ") || "",
+                            "OFF STAGE EVENTS": data.offStageEvents?.join(", ") || "",
+                            _source: "firestore"
+                        };
+                    });
+                });
+
+            const [csvData, firestoreData] = await Promise.all([csvPromise, firestorePromise]);
+            // Merge Firestore first (live data) then CSV
+            setMasterParticipants([...firestoreData, ...csvData]);
+
+        } catch (err) {
+            console.error("Error fetching participants:", err);
+        }
     }, []);
 
     useEffect(() => {
         const run = async () => {
             await fetchEvents();
             await fetchResults();
-            fetchMasterList();
+            await fetchAllParticipants();
         };
         run();
-    }, [fetchEvents, fetchResults, fetchMasterList]);
+    }, [fetchEvents, fetchResults, fetchAllParticipants]);
 
 
 
