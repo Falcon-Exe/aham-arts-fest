@@ -51,14 +51,7 @@ export default function App() {
           </Route>
 
           {/* ADMIN ROUTES */}
-          <Route path="/admin" element={
-            <div className="container" style={{ marginTop: "50px", maxWidth: "400px" }}>
-              <h2 style={{ textAlign: "center", color: "var(--primary)", marginBottom: "20px" }}>Admin Access</h2>
-              <div className="card">
-                <AdminLogin />
-              </div>
-            </div>
-          } />
+          <Route path="/admin" element={<AdminLogin />} />
           <Route path="/dashboard" element={<Dashboard />} />
         </Routes>
       </Suspense>
