@@ -16,10 +16,7 @@ export const EVENT_MAP = {
     "QUIZ": "On Stage",
     "SONG MALAYALAM": "On Stage",
     "SONG ARABIC": "On Stage",
-    "URDU GAZAL": "On Stage",
     "TABLE TALK URDU": "On Stage",
-    "TABLE TALK ENGLISH": "On Stage",
-    "TABLE TALK ARABIC": "On Stage",
     "INSPIRING TALK ARABIC": "On Stage",
     "INSPIRING TALK ENGLISH": "On Stage",
     "MASHUP": "On Stage",
@@ -57,13 +54,14 @@ export const EVENT_MAP = {
     "PROJECT SUBMISSION": "Off Stage",
     "REEL MAKING": "Off Stage",
     "AI VIDEO CREATION": "Off Stage",
-    "TRENT SETTING": "Off Stage"
+    "TRENT SETTING": "Off Stage",
+    "PAINTING": "Off Stage"
 };
 
 export const GENERAL_LIST = [
     "MASHUP", "SHOW YOUR POTENTIAL", "MIME",
     "BROCHURE MAKING", "PROJECT SUBMISSION", "REEL MAKING",
-    "AI VIDEO CREATION", "TRENT SETTING"
+    "AI VIDEO CREATION", "TRENT SETTING", "PAINTING"
 ];
 
 export const ALL_EVENTS = Object.keys(EVENT_MAP);

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { collection, getDocs, addDoc, query, orderBy } from "firebase/firestore";
-import { db } from "../firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
+import { db, auth } from "../firebase";
 import { Helmet } from "react-helmet-async";
 import "./Register.css";
 import { getEventType, isGeneralEvent } from "../constants/events";
@@ -11,6 +13,8 @@ export default function Register() {
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
     const [warning, setWarning] = useState(null); // Toast state
+    const [user, setUser] = useState(null);
+    const navigate = useNavigate();
 
     // Data States
     const [events, setEvents] = useState([]);
@@ -25,8 +29,27 @@ export default function Register() {
         generalEvents: []
     });
 
-    // Fetch Events from Firestore
+    // Auth & Data Fetch
     useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            if (!currentUser) {
+                navigate("/team-login");
+            } else {
+                setUser(currentUser);
+
+                // Auto-select team based on email (simple heuristic)
+                const email = currentUser.email.toLowerCase();
+                let teamName = "";
+                if (email.includes("pyra")) teamName = "PYRA";
+                else if (email.includes("ignis")) teamName = "IGNIS";
+                else if (email.includes("atash")) teamName = "ATASH";
+
+                if (teamName) {
+                    setFormData(prev => ({ ...prev, team: teamName }));
+                }
+            }
+        });
+
         const fetchEvents = async () => {
             try {
                 const q = query(collection(db, "events"), orderBy("name"));
@@ -40,7 +63,9 @@ export default function Register() {
             }
         };
         fetchEvents();
-    }, []);
+
+        return () => unsubscribe();
+    }, [navigate]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -137,6 +162,27 @@ export default function Register() {
 
 
             <header className="register-header">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <button onClick={() => navigate("/")} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666' }}>
+                        ← Home
+                    </button>
+                    {user && (
+                        <button
+                            onClick={() => signOut(auth)}
+                            style={{
+                                background: '#ffebee',
+                                color: '#d32f2f',
+                                border: 'none',
+                                padding: '5px 10px',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem'
+                            }}
+                        >
+                            Logout ({user.email.split('@')[0]})
+                        </button>
+                    )}
+                </div>
                 <h2 className="register-title">Candidate Registration</h2>
                 <div className="live-status">
                     <span className="live-dot"></span>

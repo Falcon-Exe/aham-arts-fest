@@ -9,8 +9,10 @@ import ManageResults from "../components/ManageResults";
 import ManageAnnouncements from "../components/ManageAnnouncements";
 import ManageTeams from "../components/ManageTeams";
 import ManageGallery from "../components/ManageGallery";
+import ManageRegistrations from "../components/ManageRegistrations";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
+import { ADMIN_EMAILS } from "../constants/auth";
 
 function Dashboard() {
     const [user, setUser] = useState(null);
@@ -24,6 +26,11 @@ function Dashboard() {
             if (!currentUser) {
                 navigate("/admin");
             } else {
+                if (!ADMIN_EMAILS.includes(currentUser.email)) {
+                    alert("🚫 Access Denied: You are not authorized to view the Admin Dashboard.");
+                    navigate("/");
+                    return;
+                }
                 setUser(currentUser);
             }
             setLoading(false);
@@ -101,6 +108,12 @@ function Dashboard() {
                     🏅 Results
                 </button>
                 <button
+                    className={`tab-btn ${activeTab === "registrations" ? "active" : ""}`}
+                    onClick={() => setActiveTab("registrations")}
+                >
+                    📝 Registrations
+                </button>
+                <button
                     className={`tab-btn ${activeTab === "teams" ? "active" : ""}`}
                     onClick={() => setActiveTab("teams")}
                 >
@@ -124,6 +137,7 @@ function Dashboard() {
             <div className="dashboard-content">
                 {activeTab === "events" && <ManageEvents />}
                 {activeTab === "results" && <ManageResults />}
+                {activeTab === "registrations" && <ManageRegistrations />}
                 {activeTab === "teams" && <ManageTeams />}
                 {activeTab === "announcements" && <ManageAnnouncements />}
                 {activeTab === "gallery" && <ManageGallery />}

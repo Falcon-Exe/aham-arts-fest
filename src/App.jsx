@@ -10,6 +10,7 @@ const Home = lazy(() => import("./pages/Home"));
 const Events = lazy(() => import("./pages/Events"));
 const Results = lazy(() => import("./pages/Results"));
 const Participants = lazy(() => import("./pages/Participants"));
+const TeamLogin = lazy(() => import("./pages/TeamLogin"));
 const Register = lazy(() => import("./pages/Register"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -42,6 +43,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />
             <Route path="/events" element={<Events />} />
+            <Route path="/team-login" element={<TeamLogin />} />
             <Route path="/register" element={<Register />} />
             <Route path="/results" element={<Results />} />
             <Route path="/participants" element={<Participants />} />
