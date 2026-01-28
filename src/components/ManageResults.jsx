@@ -12,6 +12,7 @@ export default function ManageResults() {
     const [results, setResults] = useState([]);
     const [masterParticipants, setMasterParticipants] = useState([]);
     const [filteredParticipants, setFilteredParticipants] = useState([]);
+    const [selectedStudentId, setSelectedStudentId] = useState("");
     const [editId, setEditId] = useState(null);
     const [formData, setFormData] = useState({
         eventId: "",
@@ -81,6 +82,19 @@ export default function ManageResults() {
     }, []);
 
     const fetchAllParticipants = useCallback(async () => {
+        // Helper to fix CSV typos
+        const normalizeEventString = (str) => {
+            if (!str) return "";
+            let s = str.toUpperCase();
+            s = s.replace(/SHORT VLOGING/g, "SHORT VLOGGING");
+            s = s.replace(/SAMMARIZATION/g, "SUMMARIZATION");
+            s = s.replace(/MINISTORY/g, "MINI STORY");
+            s = s.replace(/PHOTOFEACHURE/g, "PHOTO FEATURE");
+            s = s.replace(/Q&H/g, "Q AND H");
+            s = s.replace(/SONG WRITER/g, "SONG WRITING");
+            return s;
+        };
+
         try {
             // 1. Fetch CSV
             const csvPromise = fetch(csvUrl + "&t=" + Date.now())
@@ -101,6 +115,7 @@ export default function ManageResults() {
                     return snapshot.docs.map(doc => {
                         const data = doc.data();
                         return {
+                            _id: doc.id,
                             "CANDIDATE NAME": data.fullName,
                             "CANDIDATE  FULL NAME": data.fullName,
                             "CIC NO": data.cicNumber,
@@ -114,14 +129,74 @@ export default function ManageResults() {
                             "OFF STAGE ITEMES": data.offStageEvents?.join(", ") || "",
                             "OFF STAGE ITEMS": data.offStageEvents?.join(", ") || "",
                             "OFF STAGE EVENTS": data.offStageEvents?.join(", ") || "",
+                            "GENERAL EVENTS": data.generalEvents?.join(", ") || "",
                             _source: "firestore"
                         };
                     });
                 });
 
             const [csvData, firestoreData] = await Promise.all([csvPromise, firestorePromise]);
+
+            // Add IDs to CSV data and normalize events
+            const csvWithIds = csvData.map((row, idx) => {
+                const onStage = normalizeEventString(row["ON STAGE EVENTS"] || row["ON STAGE ITEMS"]);
+                const offStage = normalizeEventString(row["OFF STAGE EVENTS"] || row["OFF STAGE ITEMS"] || row["OFF STAGE ITEMES"]);
+                const generalRaw = row["GENERAL EVENTS"] || row["GENERAL ITEMS"] || row["OFF STAGE - GENERAL"] || row["ON STAGE - GENERAL"];
+                const general = normalizeEventString(generalRaw);
+
+                return {
+                    ...row,
+                    _id: `csv_${idx}`,
+                    id: `csv_${idx}`,
+                    "CANDIDATE NAME": row["CANDIDATE NAME"] || row["CANDIDATE  FULL NAME"],
+                    "CIC NO": row["CIC NO"] || row["CIC NUMBER"],
+                    "TEAM": row["TEAM"] || row["TEAM NAME"],
+                    "CHEST NUMBER": row["CHEST NUMBER"] || row["CHEST NO"],
+                    "ON STAGE EVENTS": onStage,
+                    "OFF STAGE EVENTS": offStage,
+                    "GENERAL EVENTS": general,
+                    _source: "csv"
+                };
+            });
+
+            // MERGE LOGIC
+            const mergedMap = new Map();
+            const rawList = [...firestoreData, ...csvWithIds];
+
+            rawList.forEach(item => {
+                const chestNo = (item["CHEST NUMBER"] || item["CHEST NO"] || "").toString().trim();
+
+                // If no chest no, just add as unique item
+                if (!chestNo) {
+                    mergedMap.set(item._id, item);
+                    return;
+                }
+
+                if (mergedMap.has(chestNo)) {
+                    // Merge with existing
+                    const existing = mergedMap.get(chestNo);
+
+                    // Combine events (deduplicate)
+                    const mergeEvents = (str1, str2) => {
+                        const s1 = str1 ? str1.split(",").map(s => s.trim()).filter(Boolean) : [];
+                        const s2 = str2 ? str2.split(",").map(s => s.trim()).filter(Boolean) : [];
+                        return [...new Set([...s1, ...s2])].join(", ");
+                    };
+
+                    existing["ON STAGE EVENTS"] = mergeEvents(existing["ON STAGE EVENTS"], item["ON STAGE EVENTS"]);
+                    existing["OFF STAGE EVENTS"] = mergeEvents(existing["OFF STAGE EVENTS"], item["OFF STAGE EVENTS"]);
+                    existing["GENERAL EVENTS"] = mergeEvents(existing["GENERAL EVENTS"], item["GENERAL EVENTS"]);
+
+                    if (item._source === "firestore") existing._source = "firestore";
+                    if (existing._source === "csv" && item._source === "firestore") existing._source = "APP+CSV";
+
+                } else {
+                    mergedMap.set(chestNo, item);
+                }
+            });
+
             // Merge Firestore first (live data) then CSV
-            setMasterParticipants([...firestoreData, ...csvData]);
+            setMasterParticipants(Array.from(mergedMap.values()));
 
         } catch (err) {
             console.error("Error fetching participants:", err);
@@ -139,19 +214,28 @@ export default function ManageResults() {
 
 
 
+    // Helper for fuzzy matching (removes spaces, special chars)
+    const toComparable = (str) => {
+        return str ? str.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
+    };
+
     const handleEventChange = (e) => {
         const eventId = e.target.value;
         const ev = events.find(event => event.id === eventId);
         const eventName = ev?.name || "";
 
         setFormData({ ...formData, eventId, eventName, name: "", team: "", chestNo: "" });
+        setSelectedStudentId("");
 
         if (eventName) {
             const registered = masterParticipants.filter(p => {
                 const onStage = p["ON STAGE ITEMS"] || p["ON STAGE EVENTS"] || "";
                 const offStage = p["OFF STAGE ITEMES"] || p["OFF STAGE ITEMS"] || p["OFF STAGE EVENTS"] || "";
-                const allEvents = (onStage + "," + offStage).toLowerCase();
-                return allEvents.includes(eventName.toLowerCase());
+                const general = p["GENERAL EVENTS"] || p["OFF STAGE - GENERAL"] || p["ON STAGE - GENERAL"] || "";
+
+                const allEvents = (onStage + "," + offStage + "," + general);
+                // Try fuzzy match
+                return toComparable(allEvents).includes(toComparable(eventName));
             });
             setFilteredParticipants(registered);
         } else {
@@ -160,27 +244,63 @@ export default function ManageResults() {
     };
 
     const handleStudentChange = (e) => {
-        const studentName = e.target.value;
-        const student = filteredParticipants.find(p => (p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"]) === studentName);
+        const val = e.target.value;
+        setSelectedStudentId(val);
+
+        if (val === "Manual Entry") {
+            setFormData({ ...formData, name: "", team: "", chestNo: "" });
+            return;
+        }
+
+        const student = filteredParticipants.find(p => p._id === val);
 
         if (student) {
             setFormData({
                 ...formData,
-                name: studentName,
+                name: student["CANDIDATE NAME"] || student["CANDIDATE  FULL NAME"],
                 team: student["TEAM"] || student["TEAM NAME"] || "",
                 chestNo: student["CHEST NUMBER"] || student["CHEST NO"] || ""
             });
-        } else {
-            setFormData({ ...formData, name: studentName });
         }
     };
 
-    const checkRegistration = (studentName, eventName) => {
+    const checkRegistration = (studentName, eventName, chestNo = null, studentId = null) => {
         if (masterParticipants.length === 0) return { status: 'loading', msg: '' };
 
-        const student = masterParticipants.find(p =>
-            (p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"])?.trim().toLowerCase() === studentName.trim().toLowerCase()
-        );
+        let student;
+
+        // 0. Try finding by ID (most precise, used in Submit)
+        if (studentId && studentId !== "Manual Entry") {
+            student = masterParticipants.find(p => p._id === studentId);
+        }
+
+        // 1. Try finding by Chest Number (if provided) - precise match
+        if (!student && chestNo) {
+            student = masterParticipants.find(p =>
+                String(p["CHEST NUMBER"] || p["CHEST NO"] || "").trim() === String(chestNo).trim()
+            );
+        }
+
+        // 2. Fallback to Name (Smart Lookup: Prioritize valid registration)
+        if (!student) {
+            const candidates = masterParticipants.filter(p =>
+                (p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"])?.trim().toLowerCase() === studentName.trim().toLowerCase()
+            );
+
+            if (candidates.length > 0) {
+                // Try to find one that has the event
+                student = candidates.find(p => {
+                    const onStage = p["ON STAGE ITEMS"] || p["ON STAGE EVENTS"] || "";
+                    const offStage = p["OFF STAGE ITEMES"] || p["OFF STAGE ITEMS"] || p["OFF STAGE EVENTS"] || "";
+                    const general = p["GENERAL EVENTS"] || p["OFF STAGE - GENERAL"] || p["ON STAGE - GENERAL"] || "";
+                    const allEvents = (onStage + "," + offStage + "," + general);
+                    return toComparable(allEvents).includes(toComparable(eventName));
+                });
+
+                // If none registered, just take the first candidate
+                if (!student) student = candidates[0];
+            }
+        }
 
         if (!student) {
             return { status: 'error', msg: `Student "${studentName}" not found in master list!` };
@@ -189,9 +309,14 @@ export default function ManageResults() {
         // Check if event name exists in On Stage or Off Stage columns
         const onStage = student["ON STAGE ITEMS"] || student["ON STAGE EVENTS"] || "";
         const offStage = student["OFF STAGE ITEMES"] || student["OFF STAGE ITEMS"] || student["OFF STAGE EVENTS"] || "";
-        const allEvents = (onStage + "," + offStage).toLowerCase();
+        const general = student["GENERAL EVENTS"] || student["OFF STAGE - GENERAL"] || student["ON STAGE - GENERAL"] || "";
 
-        if (!allEvents.includes(eventName.toLowerCase())) {
+        const allEvents = (onStage + "," + offStage + "," + general);
+
+        // Fuzzy Check
+        if (!toComparable(allEvents).includes(toComparable(eventName))) {
+            // If name matched but event didn't, and we didn't use chest number, maybe there's ANOTHER student with same name?
+            // This is a "weak match" scenario. But for now, we assume name collision needs unique ID or ChestNo.
             return { status: 'warning', msg: `Student is found, but NOT registered for "${eventName}".` };
         }
 
@@ -207,7 +332,7 @@ export default function ManageResults() {
 
         // Registration Validation
         const eventObj = events.find(e => e.id === formData.eventId);
-        const regCheck = checkRegistration(formData.name, eventObj?.name || "");
+        const regCheck = checkRegistration(formData.name, eventObj?.name || "", formData.chestNo, selectedStudentId);
 
         if (regCheck.status === 'error') {
             if (!await confirm(`${regCheck.msg}\n\nDo you want to proceed anyway?`)) return;
@@ -225,16 +350,50 @@ export default function ManageResults() {
         }
 
         try {
-            // Find event name from ID
+            // Find event details
             const ev = events.find(e => e.id === formData.eventId);
-            const payload = { ...formData, eventName: ev?.name || "Unknown" };
+            const category = ev?.category || "A"; // Default to A if missing
+            const place = formData.place;
+            const grade = formData.grade;
+
+            // 1. Calculate Category Points
+            let categoryPoints = 0;
+            if (category === "A") {
+                if (place === "First") categoryPoints = 12;
+                else if (place === "Second") categoryPoints = 8;
+                else if (place === "Third") categoryPoints = 4;
+            } else if (category === "B") {
+                if (place === "First") categoryPoints = 10;
+                else if (place === "Second") categoryPoints = 6;
+                else if (place === "Third") categoryPoints = 3;
+            } else if (category === "C") {
+                if (place === "First") categoryPoints = 25;
+                else if (place === "Second") categoryPoints = 15;
+                else if (place === "Third") categoryPoints = 10;
+            }
+
+            // 2. Calculate Grade Points
+            let gradePoints = 0;
+            if (grade === "A+") gradePoints = 7;
+            else if (grade === "A") gradePoints = 5;
+            else if (grade === "B") gradePoints = 3;
+            else if (grade === "C") gradePoints = 1;
+
+            const totalPoints = categoryPoints + gradePoints;
+
+            const payload = {
+                ...formData,
+                eventName: ev?.name || "Unknown",
+                category: category,
+                points: totalPoints
+            };
 
             if (editId) {
                 await updateDoc(doc(db, "results", editId), payload);
-                showToast("Result updated!", "success");
+                showToast(`Result updated! Points: ${totalPoints}`, "success");
             } else {
                 await addDoc(collection(db, "results"), payload);
-                showToast("Result published!", "success");
+                showToast(`Result published! Points: ${totalPoints}`, "success");
             }
             setFormData({ ...formData, name: "", team: "", grade: "", chestNo: "" });
             setEditId(null);
@@ -254,10 +413,23 @@ export default function ManageResults() {
             const registered = masterParticipants.filter(p => {
                 const onStage = p["ON STAGE EVENTS"] || "";
                 const offStage = p["OFF STAGE EVENTS"] || "";
-                const allEvents = (onStage + "," + offStage).toLowerCase();
-                return allEvents.includes(eventName.toLowerCase());
+                const general = p["GENERAL EVENTS"] || p["OFF STAGE - GENERAL"] || p["ON STAGE - GENERAL"] || "";
+                const allEvents = (onStage + "," + offStage + "," + general);
+                return toComparable(allEvents).includes(toComparable(eventName));
             });
             setFilteredParticipants(registered);
+
+            // Try to find the exact student by Name + ChestNo
+            const match = registered.find(p =>
+                (p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"]) === result.name &&
+                (!result.chestNo || (p["CHEST NUMBER"] || p["CHEST NO"]) == result.chestNo)
+            );
+
+            if (match) {
+                setSelectedStudentId(match._id);
+            } else {
+                setSelectedStudentId("Manual Entry");
+            }
         }
 
         setFormData({
@@ -283,6 +455,7 @@ export default function ManageResults() {
             grade: "",
             chestNo: ""
         });
+        setSelectedStudentId("");
         setEditId(null);
     };
 
@@ -329,7 +502,7 @@ export default function ManageResults() {
                     if (matchedEvent) {
                         try {
                             // Validation within bulk upload
-                            const regCheck = checkRegistration(studentName, matchedEvent.name);
+                            const regCheck = checkRegistration(studentName, matchedEvent.name, chestNo);
                             if (regCheck.status !== 'success') {
                                 console.warn(`Bulk warning for ${studentName}: ${regCheck.msg}`);
                             }
@@ -395,6 +568,52 @@ export default function ManageResults() {
         fetchResults();
     }
 
+    const handleRecalculatePoints = async () => {
+        if (!await confirm("This will recalculate points for ALL results based on the new rules (Category + Grade). Continue?")) return;
+        let updated = 0;
+
+        for (const r of results) {
+            const ev = events.find(e => e.id === r.eventId);
+            if (!ev) continue;
+
+            const category = ev.category || "A";
+            const place = r.place;
+            const grade = r.grade;
+
+            // 1. Calculate Category Points
+            let categoryPoints = 0;
+            if (category === "A") {
+                if (place === "First") categoryPoints = 12;
+                else if (place === "Second") categoryPoints = 8;
+                else if (place === "Third") categoryPoints = 4;
+            } else if (category === "B") {
+                if (place === "First") categoryPoints = 10;
+                else if (place === "Second") categoryPoints = 6;
+                else if (place === "Third") categoryPoints = 3;
+            } else if (category === "C") {
+                if (place === "First") categoryPoints = 25;
+                else if (place === "Second") categoryPoints = 15;
+                else if (place === "Third") categoryPoints = 10;
+            }
+
+            // 2. Calculate Grade Points
+            let gradePoints = 0;
+            if (grade === "A+") gradePoints = 7;
+            else if (grade === "A") gradePoints = 5;
+            else if (grade === "B") gradePoints = 3;
+            else if (grade === "C") gradePoints = 1;
+
+            const totalPoints = categoryPoints + gradePoints;
+
+            if (r.points !== totalPoints) {
+                await updateDoc(doc(db, "results", r.id), { points: totalPoints, category: category });
+                updated++;
+            }
+        }
+        showToast(`Recalculation Complete! Updated ${updated} results.`, "success");
+        fetchResults();
+    };
+
     return (
         <div className="manage-results">
             {toast && <Toast message={toast.message} type={toast.type} onClose={handleToastClose} />}
@@ -425,23 +644,24 @@ export default function ManageResults() {
 
                     <select
                         className="admin-select full-width"
-                        value={formData.name}
+                        value={selectedStudentId}
                         onChange={handleStudentChange}
-                        required
+                        required={selectedStudentId !== "Manual Entry"}
                         disabled={!formData.eventId}
                     >
                         <option value="">-- Select Registered Student --</option>
-                        {filteredParticipants.map((p, idx) => (
-                            <option key={idx} value={p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"]}>
+                        {filteredParticipants.map((p) => (
+                            <option key={p._id} value={p._id}>
                                 {(p["CHEST NUMBER"] || p["CHEST NO"]) ? `[${p["CHEST NUMBER"] || p["CHEST NO"]}] ` : ""}{p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"]}
                             </option>
                         ))}
                         <option value="Manual Entry">Enter Manually...</option>
                     </select>
 
-                    {formData.name === "Manual Entry" && (
+                    {selectedStudentId === "Manual Entry" && (
                         <input
                             className="admin-input full-width"
+                            value={formData.name}
                             placeholder="Manually Enter Name"
                             onChange={e => setFormData({ ...formData, name: e.target.value })}
                             required
@@ -449,7 +669,18 @@ export default function ManageResults() {
                     )}
 
                     <input className="admin-input" placeholder="Team" value={formData.team} onChange={e => setFormData({ ...formData, team: e.target.value })} required />
-                    <input className="admin-input" placeholder="Grade (e.g. A, B)" value={formData.grade} onChange={e => setFormData({ ...formData, grade: e.target.value })} />
+                    <select
+                        className="admin-select"
+                        value={formData.grade}
+                        onChange={e => setFormData({ ...formData, grade: e.target.value })}
+                        style={{ border: '1px solid #333' }}
+                    >
+                        <option value="">-- Select Grade --</option>
+                        <option value="A+">A+</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                    </select>
                     <input className="admin-input" placeholder="Chest No" value={formData.chestNo} onChange={e => setFormData({ ...formData, chestNo: e.target.value })} />
                 </div>
                 <div className="admin-form-actions" style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
@@ -498,11 +729,17 @@ export default function ManageResults() {
                         {showResultsPoints ? "🏆 Result Points: VISIBLE" : "🏆 Result Points: HIDDEN"}
                     </button>
                     <button
-                        onClick={downloadResultsCSV}
                         className="submit-btn"
                         style={{ padding: '8px 15px', fontSize: '0.85rem', background: '#222' }}
                     >
                         📊 Export Results (CSV)
+                    </button>
+                    <button
+                        onClick={handleRecalculatePoints}
+                        className="submit-btn"
+                        style={{ padding: '8px 15px', fontSize: '0.85rem', background: '#ff9800' }}
+                    >
+                        🔄 Recalculate Points
                     </button>
                 </div>
             </div>
@@ -530,7 +767,7 @@ export default function ManageResults() {
                                 <td>{r.chestNo}</td>
                                 <td>
                                     {(() => {
-                                        const check = checkRegistration(r.name, r.eventName);
+                                        const check = checkRegistration(r.name, r.eventName, r.chestNo);
                                         return (
                                             <span style={{
                                                 fontSize: '0.65rem',

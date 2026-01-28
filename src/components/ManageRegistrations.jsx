@@ -1,17 +1,195 @@
-import { useState, useEffect } from "react";
-import { collection, deleteDoc, doc, query, orderBy, onSnapshot } from "firebase/firestore";
+import { useState, useEffect, useCallback } from "react";
+import { collection, getDocs, query, orderBy, deleteDoc, doc } from "firebase/firestore";
 import { db } from "../firebase";
 import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
+import Papa from "papaparse";
 
 export default function ManageRegistrations() {
     const [registrations, setRegistrations] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState("");
     const [toast, setToast] = useState(null);
     const { confirm, confirmState } = useConfirm();
-    const [sortConfig, setSortConfig] = useState({ key: 'chestNumber', direction: 'ascending' });
+    const [searchTerm, setSearchTerm] = useState("");
+    const [sortConfig, setSortConfig] = useState({ key: 'CHEST NUMBER', direction: 'asc' });
+
+    // URL for master participants CSV
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7akmZPo8vINBoUN2hF6GdJ3ob-SqZFV2oDNSej9QvfY4z8H7Q9UbRIVmyu31pgiecp2h_2uiunBDJ/pub?gid=885092322&single=true&output=csv";
+
+    // Sorting Logic
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortedRegistrations = () => {
+        let data = [...registrations];
+
+        // Search Filter
+        if (searchTerm) {
+            const lowerTerm = searchTerm.toLowerCase();
+            data = data.filter(reg =>
+                (reg["CANDIDATE NAME"] || reg["CANDIDATE  FULL NAME"] || "").toLowerCase().includes(lowerTerm) ||
+                (reg["CHEST NUMBER"] || reg["CHEST NO"] || "").toString().includes(lowerTerm) ||
+                (reg["CIC NUMBER"] || reg["CIC NO"] || "").toString().includes(lowerTerm)
+            );
+        }
+
+        // Sort
+        if (sortConfig.key) {
+            data.sort((a, b) => {
+                let aVal = a[sortConfig.key] || "";
+                let bVal = b[sortConfig.key] || "";
+
+                // Normalizing keys
+                if (sortConfig.key === 'NAME') {
+                    aVal = a["CANDIDATE NAME"] || a["CANDIDATE  FULL NAME"] || "";
+                    bVal = b["CANDIDATE NAME"] || b["CANDIDATE  FULL NAME"] || "";
+                }
+                if (sortConfig.key === 'CHEST NUMBER') {
+                    aVal = a["CHEST NUMBER"] || a["CHEST NO"] || 999999;
+                    bVal = b["CHEST NUMBER"] || b["CHEST NO"] || 999999;
+                    return sortConfig.direction === 'asc' ? Number(aVal) - Number(bVal) : Number(bVal) - Number(aVal);
+                }
+
+                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return data;
+    };
+
+    // Fetch Registrations (Merged)
+    const fetchRegistrations = useCallback(async () => {
+        setLoading(true);
+
+        // Helper to fix CSV typos
+        const normalizeEventString = (str) => {
+            if (!str) return "";
+            let s = str.toUpperCase();
+            s = s.replace(/SHORT VLOGING/g, "SHORT VLOGGING");
+            s = s.replace(/SAMMARIZATION/g, "SUMMARIZATION");
+            s = s.replace(/MINISTORY/g, "MINI STORY");
+            s = s.replace(/PHOTOFEACHURE/g, "PHOTO FEATURE");
+            s = s.replace(/Q&H/g, "Q AND H");
+            s = s.replace(/SONG WRITER/g, "SONG WRITING");
+            return s;
+        };
+
+        try {
+            // 1. Fetch CSV
+            const csvPromise = fetch(csvUrl + "&t=" + Date.now())
+                .then(res => res.text())
+                .then(csv => {
+                    return new Promise((resolve) => {
+                        Papa.parse(csv, {
+                            header: true,
+                            skipEmptyLines: true,
+                            complete: (results) => resolve(results.data)
+                        });
+                    });
+                });
+
+            // 2. Fetch Firestore
+            const firestorePromise = getDocs(query(collection(db, "registrations"), orderBy("submittedAt", "desc")))
+                .then((snapshot) => {
+                    return snapshot.docs.map(doc => {
+                        const data = doc.data();
+                        return {
+                            _id: doc.id,
+                            "CANDIDATE NAME": data.fullName,
+                            "CIC NO": data.cicNumber,
+                            "CHEST NUMBER": data.chestNumber,
+                            "TEAM": data.team,
+                            "ON STAGE EVENTS": data.onStageEvents?.join(", ") || "",
+                            "OFF STAGE EVENTS": data.offStageEvents?.join(", ") || "",
+                            "GENERAL EVENTS": data.generalEvents?.join(", ") || "",
+                            _submittedAt: data.submittedAt, // Keep for sorting if needed
+                            _source: "firestore"
+                        };
+                    });
+                });
+
+            const [csvData, firestoreData] = await Promise.all([csvPromise, firestorePromise]);
+
+            // Add IDs and normalize CSV data
+            const normalizedCsv = csvData.map((row, idx) => {
+                const onStage = normalizeEventString(row["ON STAGE EVENTS"] || row["ON STAGE ITEMS"]);
+                const offStage = normalizeEventString(row["OFF STAGE EVENTS"] || row["OFF STAGE ITEMS"] || row["OFF STAGE ITEMES"]);
+                const generalRaw = row["GENERAL EVENTS"] || row["GENERAL ITEMS"] || row["OFF STAGE - GENERAL"] || row["ON STAGE - GENERAL"];
+                const general = normalizeEventString(generalRaw);
+
+                return {
+                    ...row,
+                    _id: `csv_${idx}`,
+                    id: `csv_${idx}`,
+                    "CANDIDATE NAME": row["CANDIDATE NAME"] || row["CANDIDATE  FULL NAME"],
+                    "CIC NO": row["CIC NO"] || row["CIC NUMBER"],
+                    "TEAM": row["TEAM"] || row["TEAM NAME"],
+                    "CHEST NUMBER": row["CHEST NUMBER"] || row["CHEST NO"],
+                    "ON STAGE EVENTS": onStage,
+                    "OFF STAGE EVENTS": offStage,
+                    "GENERAL EVENTS": general,
+                    _source: "csv"
+                };
+            });
+
+            // MERGE LOGIC
+            const mergedMap = new Map();
+            const rawList = [...firestoreData, ...normalizedCsv];
+
+            rawList.forEach(item => {
+                const chestNo = (item["CHEST NUMBER"] || item["CHEST NO"] || "").toString().trim();
+
+                // If no chest no, just add as unique item
+                if (!chestNo) {
+                    mergedMap.set(item._id, item);
+                    return;
+                }
+
+                if (mergedMap.has(chestNo)) {
+                    // Merge with existing
+                    const existing = mergedMap.get(chestNo);
+
+                    // Combine events (deduplicate)
+                    const mergeEvents = (str1, str2) => {
+                        const s1 = str1 ? str1.split(",").map(s => s.trim()).filter(Boolean) : [];
+                        const s2 = str2 ? str2.split(",").map(s => s.trim()).filter(Boolean) : [];
+                        return [...new Set([...s1, ...s2])].join(", ");
+                    };
+
+                    existing["ON STAGE EVENTS"] = mergeEvents(existing["ON STAGE EVENTS"], item["ON STAGE EVENTS"]);
+                    existing["OFF STAGE EVENTS"] = mergeEvents(existing["OFF STAGE EVENTS"], item["OFF STAGE EVENTS"]);
+                    existing["GENERAL EVENTS"] = mergeEvents(existing["GENERAL EVENTS"], item["GENERAL EVENTS"]);
+
+                    // If one source is firestore, mark as linked/merged (or keep firestore as primary for actions)
+                    if (item._source === "firestore") existing._source = "firestore"; // prioritize app for delete ability
+                    if (existing._source === "csv" && item._source === "firestore") existing._source = "APP+CSV";
+
+                } else {
+                    // New entry keyed by Chest No
+                    mergedMap.set(chestNo, item);
+                }
+            });
+
+            setRegistrations(Array.from(mergedMap.values()));
+
+        } catch (error) {
+            console.error("Error fetching registrations:", error);
+            showToast("Failed to load registrations.", "error");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchRegistrations();
+    }, [fetchRegistrations]);
 
     const showToast = (message, type = 'info') => {
         setToast({ message, type });
@@ -21,152 +199,110 @@ export default function ManageRegistrations() {
         setToast(null);
     };
 
-    useEffect(() => {
-        // Real-time listener
-        const q = query(collection(db, "registrations"), orderBy("submittedAt", "desc"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            setRegistrations(list);
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching registrations:", error);
-            setLoading(false);
-        });
+    const handleDelete = async (item) => {
+        if (item._source !== "firestore") {
+            showToast("Cannot delete CSV records. Please update the Google Sheet directly.", "warning");
+            return;
+        }
 
-        return () => unsubscribe();
-    }, []);
+        if (!await confirm("Are you sure you want to delete this registration?")) return;
 
-    const handleDelete = async (id) => {
-        if (!await confirm("Are you sure you want to delete this registration? This cannot be undone.")) return;
         try {
-            await deleteDoc(doc(db, "registrations", id));
-            showToast("Registration deleted successfully", "success");
+            await deleteDoc(doc(db, "registrations", item._id));
+            showToast("Registration deleted.", "success");
+            fetchRegistrations(); // Reload
         } catch (err) {
-            console.error("Delete failed:", err);
-            showToast("Failed to delete registration", "error");
+            console.error(err);
+            showToast("Error deleting registration", "error");
         }
     };
 
-    const filteredList = registrations.filter(reg => {
-        const q = searchQuery.toLowerCase();
-        return (
-            reg.fullName?.toLowerCase().includes(q) ||
-            reg.chestNumber?.toLowerCase().includes(q) ||
-            reg.team?.toLowerCase().includes(q) ||
-            reg.cicNumber?.toLowerCase().includes(q)
-        );
-    });
-
-    const sortedList = [...filteredList].sort((a, b) => {
-        let aValue = a[sortConfig.key] || "";
-        let bValue = b[sortConfig.key] || "";
-
-        if (['onStageEvents', 'offStageEvents', 'generalEvents'].includes(sortConfig.key)) {
-            aValue = a[sortConfig.key]?.length || 0;
-            bValue = b[sortConfig.key]?.length || 0;
-        }
-
-        const aNum = parseFloat(aValue);
-        const bNum = parseFloat(bValue);
-        if (!isNaN(aNum) && !isNaN(bNum)) {
-            aValue = aNum;
-            bValue = bNum;
-        }
-
-        if (aValue < bValue) {
-            return sortConfig.direction === 'ascending' ? -1 : 1;
-        }
-        if (aValue > bValue) {
-            return sortConfig.direction === 'ascending' ? 1 : -1;
-        }
-        return 0;
-    });
-
-    const requestSort = (key) => {
-        let direction = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
-        }
-        setSortConfig({ key, direction });
-    };
-
-    const getSortIndicator = (name) => {
-        if (sortConfig.key !== name) return null;
-        return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
-    };
+    const sortedRegistrations = getSortedRegistrations();
 
     return (
-        <div className="manage-registrations">
+        <div className="manage-results">
             {toast && <Toast message={toast.message} type={toast.type} onClose={handleToastClose} />}
             {confirmState && <ConfirmDialog {...confirmState} />}
 
-            <h3 className="section-title">Manage Registrations</h3>
-
-            <div className="table-controls" style={{ marginBottom: '20px' }}>
-                <input
-                    type="text"
-                    className="admin-input"
-                    placeholder="🔍 Search by Name, Chest No, or Team..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ maxWidth: '400px', width: '100%' }}
-                />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 className="section-title">Manage All Registrations</h3>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                        type="text"
+                        placeholder="Search Name, Chest No..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="admin-input"
+                        style={{ width: '250px', margin: 0 }}
+                    />
+                    <button onClick={fetchRegistrations} className="tab-btn" style={{ background: '#333' }}>Refresh</button>
+                </div>
             </div>
 
-            {loading ? <p>Loading registrations...</p> : (
-                <div className="admin-table-container">
+            {loading ? (
+                <div style={{ textAlign: 'center', padding: '20px', color: '#888' }}>Loading...</div>
+            ) : (
+                <div className="admin-table-container" style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
                     <table className="admin-table">
                         <thead>
                             <tr>
-                                <th onClick={() => requestSort('chestNumber')} style={{ cursor: 'pointer' }}>Chest No{getSortIndicator('chestNumber')}</th>
-                                <th onClick={() => requestSort('fullName')} style={{ cursor: 'pointer' }}>Name{getSortIndicator('fullName')}</th>
-                                <th onClick={() => requestSort('team')} style={{ cursor: 'pointer' }}>Team{getSortIndicator('team')}</th>
-                                <th onClick={() => requestSort('onStageEvents')} style={{ cursor: 'pointer' }}>On Stage{getSortIndicator('onStageEvents')}</th>
-                                <th onClick={() => requestSort('offStageEvents')} style={{ cursor: 'pointer' }}>Off Stage{getSortIndicator('offStageEvents')}</th>
-                                <th onClick={() => requestSort('generalEvents')} style={{ cursor: 'pointer' }}>General{getSortIndicator('generalEvents')}</th>
+                                <th onClick={() => handleSort('_source')} style={{ cursor: 'pointer' }}>Source ⬍</th>
+                                <th onClick={() => handleSort('NAME')} style={{ cursor: 'pointer' }}>Name ⬍</th>
+                                <th onClick={() => handleSort('CIC NUMBER')} style={{ cursor: 'pointer' }}>CIC No ⬍</th>
+                                <th onClick={() => handleSort('TEAM')} style={{ cursor: 'pointer' }}>Team ⬍</th>
+                                <th onClick={() => handleSort('CHEST NUMBER')} style={{ cursor: 'pointer' }}>Chest No ⬍</th>
+                                <th>On Stage</th>
+                                <th>Off Stage</th>
+                                <th>General</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {sortedList.length > 0 ? sortedList.map((reg) => (
-                                <tr key={reg.id}>
-                                    <td style={{ fontWeight: 'bold', color: 'var(--primary)' }}>{reg.chestNumber || "TBA"}</td>
-                                    <td style={{ fontWeight: '600' }}>
-                                        {reg.fullName}
-                                        <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: 'normal' }}>
-                                            CIC: {reg.cicNumber}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span className={`team-badge team-${reg.team?.toUpperCase()}`}>
-                                            {reg.team}
-                                        </span>
-                                    </td>
-                                    <td style={{ fontSize: '0.85rem' }}>
-                                        {reg.onStageEvents?.length > 0 ? reg.onStageEvents.join(", ") : <span style={{ color: '#555' }}>-</span>}
-                                    </td>
-                                    <td style={{ fontSize: '0.85rem' }}>
-                                        {reg.offStageEvents?.length > 0 ? reg.offStageEvents.join(", ") : <span style={{ color: '#555' }}>-</span>}
-                                    </td>
-                                    <td style={{ fontSize: '0.85rem' }}>
-                                        {reg.generalEvents?.length > 0 ? reg.generalEvents.join(", ") : <span style={{ color: '#555' }}>-</span>}
-                                    </td>
-                                    <td>
-                                        <button
-                                            onClick={() => handleDelete(reg.id)}
-                                            className="delete-btn"
-                                            title="Delete Registration"
-                                        >
-                                            Delete
-                                        </button>
-                                    </td>
-                                </tr>
-                            )) : (
+                            {sortedRegistrations.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" style={{ textAlign: 'center', padding: '30px' }}>
-                                        {searchQuery ? "No matching registrations found." : "No registrations found in database."}
-                                    </td>
+                                    <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>No registrations found.</td>
                                 </tr>
+                            ) : (
+                                sortedRegistrations.map(reg => (
+                                    <tr key={reg._id}>
+                                        <td>
+                                            <span style={{
+                                                fontSize: '0.75rem',
+                                                padding: '2px 6px',
+                                                borderRadius: '4px',
+                                                background: reg._source === 'firestore' ? '#22c55e' : '#3b82f6',
+                                                color: '#fff'
+                                            }}>
+                                                {reg._source === 'firestore' ? 'APP' : 'CSV'}
+                                                {reg._source === 'APP+CSV' && 'APP+CSV'}
+                                            </span>
+                                        </td>
+                                        <td>{reg["CANDIDATE NAME"] || reg["CANDIDATE  FULL NAME"]}</td>
+                                        <td>{reg["CIC NUMBER"] || reg["CIC NO"]}</td>
+                                        <td>{reg["TEAM"] || reg["TEAM NAME"]}</td>
+                                        <td>{reg["CHEST NUMBER"] || reg["CHEST NO"] || '-'}</td>
+                                        <td>
+                                            {reg["ON STAGE EVENTS"] ? (
+                                                <div style={{ color: '#4ade80', fontSize: '0.85rem' }}>{reg["ON STAGE EVENTS"]}</div>
+                                            ) : <span style={{ color: '#ccc' }}>-</span>}
+                                        </td>
+                                        <td>
+                                            {reg["OFF STAGE EVENTS"] ? (
+                                                <div style={{ color: '#60a5fa', fontSize: '0.85rem' }}>{reg["OFF STAGE EVENTS"]}</div>
+                                            ) : <span style={{ color: '#ccc' }}>-</span>}
+                                        </td>
+                                        <td>
+                                            {reg["GENERAL EVENTS"] ? (
+                                                <div style={{ color: '#facc15', fontSize: '0.85rem' }}>{reg["GENERAL EVENTS"]}</div>
+                                            ) : <span style={{ color: '#ccc' }}>-</span>}
+                                        </td>
+                                        <td>
+                                            {reg._source === 'firestore' ? (
+                                                <button onClick={() => handleDelete(reg)} className="delete-btn">Delete</button>
+                                            ) : <span style={{ color: '#666', fontSize: '0.8rem' }}>Read Only</span>}
+                                        </td>
+                                    </tr>
+                                ))
                             )}
                         </tbody>
                     </table>

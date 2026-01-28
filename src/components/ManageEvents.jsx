@@ -286,7 +286,12 @@ export default function ManageEvents() {
                 <h4>{editId ? "Edit Event" : "Add New Event"}</h4>
                 <div className="form-grid">
                     <input className="admin-input full-width" name="name" placeholder="Event Name" value={formData.name} onChange={handleChange} required />
-                    <input className="admin-input" name="category" placeholder="Category (e.g. Dance)" value={formData.category} onChange={handleChange} />
+                    <select className="admin-select" name="category" value={formData.category} onChange={handleChange}>
+                        <option value="">-- Category --</option>
+                        <option value="A">Category A</option>
+                        <option value="B">Category B</option>
+                        <option value="C">Category C</option>
+                    </select>
                     <input className="admin-input" name="date" placeholder="Date (e.g. Day 1)" value={formData.date} onChange={handleChange} />
                     <input className="admin-input" name="time" placeholder="Time (e.g. 10:00 AM)" value={formData.time} onChange={handleChange} />
                     <input className="admin-input" name="stage" placeholder="Stage" value={formData.stage} onChange={handleChange} />

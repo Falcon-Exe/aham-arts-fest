@@ -26,14 +26,14 @@ export default function ManageTeams() {
 
                 if (place === "First") {
                     scores[team].first += 1;
-                    scores[team].total += 5;
                 } else if (place === "Second") {
                     scores[team].second += 1;
-                    scores[team].total += 3;
                 } else if (place === "Third") {
                     scores[team].third += 1;
-                    scores[team].total += 1;
                 }
+
+                // Add calculated points (or 0 if missing)
+                scores[team].total += (Number(data.points) || 0);
             });
 
             // Convert to array and sort by total points

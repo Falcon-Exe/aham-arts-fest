@@ -102,6 +102,12 @@ function Dashboard() {
                     📅 Events
                 </button>
                 <button
+                    className={`tab-btn ${activeTab === "registrations" ? "active" : ""}`}
+                    onClick={() => setActiveTab("registrations")}
+                >
+                    📝 Registrations
+                </button>
+                <button
                     className={`tab-btn ${activeTab === "results" ? "active" : ""}`}
                     onClick={() => setActiveTab("results")}
                 >
@@ -136,6 +142,7 @@ function Dashboard() {
             {/* CONTENT */}
             <div className="dashboard-content">
                 {activeTab === "events" && <ManageEvents />}
+                {activeTab === "registrations" && <ManageRegistrations />}
                 {activeTab === "results" && <ManageResults />}
                 {activeTab === "registrations" && <ManageRegistrations />}
                 {activeTab === "teams" && <ManageTeams />}
