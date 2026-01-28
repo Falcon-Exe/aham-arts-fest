@@ -144,7 +144,6 @@ function Dashboard() {
                 {activeTab === "events" && <ManageEvents />}
                 {activeTab === "registrations" && <ManageRegistrations />}
                 {activeTab === "results" && <ManageResults />}
-                {activeTab === "registrations" && <ManageRegistrations />}
                 {activeTab === "teams" && <ManageTeams />}
                 {activeTab === "announcements" && <ManageAnnouncements />}
                 {activeTab === "gallery" && <ManageGallery />}
