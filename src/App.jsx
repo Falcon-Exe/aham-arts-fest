@@ -27,8 +27,8 @@ export default function App() {
   if (loading) {
     return (
       <div className="loader">
-        <img src="./pwa-192x192.png" alt="AHAM Logo" />
-        <p>Loading AHAM Arts Fest...</p>
+        <img src="/pwa-512x512.png" alt="AHAM Logo" />
+
       </div>
     );
   }
