@@ -1,4 +1,4 @@
-import { useState, memo, useEffect } from "react";
+import { useState, memo, useEffect, useRef } from "react";
 import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
 import "./Gallery.css";
@@ -16,8 +16,9 @@ const defaultItems = [
 ];
 
 function Gallery() {
-  const [paused, setPaused] = useState(false);
   const [items, setItems] = useState([]);
+  const scrollerRef = useRef(null);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, "gallery"), orderBy("title"));
@@ -28,16 +29,40 @@ function Gallery() {
     return () => unsubscribe();
   }, []);
 
-  // For seamless scroll, we double the items
-  const displayItems = [...items, ...items];
+  // Duplicate items for seamless loop
+  const displayItems = [...items, ...items, ...items]; // Triple for smoother safety buffer
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    let animationId;
+
+    const scrollStep = () => {
+      if (!scroller) return;
+      if (!isHovered) {
+        scroller.scrollLeft += 1; // Speed of scroll
+
+        // Reset if reached halfway (infinite loop logic)
+        // We use scrollWidth / 3 because we tripled the items
+        if (scroller.scrollLeft >= scroller.scrollWidth / 3) {
+          scroller.scrollLeft = 0; // Reset to start instantly without visual jump
+        }
+      }
+      animationId = requestAnimationFrame(scrollStep);
+    };
+
+    animationId = requestAnimationFrame(scrollStep);
+    return () => cancelAnimationFrame(animationId);
+  }, [isHovered, items]); // Re-run if paused state changes or items load
 
   return (
     <div
       className="featured-gallery-container"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onTouchStart={() => setIsHovered(true)}
+      onTouchEnd={() => setTimeout(() => setIsHovered(false), 2000)} // Resume after 2s on mobile
     >
-      <div className={`featured-track ${paused ? "paused" : ""}`}>
+      <div className="featured-track" ref={scrollerRef}>
         {displayItems.map((item, i) => (
           <div className="featured-frame" key={i}>
             <div className="image-wrapper">

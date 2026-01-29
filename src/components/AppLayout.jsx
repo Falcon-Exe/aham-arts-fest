@@ -11,6 +11,7 @@ export default function AppLayout() {
   const NAV_ITEMS = [
     { label: "Home", path: "/" },
     { label: "Events", path: "/events" },
+    { label: "Gallery", path: "/gallery" },
     { label: "Results", path: "/results" },
     { label: "Participants", path: "/participants" },
     { label: "Register", path: "/register" },

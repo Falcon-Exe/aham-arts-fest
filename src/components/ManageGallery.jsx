@@ -8,6 +8,7 @@ import { useConfirm } from "../hooks/useConfirm";
 export default function ManageGallery() {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [uploading, setUploading] = useState(false);
     const [formData, setFormData] = useState({
         src: "",
         title: "",
@@ -15,6 +16,10 @@ export default function ManageGallery() {
     });
     const [toast, setToast] = useState(null);
     const { confirm, confirmState } = useConfirm();
+
+    // Cloudinary Config
+    const CLOUD_NAME = "dncz0c7vu";
+    const UPLOAD_PRESET = "aham-arts-fest";
 
     const showToast = (message, type = 'info') => {
         setToast({ message, type });
@@ -33,6 +38,35 @@ export default function ManageGallery() {
         });
         return () => unsubscribe();
     }, []);
+
+    const handleFileUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setUploading(true);
+        const data = new FormData();
+        data.append("file", file);
+        data.append("upload_preset", UPLOAD_PRESET);
+
+        try {
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+                method: "POST",
+                body: data
+            });
+
+            const fileData = await res.json();
+            if (fileData.secure_url) {
+                setFormData(prev => ({ ...prev, src: fileData.secure_url }));
+                showToast("Image uploaded successfully!", "success");
+            } else {
+                throw new Error("Upload failed");
+            }
+        } catch (err) {
+            console.error("Upload Error:", err);
+            showToast("Failed to upload image. Please try again.", "error");
+        }
+        setUploading(false);
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -68,11 +102,26 @@ export default function ManageGallery() {
 
             <form onSubmit={handleSubmit} className="admin-form">
                 <div className="form-grid">
-                    <input className="admin-input full-width" placeholder="Image URL (Direct Link)" value={formData.src} onChange={e => setFormData({ ...formData, src: e.target.value })} required />
+                    <div style={{ gridColumn: '1 / -1' }}>
+                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#888' }}>Upload Image (Cloudinary)</label>
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileUpload}
+                            disabled={uploading}
+                            className="admin-input full-width"
+                            style={{ padding: '10px' }}
+                        />
+                        {uploading && <p style={{ color: '#aaa', fontSize: '0.8rem', marginTop: '4px' }}>Uploading to cloud... ☁️</p>}
+                    </div>
+
+                    <input className="admin-input full-width" placeholder="Image URL (Auto-fills after upload)" value={formData.src} onChange={e => setFormData({ ...formData, src: e.target.value })} required />
                     <input className="admin-input" placeholder="Title (e.g. PYRA '26)" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
                     <input className="admin-input" placeholder="Category (e.g. GRAND INAUGURAL)" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} />
                 </div>
-                <button type="submit" className="submit-btn" style={{ marginTop: '20px' }}>Add to Spotlight +</button>
+                <button type="submit" className="submit-btn" style={{ marginTop: '20px' }} disabled={uploading}>
+                    {uploading ? "Waiting for Upload..." : "Add to Spotlight +"}
+                </button>
             </form>
 
             <h4 style={{ marginTop: '30px', marginBottom: '16px', color: 'var(--primary)' }}>Current Spotlight Items</h4>

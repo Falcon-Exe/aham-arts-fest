@@ -1,0 +1,20 @@
+﻿
+> aham-arts-fest@0.0.0 lint
+> eslint .
+
+
+D:\aham app\app\aham-arts-fest\src\components\ManageEvents.jsx
+  2:73  error  'setDoc' is defined but never used. Allowed unused vars must match /^[A-Z_]/u      no-unused-vars
+  2:81  error  'onSnapshot' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\aham app\app\aham-arts-fest\src\components\ManageResults.jsx
+  538:11  error  'downloadResultsCSV' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\aham app\app\aham-arts-fest\src\pages\Register.jsx
+  129:11  error  'offStageList' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+D:\aham app\app\aham-arts-fest\src\pages\Results.jsx
+  16:10  error  'getEventType' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+Γ£û 5 problems (5 errors, 0 warnings)
+

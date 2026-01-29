@@ -8,7 +8,6 @@
   position: relative;
   padding: 60px 0;
   background: #0f0f0f;
-  /* Deep Matte Black */
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -16,13 +15,22 @@
 .featured-track {
   display: flex;
   gap: 30px;
-  width: max-content;
-  animation: scrollFeatured 45s linear infinite;
+  width: 100%;
+  overflow-x: auto;
+  /* Enable Manual Scroll */
   padding-left: 50px;
+  padding-right: 50px;
+  scrollbar-width: none;
+  /* Hide scrollbar Firefox */
+  -ms-overflow-style: none;
+  /* Hide scrollbar IE */
+  scroll-behavior: auto;
+  /* Instant jumps for loop reset */
 }
 
-.featured-track.paused {
-  animation-play-state: paused;
+.featured-track::-webkit-scrollbar {
+  display: none;
+  /* Hide scrollbar Chrome/Safari */
 }
 
 /* FEATURED FRAME */

@@ -30,11 +30,7 @@ export function useTeamScores() {
                     };
                 }
 
-                let pts = 0;
-                if (r.place === "First") pts = 5;
-                else if (r.place === "Second") pts = 3;
-                else if (r.place === "Third") pts = 1;
-
+                const pts = Number(r.points) || 0;
                 teamMap[team].total += pts;
 
                 const type = getEventType(r.eventName);

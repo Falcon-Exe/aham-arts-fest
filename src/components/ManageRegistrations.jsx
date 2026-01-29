@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { collection, getDocs, query, orderBy, deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, deleteDoc, doc, addDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
@@ -15,7 +15,7 @@ export default function ManageRegistrations() {
     const [sortConfig, setSortConfig] = useState({ key: 'CHEST NUMBER', direction: 'asc' });
 
     // URL for master participants CSV
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7akmZPo8vINBoUN2hF6GdJ3ob-SqZFV2oDNSej9QvfY4z8H7Q9UbRIVmyu31pgiecp2h_2uiunBDJ/pub?gid=885092322&single=true&output=csv";
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTNwUkvOoE89ZnlosZeUpa3eL1kFMbx4br-GCy37szYlFSLeWudWtujYsAEyZWd0Ukr4LaErUPppnTl/pub?gid=885092322&single=true&output=csv";
 
     // Sorting Logic
     const handleSort = (key) => {
@@ -68,10 +68,13 @@ export default function ManageRegistrations() {
     const fetchRegistrations = useCallback(async () => {
         setLoading(true);
 
-        // Helper to fix CSV typos
+        // Helper to fix CSV typos and format
         const normalizeEventString = (str) => {
             if (!str) return "";
             let s = str.toUpperCase();
+            // Standardize separator
+            s = s.split(',').map(item => item.trim()).filter(Boolean).join(', ');
+
             s = s.replace(/SHORT VLOGING/g, "SHORT VLOGGING");
             s = s.replace(/SAMMARIZATION/g, "SUMMARIZATION");
             s = s.replace(/MINISTORY/g, "MINI STORY");
@@ -117,21 +120,44 @@ export default function ManageRegistrations() {
 
             const [csvData, firestoreData] = await Promise.all([csvPromise, firestorePromise]);
 
+            // Helper to get value loosely
+            const getValue = (row, ...keys) => {
+                const rowKeys = Object.keys(row);
+                for (const k of keys) {
+                    // 1. Exact match
+                    if (row[k]) return row[k];
+
+                    // 2. Case-insensitive exact match
+                    const lowerK = k.toLowerCase();
+                    const match = rowKeys.find(rk => rk.toLowerCase() === lowerK);
+                    if (match && row[match]) return row[match];
+
+                    // 3. Normalized match (ignore extra spaces)
+                    const normK = lowerK.replace(/\s+/g, '');
+                    const normMatch = rowKeys.find(rk => rk.toLowerCase().replace(/\s+/g, '') === normK);
+                    if (normMatch && row[normMatch]) return row[normMatch];
+                }
+                return "";
+            };
+
             // Add IDs and normalize CSV data
             const normalizedCsv = csvData.map((row, idx) => {
-                const onStage = normalizeEventString(row["ON STAGE EVENTS"] || row["ON STAGE ITEMS"]);
-                const offStage = normalizeEventString(row["OFF STAGE EVENTS"] || row["OFF STAGE ITEMS"] || row["OFF STAGE ITEMES"]);
-                const generalRaw = row["GENERAL EVENTS"] || row["GENERAL ITEMS"] || row["OFF STAGE - GENERAL"] || row["ON STAGE - GENERAL"];
+                // Debug first row
+                if (idx === 0) console.log("Detected CSV Headers:", Object.keys(row));
+
+                const onStage = normalizeEventString(getValue(row, "ON STAGE EVENTS", "ON STAGE ITEMS", "ON STAGE"));
+                const offStage = normalizeEventString(getValue(row, "OFF STAGE EVENTS", "OFF STAGE ITEMS", "OFF STAGE ITEMES", "OFF STAGE"));
+                const generalRaw = getValue(row, "GENERAL EVENTS", "GENERAL ITEMS", "OFF STAGE - GENERAL", "ON STAGE - GENERAL");
                 const general = normalizeEventString(generalRaw);
 
                 return {
                     ...row,
                     _id: `csv_${idx}`,
                     id: `csv_${idx}`,
-                    "CANDIDATE NAME": row["CANDIDATE NAME"] || row["CANDIDATE  FULL NAME"],
-                    "CIC NO": row["CIC NO"] || row["CIC NUMBER"],
-                    "TEAM": row["TEAM"] || row["TEAM NAME"],
-                    "CHEST NUMBER": row["CHEST NUMBER"] || row["CHEST NO"],
+                    "CANDIDATE NAME": getValue(row, "CANDIDATE NAME", "CANDIDATE  FULL NAME"),
+                    "CIC NO": getValue(row, "CIC NO", "CIC NUMBER"),
+                    "TEAM": getValue(row, "TEAM", "TEAM NAME"),
+                    "CHEST NUMBER": getValue(row, "CHEST NUMBER", "CHEST NO"),
                     "ON STAGE EVENTS": onStage,
                     "OFF STAGE EVENTS": offStage,
                     "GENERAL EVENTS": general,
@@ -167,9 +193,14 @@ export default function ManageRegistrations() {
                     existing["OFF STAGE EVENTS"] = mergeEvents(existing["OFF STAGE EVENTS"], item["OFF STAGE EVENTS"]);
                     existing["GENERAL EVENTS"] = mergeEvents(existing["GENERAL EVENTS"], item["GENERAL EVENTS"]);
 
-                    // If one source is firestore, mark as linked/merged (or keep firestore as primary for actions)
-                    if (item._source === "firestore") existing._source = "firestore"; // prioritize app for delete ability
-                    if (existing._source === "csv" && item._source === "firestore") existing._source = "APP+CSV";
+                    // If one source is firestore, mark as linked/merged
+                    if (item._source === "firestore") {
+                        if (existing._source === "csv") {
+                            existing._source = "APP+CSV";
+                        } else {
+                            existing._source = "firestore";
+                        }
+                    }
 
                 } else {
                     // New entry keyed by Chest No
@@ -214,6 +245,75 @@ export default function ManageRegistrations() {
         } catch (err) {
             console.error(err);
             showToast("Error deleting registration", "error");
+        }
+    };
+
+    // EDIT LOGIC
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingReg, setEditingReg] = useState(null);
+    const [editForm, setEditForm] = useState({
+        fullName: "",
+        chestNumber: "",
+        cicNumber: "",
+        team: "",
+        onStageEvents: "",
+        offStageEvents: "",
+        generalEvents: ""
+    });
+
+    const openEditModal = (reg) => {
+        setEditingReg(reg);
+        setEditForm({
+            fullName: reg["CANDIDATE NAME"] || "",
+            chestNumber: reg["CHEST NUMBER"] || "",
+            cicNumber: reg["CIC NUMBER"] || "",
+            team: reg["TEAM"] || "",
+            onStageEvents: reg["ON STAGE EVENTS"] || "",
+            offStageEvents: reg["OFF STAGE EVENTS"] || "",
+            generalEvents: reg["GENERAL EVENTS"] || ""
+        });
+        setIsEditModalOpen(true);
+    };
+
+    const handleUpdate = async () => {
+        if (!editingReg) return;
+
+        try {
+            // Convert comma strings back to arrays
+            const onStageArr = editForm.onStageEvents.split(',').map(s => s.trim()).filter(Boolean);
+            const offStageArr = editForm.offStageEvents.split(',').map(s => s.trim()).filter(Boolean);
+            const generalArr = editForm.generalEvents.split(',').map(s => s.trim()).filter(Boolean);
+
+            const payload = {
+                fullName: editForm.fullName,
+                chestNumber: editForm.chestNumber,
+                cicNumber: editForm.cicNumber,
+                team: editForm.team,
+                onStageEvents: onStageArr,
+                offStageEvents: offStageArr,
+                generalEvents: generalArr
+            };
+
+            if (editingReg._source === 'csv') {
+                // Create new shadow record in Firestore
+                await addDoc(collection(db, "registrations"), {
+                    ...payload,
+                    submittedAt: new Date()
+                });
+                showToast("New record created from CSV data", "success");
+            } else {
+                // Update existing Firestore record
+                const docRef = doc(db, "registrations", editingReg._id);
+                await updateDoc(docRef, payload);
+                showToast("Registration updated successfully", "success");
+            }
+
+            setIsEditModalOpen(false);
+            setEditingReg(null);
+            fetchRegistrations();
+        } catch (error) {
+            console.error("Error updating registration:", error);
+            showToast("Failed to update registration", "error");
         }
     };
 
@@ -270,10 +370,11 @@ export default function ManageRegistrations() {
                                                 fontSize: '0.75rem',
                                                 padding: '2px 6px',
                                                 borderRadius: '4px',
-                                                background: reg._source === 'firestore' ? '#22c55e' : '#3b82f6',
+                                                background: reg._source.includes('APP') ? '#22c55e' : '#3b82f6',
                                                 color: '#fff'
                                             }}>
-                                                {reg._source === 'firestore' ? 'APP' : 'CSV'}
+                                                {reg._source === 'firestore' && 'APP'}
+                                                {reg._source === 'csv' && 'CSV'}
                                                 {reg._source === 'APP+CSV' && 'APP+CSV'}
                                             </span>
                                         </td>
@@ -297,15 +398,130 @@ export default function ManageRegistrations() {
                                             ) : <span style={{ color: '#ccc' }}>-</span>}
                                         </td>
                                         <td>
-                                            {reg._source === 'firestore' ? (
-                                                <button onClick={() => handleDelete(reg)} className="delete-btn">Delete</button>
-                                            ) : <span style={{ color: '#666', fontSize: '0.8rem' }}>Read Only</span>}
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button
+                                                    onClick={() => openEditModal(reg)}
+                                                    className="tab-btn"
+                                                    style={{ padding: '4px 10px', fontSize: '0.8rem', background: '#3b82f6', border: 'none' }}
+                                                >
+                                                    Edit
+                                                </button>
+                                                {reg._source === 'firestore' && (
+                                                    <button onClick={() => handleDelete(reg)} className="delete-btn">Delete</button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
                             )}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* EDIT MODAL */}
+            {isEditModalOpen && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
+                }}>
+                    <div style={{
+                        background: '#1e1e1e', padding: '30px', borderRadius: '12px', width: '500px',
+                        border: '1px solid #333', display: 'flex', flexDirection: 'column', gap: '15px'
+                    }}>
+                        <h3 style={{ color: '#fff', margin: 0 }}>Edit Registration</h3>
+
+                        <div>
+                            <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>Full Name</label>
+                            <input
+                                className="admin-input"
+                                style={{ width: '100%', margin: 0 }}
+                                value={editForm.fullName}
+                                onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                            />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                            <div>
+                                <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>Chest Number</label>
+                                <input
+                                    className="admin-input"
+                                    style={{ width: '100%', margin: 0 }}
+                                    value={editForm.chestNumber}
+                                    onChange={(e) => setEditForm({ ...editForm, chestNumber: e.target.value })}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>Team</label>
+                                <select
+                                    className="admin-input"
+                                    style={{ width: '100%', margin: 0 }}
+                                    value={editForm.team}
+                                    onChange={(e) => setEditForm({ ...editForm, team: e.target.value })}
+                                >
+                                    <option value="PYRA">PYRA</option>
+                                    <option value="IGNIS">IGNIS</option>
+                                    <option value="ATASH">ATASH</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>CIC Number</label>
+                            <input
+                                className="admin-input"
+                                style={{ width: '100%', margin: 0 }}
+                                value={editForm.cicNumber}
+                                onChange={(e) => setEditForm({ ...editForm, cicNumber: e.target.value })}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>On Stage Events (comma separated)</label>
+                            <input
+                                className="admin-input"
+                                style={{ width: '100%', margin: 0 }}
+                                value={editForm.onStageEvents}
+                                onChange={(e) => setEditForm({ ...editForm, onStageEvents: e.target.value })}
+                                placeholder="E.g. Light Music, Mappilapattu"
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>Off Stage Events (comma separated)</label>
+                            <input
+                                className="admin-input"
+                                style={{ width: '100%', margin: 0 }}
+                                value={editForm.offStageEvents}
+                                onChange={(e) => setEditForm({ ...editForm, offStageEvents: e.target.value })}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>General Events (comma separated)</label>
+                            <input
+                                className="admin-input"
+                                style={{ width: '100%', margin: 0 }}
+                                value={editForm.generalEvents}
+                                onChange={(e) => setEditForm({ ...editForm, generalEvents: e.target.value })}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+                            <button
+                                onClick={() => setIsEditModalOpen(false)}
+                                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #444', background: 'transparent', color: '#ccc', cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleUpdate}
+                                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#e63946', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+                            >
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

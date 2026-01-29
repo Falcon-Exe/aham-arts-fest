@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, addDoc, deleteDoc, doc, query, orderBy, updateDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { collection, addDoc, deleteDoc, doc, query, orderBy, updateDoc } from "firebase/firestore";
 import { getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import Toast from "./Toast";
@@ -279,7 +279,7 @@ export default function ManageEvents() {
         <div className="manage-events">
             {toast && <Toast message={toast.message} type={toast.type} onClose={handleToastClose} />}
             {confirmState && <ConfirmDialog {...confirmState} />}
-            <h3 className="section-title">Admin Results</h3>
+            <h3 className="section-title">Manage Event</h3>
 
             {/* ADD FORM */}
             <form onSubmit={handleSubmit} className="admin-form">

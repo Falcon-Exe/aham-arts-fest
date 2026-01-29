@@ -114,12 +114,6 @@ function Dashboard() {
                     🏅 Results
                 </button>
                 <button
-                    className={`tab-btn ${activeTab === "registrations" ? "active" : ""}`}
-                    onClick={() => setActiveTab("registrations")}
-                >
-                    📝 Registrations
-                </button>
-                <button
                     className={`tab-btn ${activeTab === "teams" ? "active" : ""}`}
                     onClick={() => setActiveTab("teams")}
                 >

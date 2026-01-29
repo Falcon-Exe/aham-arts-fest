@@ -293,6 +293,25 @@ export default function Register() {
                         )}
                     </div>
 
+                    {/* SECTION 4: OFF STAGE EVENTS */}
+                    <div className="form-section">
+                        <div className="section-label">📝 Off Stage Events</div>
+                        {loading ? <div className="spinner"></div> : (
+                            <div className="events-selection-grid">
+                                {offStageList.length > 0 ? offStageList.map(ev => (
+                                    <label key={ev.id} className="event-checkbox-label">
+                                        <input
+                                            type="checkbox"
+                                            checked={formData.offStageEvents.includes(ev.name)}
+                                            onChange={() => handleEventToggle(ev.name, "Off Stage")}
+                                        />
+                                        <span className="event-name">{ev.name}</span>
+                                    </label>
+                                )) : <p style={{ color: '#666', fontStyle: 'italic' }}>No off-stage events found.</p>}
+                            </div>
+                        )}
+                    </div>
+
 
 
                     {/* SECTION 5: GENERAL EVENTS */}

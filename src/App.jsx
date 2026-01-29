@@ -7,6 +7,7 @@ import AdminLogin from "./components/AdminLogin";
 
 // Lazy Load Pages
 const Home = lazy(() => import("./pages/Home"));
+const GalleryPage = lazy(() => import("./pages/GalleryPage"));
 const Events = lazy(() => import("./pages/Events"));
 const Results = lazy(() => import("./pages/Results"));
 const Participants = lazy(() => import("./pages/Participants"));
@@ -32,6 +33,8 @@ export default function App() {
     );
   }
 
+
+
   return (
     <Router>
       <Suspense fallback={
@@ -42,6 +45,7 @@ export default function App() {
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Home />} />
+            <Route path="/gallery" element={<GalleryPage />} />
             <Route path="/events" element={<Events />} />
             <Route path="/team-login" element={<TeamLogin />} />
             <Route path="/register" element={<Register />} />

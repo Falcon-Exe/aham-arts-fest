@@ -756,3 +756,46 @@
   border-radius: 50%;
   margin-right: 8px;
 }
+
+/* ===============================
+   DOWNLOAD POSTER BUTTON
+   =============================== */
+.download-poster-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #121212;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50px;
+  padding: 8px 20px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.download-poster-btn:hover {
+  border-color: var(--primary);
+  box-shadow: 0 0 15px rgba(230, 57, 70, 0.2);
+  transform: translateY(-2px);
+}
+
+.btn-text-stack {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  text-align: left;
+}
+
+.btn-label-top {
+  color: var(--primary);
+  font-size: 0.65rem;
+  letter-spacing: 1px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+.btn-label-bottom {
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { collection, addDoc, orderBy, query, deleteDoc, doc, updateDoc, setDoc, onSnapshot } from "firebase/firestore";
+import { collection, addDoc, orderBy, query, deleteDoc, doc, updateDoc, setDoc, onSnapshot, deleteField } from "firebase/firestore";
 import { getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import Papa from "papaparse";
@@ -358,7 +358,9 @@ export default function ManageResults() {
 
             // 1. Calculate Category Points
             let categoryPoints = 0;
-            if (category === "A") {
+            if (place === "None") {
+                categoryPoints = 0;
+            } else if (category === "A") {
                 if (place === "First") categoryPoints = 12;
                 else if (place === "Second") categoryPoints = 8;
                 else if (place === "Third") categoryPoints = 4;
@@ -582,7 +584,9 @@ export default function ManageResults() {
 
             // 1. Calculate Category Points
             let categoryPoints = 0;
-            if (category === "A") {
+            if (place === "None") {
+                categoryPoints = 0;
+            } else if (category === "A") {
                 if (place === "First") categoryPoints = 12;
                 else if (place === "Second") categoryPoints = 8;
                 else if (place === "Third") categoryPoints = 4;
@@ -614,23 +618,153 @@ export default function ManageResults() {
         fetchResults();
     };
 
+    // State for Poster Upload
+    const [posterEventId, setPosterEventId] = useState("");
+    const [posterUploading, setPosterUploading] = useState(false);
+
+    // Event Search State
+    const [eventSearchTerm, setEventSearchTerm] = useState("");
+
+    // Cloudinary Config (Reused)
+    const CLOUD_NAME = "dncz0c7vu";
+    const UPLOAD_PRESET = "aham-arts-fest";
+
+    const handlePosterUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !posterEventId) return;
+
+        setPosterUploading(true);
+        const data = new FormData();
+        data.append("file", file);
+        data.append("upload_preset", UPLOAD_PRESET);
+
+        try {
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+                method: "POST",
+                body: data
+            });
+
+            const fileData = await res.json();
+            if (fileData.secure_url) {
+                // Update Event Document with resultImage
+                await updateDoc(doc(db, "events", posterEventId), {
+                    resultImage: fileData.secure_url
+                });
+                showToast("Result Poster Uploaded Successfully!", "success");
+
+                // Update local state without reload
+                setEvents(prev => prev.map(ev =>
+                    ev.id === posterEventId ? { ...ev, resultImage: fileData.secure_url } : ev
+                ));
+            } else {
+                throw new Error("Upload failed");
+            }
+        } catch (err) {
+            console.error("Poster Upload Error:", err);
+            showToast("Failed to upload poster.", "error");
+        }
+        setPosterUploading(false);
+    };
+
+    const handleRemovePoster = async () => {
+        if (!posterEventId || !await confirm("Remove the current poster for this event?")) return;
+
+        try {
+            await updateDoc(doc(db, "events", posterEventId), {
+                resultImage: deleteField()
+            });
+
+            // Update local state
+            setEvents(prev => prev.map(ev =>
+                ev.id === posterEventId ? { ...ev, resultImage: null } : ev
+            ));
+
+            showToast("Poster removed.", "success");
+        } catch (err) {
+            console.error(err);
+            showToast("Failed to remove poster.", "error");
+        }
+    };
+
+    // Helper to find selected event image
+    const selectedEvent = events.find(e => e.id === posterEventId);
+
+    // Filter events for dropdown
+    const filteredEventsForSelect = events.filter(e =>
+        e.name.toLowerCase().includes(eventSearchTerm.toLowerCase())
+    );
+
     return (
         <div className="manage-results">
             {toast && <Toast message={toast.message} type={toast.type} onClose={handleToastClose} />}
             {confirmState && <ConfirmDialog {...confirmState} />}
-            <h3 className="section-title">{editId ? "Edit Result" : "Publish Results"}</h3>
+
+            <h3 className="section-title">Upload Result Poster 🖼️</h3>
+            <div className="card" style={{ marginBottom: '30px', padding: '20px', background: '#1a1a1a', border: '1px solid #333' }}>
+                <p style={{ color: '#888', marginBottom: '15px' }}>Upload the official result poster image for an event.</p>
+                <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                    <select
+                        className="admin-select"
+                        style={{ flex: 1, minWidth: '200px' }}
+                        value={posterEventId}
+                        onChange={(e) => setPosterEventId(e.target.value)}
+                    >
+                        <option value="">-- Select Event --</option>
+                        {events.map(ev => (
+                            <option key={ev.id} value={ev.id}>
+                                {ev.name} {ev.resultImage ? "✅" : ""}
+                            </option>
+                        ))}
+                    </select>
+
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {selectedEvent?.resultImage && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#222', padding: '10px', borderRadius: '6px' }}>
+                                <img src={selectedEvent.resultImage} alt="Current Poster" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} />
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '0.8rem', color: '#fff' }}>Current Poster Active</div>
+                                    <a href={selectedEvent.resultImage} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>View Full</a>
+                                </div>
+                                <button type="button" onClick={handleRemovePoster} style={{ background: '#d32f2f', border: 'none', color: '#fff', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}> Remove </button>
+                            </div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handlePosterUpload}
+                                disabled={!posterEventId || posterUploading}
+                                style={{ color: '#ccc' }}
+                            />
+                        </div>
+                    </div>
+                </div>
+                {posterUploading && <p style={{ color: 'var(--primary)', marginTop: '10px' }}>Uploading Poster... Please wait...</p>}
+            </div>
+
+
+            <h3 className="section-title">{editId ? "Edit Result" : "Publish Results (Winners)"}</h3>
 
             <form onSubmit={handleSubmit} className="admin-form">
                 <div className="form-grid">
-                    <select
-                        className="admin-select"
-                        value={formData.eventId}
-                        onChange={handleEventChange}
-                        required
-                    >
-                        <option value="">-- Select Event --</option>
-                        {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
-                    </select>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <input
+                            placeholder="🔍 Filter Events..."
+                            value={eventSearchTerm}
+                            onChange={(e) => setEventSearchTerm(e.target.value)}
+                            className="admin-input"
+                            style={{ padding: '8px', fontSize: '0.8rem', background: '#222', border: '1px solid #333' }}
+                        />
+                        <select
+                            className="admin-select"
+                            value={formData.eventId}
+                            onChange={handleEventChange}
+                            required
+                        >
+                            <option value="">-- Select Event --</option>
+                            {filteredEventsForSelect.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+                        </select>
+                    </div>
 
                     <select
                         className="admin-select"
@@ -640,6 +774,7 @@ export default function ManageResults() {
                         <option value="First">First Prize 🥇</option>
                         <option value="Second">Second Prize 🥈</option>
                         <option value="Third">Third Prize 🥉</option>
+                        <option value="None">None (Grade Only)</option>
                     </select>
 
                     <select
@@ -729,6 +864,7 @@ export default function ManageResults() {
                         {showResultsPoints ? "🏆 Result Points: VISIBLE" : "🏆 Result Points: HIDDEN"}
                     </button>
                     <button
+                        onClick={downloadResultsCSV}
                         className="submit-btn"
                         style={{ padding: '8px 15px', fontSize: '0.85rem', background: '#222' }}
                     >

@@ -121,7 +121,12 @@ function Home() {
 
       {/* GALLERY STRIP */}
       <section className="film-strip-section">
-        <div className="section-label">FEATURED HIGHLIGHTS</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingRight: '20px' }}>
+          <div className="section-label">FEATURED HIGHLIGHTS</div>
+          <Link to="/gallery" style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: '0.9rem', fontWeight: '600' }}>
+            VIEW ALL ➔
+          </Link>
+        </div>
         <Suspense fallback={<div className="loader">Loading...</div>}>
           <Gallery />
         </Suspense>

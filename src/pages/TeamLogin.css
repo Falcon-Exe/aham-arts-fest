@@ -1,39 +1,23 @@
-<<<<<<< HEAD
 
 /* Dark Theme Team Login */
-=======
->>>>>>> 0181a76 (RESULT MARKS)
 .team-login-container {
     min-height: 80vh;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 20px;
-<<<<<<< HEAD
     background: transparent; /* Assuming global background handles it, or use var(--bg-color) */
 }
 
 .login-card {
     background: var(--card-bg, #121212);
-=======
-    background: #f8f9fa;
-}
-
-.login-card {
-    background: white;
->>>>>>> 0181a76 (RESULT MARKS)
     width: 100%;
     max-width: 400px;
     padding: 2.5rem;
     border-radius: 16px;
-<<<<<<< HEAD
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     border: 1px solid var(--border-soft, rgba(255, 255, 255, 0.1));
     backdrop-filter: blur(10px);
-=======
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-    border: 1px solid rgba(0, 0, 0, 0.05);
->>>>>>> 0181a76 (RESULT MARKS)
 }
 
 .login-header {
@@ -45,18 +29,11 @@
     color: var(--primary);
     font-size: 1.8rem;
     margin-bottom: 0.5rem;
-<<<<<<< HEAD
     text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 .login-header p {
     color: var(--muted, #a0a0a0);
-=======
-}
-
-.login-header p {
-    color: #666;
->>>>>>> 0181a76 (RESULT MARKS)
     font-size: 0.95rem;
 }
 
@@ -67,11 +44,7 @@
 .form-group label {
     display: block;
     margin-bottom: 0.5rem;
-<<<<<<< HEAD
     color: var(--text-main, #f8f9fa);
-=======
-    color: #444;
->>>>>>> 0181a76 (RESULT MARKS)
     font-weight: 500;
     font-size: 0.9rem;
 }
@@ -79,7 +52,6 @@
 .form-group input {
     width: 100%;
     padding: 12px 16px;
-<<<<<<< HEAD
     border: 1px solid var(--border-soft, rgba(255, 255, 255, 0.1));
     border-radius: 8px;
     font-size: 1rem;
@@ -92,19 +64,6 @@
     background: rgba(0, 0, 0, 0.5);
     border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--primary-soft, rgba(230, 57, 70, 0.1));
-=======
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: all 0.2s;
-    background: #f8f9fa;
-}
-
-.form-group input:focus {
-    background: white;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
->>>>>>> 0181a76 (RESULT MARKS)
     outline: none;
 }
 
@@ -120,19 +79,13 @@
     cursor: pointer;
     transition: transform 0.1s, background 0.2s;
     margin-top: 1rem;
-<<<<<<< HEAD
     box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
-=======
->>>>>>> 0181a76 (RESULT MARKS)
 }
 
 .login-btn:hover {
     background: var(--primary-dark);
-<<<<<<< HEAD
     transform: translateY(-1px);
     box-shadow: 0 6px 20px rgba(230, 57, 70, 0.4);
-=======
->>>>>>> 0181a76 (RESULT MARKS)
 }
 
 .login-btn:active {
@@ -142,64 +95,37 @@
 .login-btn:disabled {
     opacity: 0.7;
     cursor: not-allowed;
-<<<<<<< HEAD
     background: #444;
 }
 
 .error-message {
     background: rgba(230, 57, 70, 0.1);
     color: #ff6b6b;
-=======
-}
-
-.error-message {
-    background: #fff5f5;
-    color: #e63946;
->>>>>>> 0181a76 (RESULT MARKS)
     padding: 10px;
     border-radius: 6px;
     font-size: 0.9rem;
     margin-bottom: 1rem;
-<<<<<<< HEAD
     border-left: 3px solid #ff6b6b;
-=======
-    border-left: 3px solid #e63946;
->>>>>>> 0181a76 (RESULT MARKS)
 }
 
 .login-footer {
     margin-top: 1.5rem;
     text-align: center;
-<<<<<<< HEAD
     border-top: 1px solid var(--border-soft, rgba(255, 255, 255, 0.1));
-=======
-    border-top: 1px solid #eee;
->>>>>>> 0181a76 (RESULT MARKS)
     padding-top: 1.5rem;
 }
 
 .back-link {
     background: none;
     border: none;
-<<<<<<< HEAD
     color: var(--muted, #888);
     font-size: 0.9rem;
     cursor: pointer;
     padding: 5px 10px;
     transition: color 0.2s;
-=======
-    color: #666;
-    font-size: 0.9rem;
-    cursor: pointer;
-    padding: 5px 10px;
->>>>>>> 0181a76 (RESULT MARKS)
 }
 
 .back-link:hover {
     color: var(--primary);
-<<<<<<< HEAD
     text-decoration: none;
-=======
-    text-decoration: underline;
->>>>>>> 0181a76 (RESULT MARKS)
 }

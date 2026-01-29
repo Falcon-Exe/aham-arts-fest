@@ -13,7 +13,6 @@ import { db } from "../firebase"; // Still needed for raw rows if we want detail
 
 // Let's just import the hook for the Champion/Scoreboard part to ensure consistency.
 
-import { getEventType } from "../constants/events";
 import Toast from '../components/Toast';
 import "./Results.css";
 
@@ -35,6 +34,9 @@ function Results() {
   // Use Hook for official scores
   const { scores: sortedTeamsData, champion: hookChampion, runnerUp: hookRunnerUp, showResultsPoints } = useTeamScores();
 
+  // Map Event Name -> Result Image URL
+  const [eventPosters, setEventPosters] = useState({});
+
   // Load results from Firestore (Raw data for list)
   useEffect(() => {
     const fetchResults = async () => {
@@ -42,6 +44,18 @@ function Results() {
         const querySnapshot = await getDocs(collection(db, "results"));
         const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setRows(data);
+
+        // Also fetch events to get poster images
+        const eventsSnap = await getDocs(collection(db, "events"));
+        const posterMap = {};
+        eventsSnap.docs.forEach(doc => {
+          const ev = doc.data();
+          if (ev.name && ev.resultImage) {
+            posterMap[ev.name] = ev.resultImage;
+          }
+        });
+        setEventPosters(posterMap);
+
       } catch (error) {
         console.error("Error loading results:", error);
       } finally {
@@ -97,26 +111,6 @@ function Results() {
     if (grade === "A+" || grade === "A") return "grade-a";
     if (grade === "B") return "grade-b";
     return "grade-c";
-  };
-
-  const handleShare = async (winner, event) => {
-    const shareData = {
-      title: 'AHAM Arts Fest Result 🏆',
-      text: `🎉 Amazing news! ${winner.name} secured ${winner.place} Place in ${event} at AHAM Arts Fest! 🥇✨`,
-      url: window.location.href
-    };
-
-    try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        // Fallback: Copy to clipboard
-        await navigator.clipboard.writeText(shareData.text);
-        showToast("Result info copied to clipboard! 📋", "success");
-      }
-    } catch (err) {
-      console.log('Share failed:', err);
-    }
   };
 
   const formatName = (name) => {
@@ -207,7 +201,22 @@ function Results() {
         <div className="results-grid">
           {filteredEvents.map(([event, list]) => (
             <div key={event} className="results-card">
-              <h3 className="results-event">{event}</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px' }}>
+                <h3 className="results-event" style={{ margin: 0 }}>{event}</h3>
+
+                {eventPosters[event] && (
+                  <a
+                    href={eventPosters[event].replace('/upload/', '/upload/fl_attachment/')}
+                    className="download-poster-btn"
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e63946" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <div className="btn-text-stack">
+                      <span className="btn-label-top">DOWNLOAD</span>
+                      <span className="btn-label-bottom">RESULT</span>
+                    </div>
+                  </a>
+                )}
+              </div>
 
               {["First", "Second", "Third"].map((prize) => {
                 const winners = list.filter((r) => r.place === prize);
@@ -232,17 +241,6 @@ function Results() {
                             {w.grade && <span className={`winner-grade ${gradeClass(w.grade)}`}>{w.grade}</span>}
                           </div>
                         </div>
-                        <button
-                          className="share-btn-mini"
-                          onClick={() => handleShare(w, event)}
-                          title="Share Result"
-                        >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-                            <polyline points="16 6 12 2 8 6"></polyline>
-                            <line x1="12" y1="2" x2="12" y2="15"></line>
-                          </svg>
-                        </button>
                       </div>
                     ))}
                   </div>
