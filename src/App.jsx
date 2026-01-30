@@ -1,5 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 
 import AppLayout from "./components/AppLayout";
 import PwaUpdate from "./components/PwaUpdate";
@@ -62,6 +63,7 @@ export default function App() {
 
       {/* 🔔 PWA UPDATE BANNER (OUTSIDE ROUTES, INSIDE ROUTER) */}
       <PwaUpdate />
+      <Analytics />
     </Router>
   );
 }
