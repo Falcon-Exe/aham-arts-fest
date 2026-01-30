@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../firebase";
+import ConfirmDialog from "../components/ConfirmDialog";
 import "./Dashboard.css"; // Import the new CSS
 
 import ManageEvents from "../components/ManageEvents";
@@ -10,8 +11,9 @@ import ManageAnnouncements from "../components/ManageAnnouncements";
 import ManageTeams from "../components/ManageTeams";
 import ManageGallery from "../components/ManageGallery";
 import ManageRegistrations from "../components/ManageRegistrations";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { useConfirm } from "../hooks/useConfirm";
 import { ADMIN_EMAILS } from "../constants/auth";
 
 function Dashboard() {
@@ -20,6 +22,9 @@ function Dashboard() {
     const [activeTab, setActiveTab] = useState("events");
     const [stats, setStats] = useState({ events: 0, results: 0 });
     const navigate = useNavigate();
+    const { confirm, confirmState } = useConfirm();
+
+    const [isRegistrationOpen, setIsRegistrationOpen] = useState(true);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -44,10 +49,21 @@ function Dashboard() {
             setStats(prev => ({ ...prev, results: snap.size }));
         });
 
+        // Registration Lock Listener
+        const unsubSettings = onSnapshot(doc(db, "settings", "config"), (docSnap) => {
+            if (docSnap.exists()) {
+                setIsRegistrationOpen(docSnap.data().isRegistrationOpen ?? true);
+            } else {
+                // Create default if not exists
+                setDoc(doc(db, "settings", "config"), { isRegistrationOpen: true }, { merge: true });
+            }
+        });
+
         return () => {
             unsubscribe();
             unsubEvents();
             unsubResults();
+            unsubSettings();
         };
     }, [navigate]);
 
@@ -56,10 +72,21 @@ function Dashboard() {
         navigate("/");
     };
 
+    const toggleRegistrationLock = async () => {
+        if (!await confirm(`Are you sure you want to ${isRegistrationOpen ? "LOCK" : "UNLOCK"} registrations?`)) return;
+        try {
+            await setDoc(doc(db, "settings", "config"), { isRegistrationOpen: !isRegistrationOpen }, { merge: true });
+        } catch (error) {
+            console.error("Error updating settings:", error);
+            alert("Failed to update registration status.");
+        }
+    };
+
     if (loading) return <div className="loader">Loading...</div>;
 
     return (
         <div className="dashboard-container">
+            {confirmState && <ConfirmDialog {...confirmState} />}
             <header className="dashboard-header">
                 <div>
                     <h2 className="dashboard-title">Admin Dashboard</h2>
@@ -68,6 +95,18 @@ function Dashboard() {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                        onClick={toggleRegistrationLock}
+                        className="tab-btn"
+                        style={{
+                            background: isRegistrationOpen ? '#22c55e' : '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        {isRegistrationOpen ? "🔓 Open" : "🔒 Locked"}
+                    </button>
                     <button onClick={() => navigate("/")} className="tab-btn" style={{ background: 'transparent' }}>
                         View Site ↗
                     </button>

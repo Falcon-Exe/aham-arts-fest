@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs, addDoc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, addDoc, query, orderBy, doc, onSnapshot } from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase";
@@ -28,6 +28,8 @@ export default function Register() {
         offStageEvents: [],
         generalEvents: []
     });
+
+    const [isRegistrationOpen, setIsRegistrationOpen] = useState(true);
 
     // Auth & Data Fetch
     useEffect(() => {
@@ -64,7 +66,17 @@ export default function Register() {
         };
         fetchEvents();
 
-        return () => unsubscribe();
+        // Registration Lock Listener
+        const unsubSettings = onSnapshot(doc(db, "settings", "config"), (docSnap) => {
+            if (docSnap.exists()) {
+                setIsRegistrationOpen(docSnap.data().isRegistrationOpen ?? true);
+            }
+        });
+
+        return () => {
+            unsubscribe();
+            unsubSettings();
+        };
     }, [navigate]);
 
     const handleChange = (e) => {
@@ -148,6 +160,40 @@ export default function Register() {
                             Register Another Student
                         </button>
                     </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (!isRegistrationOpen) {
+        return (
+            <div className="register-container">
+                <header className="register-header">
+                    <button onClick={() => navigate("/")} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', marginBottom: '10px' }}>
+                        ← Home
+                    </button>
+                    <h2 className="register-title">Registration Closed</h2>
+                </header>
+                <div className="register-form" style={{ textAlign: 'center', padding: '40px' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🔒</div>
+                    <h3>Registrations are currently locked by the Admin.</h3>
+                    <p style={{ color: '#666' }}>Please contact the event coordinators for assistance.</p>
+                    {user && (
+                        <button
+                            onClick={() => signOut(auth)}
+                            style={{
+                                marginTop: '20px',
+                                background: '#ffebee',
+                                color: '#d32f2f',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Logout ({user.email})
+                        </button>
+                    )}
                 </div>
             </div>
         );
