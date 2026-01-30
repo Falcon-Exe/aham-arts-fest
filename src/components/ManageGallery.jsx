@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
 import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
@@ -14,6 +14,7 @@ export default function ManageGallery() {
         title: "",
         category: ""
     });
+    const [editId, setEditId] = useState(null);
     const [toast, setToast] = useState(null);
     const { confirm, confirmState } = useConfirm();
 
@@ -73,12 +74,18 @@ export default function ManageGallery() {
         if (!formData.src || !formData.title) return;
 
         try {
-            await addDoc(collection(db, "gallery"), formData);
+            if (editId) {
+                await updateDoc(doc(db, "gallery", editId), formData);
+                showToast("Gallery item updated!", "success");
+                setEditId(null);
+            } else {
+                await addDoc(collection(db, "gallery"), formData);
+                showToast("Gallery item added!", "success");
+            }
             setFormData({ src: "", title: "", category: "" });
-            showToast("Gallery item added!", "success");
         } catch (err) {
             console.error(err);
-            showToast("Error adding item", "error");
+            showToast("Error saving item", "error");
         }
     };
 
@@ -86,9 +93,25 @@ export default function ManageGallery() {
         if (!await confirm("Remove this image from spotlight?")) return;
         try {
             await deleteDoc(doc(db, "gallery", id));
+            if (editId === id) handleCancelEdit();
         } catch (err) {
             console.error(err);
         }
+    };
+
+    const handleEdit = (item) => {
+        setFormData({
+            src: item.src,
+            title: item.title,
+            category: item.category || ""
+        });
+        setEditId(item.id);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    const handleCancelEdit = () => {
+        setFormData({ src: "", title: "", category: "" });
+        setEditId(null);
     };
 
     return (
@@ -101,6 +124,9 @@ export default function ManageGallery() {
             </p>
 
             <form onSubmit={handleSubmit} className="admin-form">
+                <div style={{ marginBottom: '15px', color: editId ? 'var(--primary)' : '#fff', fontWeight: 'bold' }}>
+                    {editId ? `Editing: ${formData.title}` : "Add New Item"}
+                </div>
                 <div className="form-grid">
                     <div style={{ gridColumn: '1 / -1' }}>
                         <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: '#888' }}>Upload Image (Cloudinary)</label>
@@ -119,9 +145,16 @@ export default function ManageGallery() {
                     <input className="admin-input" placeholder="Title (e.g. PYRA '26)" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} required />
                     <input className="admin-input" placeholder="Category (e.g. GRAND INAUGURAL)" value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} />
                 </div>
-                <button type="submit" className="submit-btn" style={{ marginTop: '20px' }} disabled={uploading}>
-                    {uploading ? "Waiting for Upload..." : "Add to Spotlight +"}
-                </button>
+                <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                    <button type="submit" className="submit-btn" disabled={uploading} style={{ flex: 1 }}>
+                        {uploading ? "Waiting..." : (editId ? "Update Spotlight Item" : "Add to Spotlight +")}
+                    </button>
+                    {editId && (
+                        <button type="button" onClick={handleCancelEdit} style={{ background: '#333', color: '#ccc', border: '1px solid #444', padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}>
+                            Cancel
+                        </button>
+                    )}
+                </div>
             </form>
 
             <h4 style={{ marginTop: '30px', marginBottom: '16px', color: 'var(--primary)' }}>Current Spotlight Items</h4>
@@ -138,14 +171,17 @@ export default function ManageGallery() {
                         </thead>
                         <tbody>
                             {items.length > 0 ? items.map(item => (
-                                <tr key={item.id}>
+                                <tr key={item.id} style={{ background: editId === item.id ? 'rgba(59, 130, 246, 0.1)' : 'transparent' }}>
                                     <td>
                                         <img src={item.src} alt="preview" style={{ width: '60px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)' }} />
                                     </td>
                                     <td style={{ fontWeight: '600' }}>{item.title}</td>
                                     <td>{item.category}</td>
                                     <td>
-                                        <button onClick={() => handleDelete(item.id)} className="delete-btn">Remove</button>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button onClick={() => handleEdit(item)} className="tab-btn" style={{ background: '#3b82f6', border: 'none', padding: '4px 10px', fontSize: '0.8rem' }}>Edit</button>
+                                            <button onClick={() => handleDelete(item.id)} className="delete-btn">Remove</button>
+                                        </div>
                                     </td>
                                 </tr>
                             )) : (

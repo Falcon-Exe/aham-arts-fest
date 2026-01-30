@@ -10,12 +10,47 @@ function Participants() {
   const [loading, setLoading] = useState(true);
 
   const csvUrl =
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7akmZPo8vINBoUN2hF6GdJ3ob-SqZFV2oDNSej9QvfY4z8H7Q9UbRIVmyu31pgiecp2h_2uiunBDJ/pub?gid=885092322&single=true&output=csv";
+    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTNwUkvOoE89ZnlosZeUpa3eL1kFMbx4br-GCy37szYlFSLeWudWtujYsAEyZWd0Ukr4LaErUPppnTl/pub?gid=885092322&single=true&output=csv";
 
   useEffect(() => {
     const fetchAllParticipants = async () => {
       try {
-        // Fetch CSV data
+        // --- HELPERS (Robust Logic from Admin Dashboard) ---
+        const normalizeEventString = (str) => {
+          if (!str) return "";
+          let s = str.toUpperCase();
+          // Standardize separator
+          s = s.split(',').map(item => item.trim()).filter(Boolean).join(', ');
+
+          // Fix known typos
+          s = s.replace(/SHORT VLOGING/g, "SHORT VLOGGING");
+          s = s.replace(/SAMMARIZATION/g, "SUMMARIZATION");
+          s = s.replace(/MINISTORY/g, "MINI STORY");
+          s = s.replace(/PHOTOFEACHURE/g, "PHOTO FEATURE");
+          s = s.replace(/Q&H/g, "Q AND H");
+          s = s.replace(/SONG WRITER/g, "SONG WRITING");
+          return s;
+        };
+
+        const getValue = (row, ...keys) => {
+          const rowKeys = Object.keys(row);
+          for (const k of keys) {
+            // 1. Exact match
+            if (row[k]) return row[k];
+            // 2. Case-insensitive
+            const lowerK = k.toLowerCase();
+            const match = rowKeys.find(rk => rk.toLowerCase() === lowerK);
+            if (match && row[match]) return row[match];
+            // 3. Normalized (ignore spaces)
+            const normK = lowerK.replace(/\s+/g, '');
+            const normMatch = rowKeys.find(rk => rk.toLowerCase().replace(/\s+/g, '') === normK);
+            if (normMatch && row[normMatch]) return row[normMatch];
+          }
+          return "";
+        };
+
+        // --- FETCH DATA ---
+        // 1. Fetch CSV
         const csvPromise = fetch(csvUrl + "&t=" + Date.now())
           .then((res) => {
             if (!res.ok) throw new Error("Network error");
@@ -26,11 +61,7 @@ function Participants() {
               Papa.parse(csv, {
                 header: true,
                 skipEmptyLines: true,
-                complete: (results) => {
-                  // Mark CSV participants with source
-                  const csvData = results.data.map(p => ({ ...p, _source: "csv" }));
-                  resolve(csvData);
-                },
+                complete: (results) => resolve(results.data),
               });
             });
           })
@@ -39,29 +70,21 @@ function Participants() {
             return [];
           });
 
-        // Fetch Firestore registrations
+        // 2. Fetch Firestore
         const firestorePromise = getDocs(query(collection(db, "registrations"), orderBy("submittedAt", "desc")))
           .then((snapshot) => {
-            // Normalize Firestore data to match CSV structure
             return snapshot.docs.map(doc => {
               const data = doc.data();
               return {
                 "CANDIDATE NAME": data.fullName,
-                "CANDIDATE  FULL NAME": data.fullName,
                 "CIC NO": data.cicNumber,
-                "CIC NUMBER": data.cicNumber,
                 "CHEST NUMBER": data.chestNumber,
-                "CHEST NO": data.chestNumber,
                 "TEAM": data.team,
-                "TEAM NAME": data.team,
-                "ON STAGE ITEMS": data.onStageEvents?.join(", ") || "",
                 "ON STAGE EVENTS": data.onStageEvents?.join(", ") || "",
-                "OFF STAGE ITEMES": data.offStageEvents?.join(", ") || "",
-                "OFF STAGE ITEMS": data.offStageEvents?.join(", ") || "",
                 "OFF STAGE EVENTS": data.offStageEvents?.join(", ") || "",
+                "GENERAL EVENTS": data.generalEvents?.join(", ") || "",
                 _source: "firestore",
-                _submittedAt: data.submittedAt,
-                _generalEvents: data.generalEvents?.join(", ") || ""
+                _submittedAt: data.submittedAt
               };
             });
           })
@@ -70,12 +93,64 @@ function Participants() {
             return [];
           });
 
-        // Wait for both sources
         const [csvData, firestoreData] = await Promise.all([csvPromise, firestorePromise]);
 
-        // Merge both datasets (Firestore first, then CSV)
-        const mergedData = [...firestoreData, ...csvData];
-        setParticipants(mergedData);
+        // --- NORMALIZE CSV DATA ---
+        const normalizedCsv = csvData.map((row) => ({
+          "CANDIDATE NAME": getValue(row, "CANDIDATE NAME", "CANDIDATE  FULL NAME"),
+          "CIC NO": getValue(row, "CIC NO", "CIC NUMBER"),
+          "TEAM": getValue(row, "TEAM", "TEAM NAME"),
+          "CHEST NUMBER": getValue(row, "CHEST NUMBER", "CHEST NO"),
+          "ON STAGE EVENTS": normalizeEventString(getValue(row, "ON STAGE EVENTS", "ON STAGE ITEMS", "ON STAGE")),
+          "OFF STAGE EVENTS": normalizeEventString(getValue(row, "OFF STAGE EVENTS", "OFF STAGE ITEMS", "OFF STAGE ITEMES", "OFF STAGE")),
+          "GENERAL EVENTS": normalizeEventString(getValue(row, "GENERAL EVENTS", "GENERAL ITEMS", "OFF STAGE - GENERAL", "ON STAGE - GENERAL")),
+          _source: "csv"
+        }));
+
+        // --- MERGE LOGIC ---
+        const mergedMap = new Map();
+        const normalizeKey = (str) => String(str || "").trim().toLowerCase();
+
+        const mergeStrings = (str1, str2) => {
+          const s1 = str1 ? str1.split(",").map(s => s.trim()).filter(Boolean) : [];
+          const s2 = str2 ? str2.split(",").map(s => s.trim()).filter(Boolean) : [];
+          return [...new Set([...s1, ...s2])].join(", ");
+        };
+
+        const rawList = [...firestoreData, ...normalizedCsv];
+
+        rawList.forEach(item => {
+          const chestNo = item["CHEST NUMBER"];
+          const name = item["CANDIDATE NAME"];
+          // Use Chest No if valid (not 0 or empty), otherwise Name
+          const key = (chestNo && normalizeKey(chestNo) !== "0" && normalizeKey(chestNo) !== "")
+            ? normalizeKey(chestNo)
+            : normalizeKey(name);
+
+          if (!key) return; // Skip invalid rows without name or chest no
+
+          if (mergedMap.has(key)) {
+            // Merge with existing
+            const existing = mergedMap.get(key);
+
+            existing["ON STAGE EVENTS"] = mergeStrings(existing["ON STAGE EVENTS"], item["ON STAGE EVENTS"]);
+            existing["OFF STAGE EVENTS"] = mergeStrings(existing["OFF STAGE EVENTS"], item["OFF STAGE EVENTS"]);
+            existing["GENERAL EVENTS"] = mergeStrings(existing["GENERAL EVENTS"], item["GENERAL EVENTS"]);
+
+            // Fill missing details
+            if (!existing["CIC NO"] && item["CIC NO"]) existing["CIC NO"] = item["CIC NO"];
+            if (!existing["TEAM"] && item["TEAM"]) existing["TEAM"] = item["TEAM"];
+            if (!existing["CHEST NUMBER"] && item["CHEST NUMBER"]) existing["CHEST NUMBER"] = item["CHEST NUMBER"];
+
+            if (item._source === "firestore") existing._source = "merged";
+          } else {
+            // New entry
+            mergedMap.set(key, { ...item }); // Clone to be safe
+          }
+        });
+
+        setParticipants(Array.from(mergedMap.values()));
+
       } catch (err) {
         console.error("Error fetching participants:", err);
       } finally {
@@ -89,12 +164,12 @@ function Participants() {
   const filteredParticipants = participants.filter((p) => {
     const q = search.toLowerCase();
     return (
-      (p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"])?.toLowerCase().includes(q) ||
-      (p["CIC NO"] || p["CIC NUMBER"])?.toLowerCase().includes(q) ||
-      (p["CHEST NUMBER"] || p["CHEST NO"])?.toLowerCase().includes(q) ||
-      (p["TEAM"] || p["TEAM NAME"])?.toLowerCase().includes(q) ||
-      (p["ON STAGE ITEMS"] || p["ON STAGE EVENTS"])?.toLowerCase().includes(q) ||
-      (p["OFF STAGE ITEMES"] || p["OFF STAGE ITEMS"] || p["OFF STAGE EVENTS"])?.toLowerCase().includes(q)
+      (p["CANDIDATE NAME"] || "").toLowerCase().includes(q) ||
+      (p["CIC NO"] || "").toLowerCase().includes(q) ||
+      (p["CHEST NUMBER"] || "").toString().toLowerCase().includes(q) ||
+      (p["TEAM"] || "").toLowerCase().includes(q) ||
+      (p["ON STAGE EVENTS"] || "").toLowerCase().includes(q) ||
+      (p["OFF STAGE EVENTS"] || "").toLowerCase().includes(q)
     );
   });
 
@@ -159,16 +234,16 @@ function Participants() {
                 <div className="p-items-section">
                   <div className="p-item-group">
                     <label>🎭 On Stage Events</label>
-                    <p>{p["ON STAGE ITEMS"] || p["ON STAGE EVENTS"] || "None"}</p>
+                    <p>{p["ON STAGE EVENTS"] || "None"}</p>
                   </div>
                   <div className="p-item-group">
                     <label>📝 Off Stage Events</label>
-                    <p>{p["OFF STAGE ITEMES"] || p["OFF STAGE ITEMS"] || p["OFF STAGE EVENTS"] || "None"}</p>
+                    <p>{p["OFF STAGE EVENTS"] || "None"}</p>
                   </div>
-                  {p._source === "firestore" && p._generalEvents && (
+                  {p["GENERAL EVENTS"] && (
                     <div className="p-item-group">
                       <label>🌐 General Events</label>
-                      <p>{p._generalEvents || "None"}</p>
+                      <p>{p["GENERAL EVENTS"]}</p>
                     </div>
                   )}
                 </div>

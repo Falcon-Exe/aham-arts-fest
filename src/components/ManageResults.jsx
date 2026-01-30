@@ -66,7 +66,7 @@ export default function ManageResults() {
     };
 
     // URL for master participants CSV
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR7akmZPo8vINBoUN2hF6GdJ3ob-SqZFV2oDNSej9QvfY4z8H7Q9UbRIVmyu31pgiecp2h_2uiunBDJ/pub?gid=885092322&single=true&output=csv";
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTNwUkvOoE89ZnlosZeUpa3eL1kFMbx4br-GCy37szYlFSLeWudWtujYsAEyZWd0Ukr4LaErUPppnTl/pub?gid=885092322&single=true&output=csv";
 
     // Fetch Events and Master Participants
     const fetchEvents = useCallback(async () => {

@@ -4,6 +4,8 @@ import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import AppLayout from "./components/AppLayout";
 import PwaUpdate from "./components/PwaUpdate";
 import AdminLogin from "./components/AdminLogin";
+import { Analytics } from "@vercel/analytics/react";
+
 
 // Lazy Load Pages
 const Home = lazy(() => import("./pages/Home"));
@@ -59,7 +61,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
         </Routes>
       </Suspense>
-
+      <Analytics />
       {/* 🔔 PWA UPDATE BANNER (OUTSIDE ROUTES, INSIDE ROUTER) */}
       <PwaUpdate />
     </Router>

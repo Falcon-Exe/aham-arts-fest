@@ -317,6 +317,46 @@ export default function ManageRegistrations() {
         }
     };
 
+    const downloadCSV = () => {
+        if (registrations.length === 0) {
+            showToast("No registrations to download.", "warning");
+            return;
+        }
+
+        const headers = [
+            "Source",
+            "Name",
+            "CIC No",
+            "Chest No",
+            "Team",
+            "On Stage Events",
+            "Off Stage Events",
+            "General Events"
+        ];
+
+        const rows = registrations.map(reg => [
+            `"${reg._source}"`,
+            `"${reg["CANDIDATE NAME"] || reg["CANDIDATE  FULL NAME"] || ""}"`,
+            `"${reg["CIC NUMBER"] || reg["CIC NO"] || ""}"`,
+            `"${reg["CHEST NUMBER"] || reg["CHEST NO"] || ""}"`,
+            `"${reg["TEAM"] || reg["TEAM NAME"] || ""}"`,
+            `"${reg["ON STAGE EVENTS"] || ""}"`,
+            `"${reg["OFF STAGE EVENTS"] || ""}"`,
+            `"${reg["GENERAL EVENTS"] || ""}"`
+        ]);
+
+        const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `aham_registrations_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     const sortedRegistrations = getSortedRegistrations();
 
     return (
@@ -335,6 +375,9 @@ export default function ManageRegistrations() {
                         className="admin-input"
                         style={{ width: '250px', margin: 0 }}
                     />
+                    <button onClick={downloadCSV} className="tab-btn" style={{ background: '#2563eb', color: 'white', border: 'none' }}>
+                        Download CSV 📥
+                    </button>
                     <button onClick={fetchRegistrations} className="tab-btn" style={{ background: '#333' }}>Refresh</button>
                 </div>
             </div>
