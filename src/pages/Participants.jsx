@@ -169,7 +169,8 @@ function Participants() {
       (p["CHEST NUMBER"] || "").toString().toLowerCase().includes(q) ||
       (p["TEAM"] || "").toLowerCase().includes(q) ||
       (p["ON STAGE EVENTS"] || "").toLowerCase().includes(q) ||
-      (p["OFF STAGE EVENTS"] || "").toLowerCase().includes(q)
+      (p["OFF STAGE EVENTS"] || "").toLowerCase().includes(q) ||
+      (p["GENERAL EVENTS"] || "").toLowerCase().includes(q)
     );
   });
 

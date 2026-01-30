@@ -8,6 +8,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 
 
+
 // Lazy Load Pages
 const Home = lazy(() => import("./pages/Home"));
 const GalleryPage = lazy(() => import("./pages/GalleryPage"));

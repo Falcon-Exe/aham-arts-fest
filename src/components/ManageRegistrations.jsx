@@ -36,7 +36,10 @@ export default function ManageRegistrations() {
             data = data.filter(reg =>
                 (reg["CANDIDATE NAME"] || reg["CANDIDATE  FULL NAME"] || "").toLowerCase().includes(lowerTerm) ||
                 (reg["CHEST NUMBER"] || reg["CHEST NO"] || "").toString().includes(lowerTerm) ||
-                (reg["CIC NUMBER"] || reg["CIC NO"] || "").toString().includes(lowerTerm)
+                (reg["CIC NUMBER"] || reg["CIC NO"] || "").toString().includes(lowerTerm) ||
+                (reg["ON STAGE EVENTS"] || "").toLowerCase().includes(lowerTerm) ||
+                (reg["OFF STAGE EVENTS"] || "").toLowerCase().includes(lowerTerm) ||
+                (reg["GENERAL EVENTS"] || "").toLowerCase().includes(lowerTerm)
             );
         }
 
@@ -370,7 +373,7 @@ export default function ManageRegistrations() {
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <input
                         type="text"
-                        placeholder="Search Name, Chest No..."
+                        placeholder="Search Name, Chest No, Events..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="admin-input"

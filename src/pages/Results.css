@@ -409,14 +409,22 @@
   /* Stronger hover glow */
 }
 
+/* Result Card Header (Flex Container) */
+.result-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+}
+
 .results-event {
   text-align: left;
   font-size: 22px;
   font-weight: 900;
   color: #fff;
-  margin-bottom: 24px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+  margin: 0;
   letter-spacing: -0.5px;
   text-transform: none;
   /* Keep it natural but bold */
@@ -543,29 +551,7 @@
   border-radius: 4px;
 }
 
-.share-btn-mini {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-  width: 38px;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  opacity: 0.9;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 5;
-}
 
-.share-btn-mini:hover {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-  transform: scale(1.1);
-  box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
-}
 
 @keyframes reveal {
   from {
@@ -684,6 +670,10 @@
     border-radius: 20px;
   }
 
+
+
+
+
   .team-filter-bar {
     padding-bottom: 10px;
   }
@@ -763,11 +753,14 @@
 .download-poster-btn {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0;
   background: #121212;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 50px;
-  padding: 8px 20px;
+  border-radius: 50%;
+  padding: 12px;
+  width: 48px;
+  height: 48px;
+  justify-content: center;
   text-decoration: none;
   transition: all 0.3s ease;
 }
@@ -776,26 +769,4 @@
   border-color: var(--primary);
   box-shadow: 0 0 15px rgba(230, 57, 70, 0.2);
   transform: translateY(-2px);
-}
-
-.btn-text-stack {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-  text-align: left;
-}
-
-.btn-label-top {
-  color: var(--primary);
-  font-size: 0.65rem;
-  letter-spacing: 1px;
-  font-weight: 700;
-  opacity: 0.9;
-}
-
-.btn-label-bottom {
-  color: var(--primary);
-  font-size: 0.85rem;
-  font-weight: 800;
-  letter-spacing: 0.5px;
 }

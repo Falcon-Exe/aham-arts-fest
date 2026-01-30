@@ -201,8 +201,8 @@ function Results() {
         <div className="results-grid">
           {filteredEvents.map(([event, list]) => (
             <div key={event} className="results-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '10px' }}>
-                <h3 className="results-event" style={{ margin: 0 }}>{event}</h3>
+              <div className="result-card-header">
+                <h3 className="results-event">{event}</h3>
 
                 {eventPosters[event] && (
                   <a
@@ -210,12 +210,9 @@ function Results() {
                     className="download-poster-btn"
                   >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e63946" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    <div className="btn-text-stack">
-                      <span className="btn-label-top">DOWNLOAD</span>
-                      <span className="btn-label-bottom">RESULT</span>
-                    </div>
                   </a>
                 )}
+
               </div>
 
               {["First", "Second", "Third"].map((prize) => {
