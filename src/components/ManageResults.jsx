@@ -6,6 +6,7 @@ import Papa from "papaparse";
 import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
+import { CSV_URL } from "../config";
 
 export default function ManageResults() {
     const [events, setEvents] = useState([]);
@@ -66,7 +67,7 @@ export default function ManageResults() {
     };
 
     // URL for master participants CSV
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTNwUkvOoE89ZnlosZeUpa3eL1kFMbx4br-GCy37szYlFSLeWudWtujYsAEyZWd0Ukr4LaErUPppnTl/pub?gid=885092322&single=true&output=csv";
+    const csvUrl = CSV_URL;
 
     // Fetch Events and Master Participants
     const fetchEvents = useCallback(async () => {

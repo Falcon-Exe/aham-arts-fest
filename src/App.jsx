@@ -5,6 +5,7 @@ import AppLayout from "./components/AppLayout";
 import PwaUpdate from "./components/PwaUpdate";
 import AdminLogin from "./components/AdminLogin";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 
 // Lazy Load Pages
@@ -62,6 +63,7 @@ export default function App() {
         </Routes>
       </Suspense>
       <Analytics />
+      <SpeedInsights />
       {/* 🔔 PWA UPDATE BANNER (OUTSIDE ROUTES, INSIDE ROUTER) */}
       <PwaUpdate />
     </Router>

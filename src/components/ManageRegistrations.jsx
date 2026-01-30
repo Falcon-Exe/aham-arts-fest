@@ -5,6 +5,7 @@ import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
 import Papa from "papaparse";
+import { CSV_URL } from "../config";
 
 export default function ManageRegistrations() {
     const [registrations, setRegistrations] = useState([]);
@@ -15,7 +16,7 @@ export default function ManageRegistrations() {
     const [sortConfig, setSortConfig] = useState({ key: 'CHEST NUMBER', direction: 'asc' });
 
     // URL for master participants CSV
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTNwUkvOoE89ZnlosZeUpa3eL1kFMbx4br-GCy37szYlFSLeWudWtujYsAEyZWd0Ukr4LaErUPppnTl/pub?gid=885092322&single=true&output=csv";
+    const csvUrl = CSV_URL;
 
     // Sorting Logic
     const handleSort = (key) => {

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Papa from "papaparse";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
+import { CSV_URL } from "../config";
 import "./Participants.css";
 
 function Participants() {
@@ -9,8 +10,7 @@ function Participants() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const csvUrl =
-    "https://docs.google.com/spreadsheets/d/e/2PACX-1vTNwUkvOoE89ZnlosZeUpa3eL1kFMbx4br-GCy37szYlFSLeWudWtujYsAEyZWd0Ukr4LaErUPppnTl/pub?gid=885092322&single=true&output=csv";
+  const csvUrl = CSV_URL;
 
   useEffect(() => {
     const fetchAllParticipants = async () => {
