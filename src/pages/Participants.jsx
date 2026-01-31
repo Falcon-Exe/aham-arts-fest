@@ -4,6 +4,7 @@ import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
 import { CSV_URL } from "../config";
 import "./Participants.css";
+import { isGeneralEvent } from "../constants/events";
 
 function Participants() {
   const [participants, setParticipants] = useState([]);
@@ -96,16 +97,49 @@ function Participants() {
         const [csvData, firestoreData] = await Promise.all([csvPromise, firestorePromise]);
 
         // --- NORMALIZE CSV DATA ---
-        const normalizedCsv = csvData.map((row) => ({
-          "CANDIDATE NAME": getValue(row, "CANDIDATE NAME", "CANDIDATE  FULL NAME"),
-          "CIC NO": getValue(row, "CIC NO", "CIC NUMBER"),
-          "TEAM": getValue(row, "TEAM", "TEAM NAME"),
-          "CHEST NUMBER": getValue(row, "CHEST NUMBER", "CHEST NO"),
-          "ON STAGE EVENTS": normalizeEventString(getValue(row, "ON STAGE EVENTS", "ON STAGE ITEMS", "ON STAGE")),
-          "OFF STAGE EVENTS": normalizeEventString(getValue(row, "OFF STAGE EVENTS", "OFF STAGE ITEMS", "OFF STAGE ITEMES", "OFF STAGE")),
-          "GENERAL EVENTS": normalizeEventString(getValue(row, "GENERAL EVENTS", "GENERAL ITEMS", "OFF STAGE - GENERAL", "ON STAGE - GENERAL")),
-          _source: "csv"
-        }));
+        const normalizedCsv = csvData.map((row) => {
+          let onStageStr = normalizeEventString(getValue(row, "ON STAGE EVENTS", "ON STAGE ITEMS", "ON STAGE"));
+          let offStageStr = normalizeEventString(getValue(row, "OFF STAGE EVENTS", "OFF STAGE ITEMS", "OFF STAGE ITEMES", "OFF STAGE"));
+          let generalStr = normalizeEventString(getValue(row, "GENERAL EVENTS", "GENERAL ITEMS", "OFF STAGE - GENERAL", "ON STAGE - GENERAL", "GENERAL"));
+
+          // Helper to split, clean, and filter
+          const splitEvents = (str) => str.split(',').map(s => s.trim()).filter(Boolean);
+
+          let onStageArr = splitEvents(onStageStr);
+          let offStageArr = splitEvents(offStageStr);
+          let generalArr = splitEvents(generalStr);
+
+          // Extract General Events from On Stage
+          const onStageFiltered = [];
+          onStageArr.forEach(evt => {
+            if (isGeneralEvent(evt)) {
+              if (!generalArr.includes(evt)) generalArr.push(evt);
+            } else {
+              onStageFiltered.push(evt);
+            }
+          });
+
+          // Extract General Events from Off Stage
+          const offStageFiltered = [];
+          offStageArr.forEach(evt => {
+            if (isGeneralEvent(evt)) {
+              if (!generalArr.includes(evt)) generalArr.push(evt);
+            } else {
+              offStageFiltered.push(evt);
+            }
+          });
+
+          return {
+            "CANDIDATE NAME": getValue(row, "CANDIDATE NAME", "CANDIDATE  FULL NAME"),
+            "CIC NO": getValue(row, "CIC NO", "CIC NUMBER"),
+            "TEAM": getValue(row, "TEAM", "TEAM NAME"),
+            "CHEST NUMBER": getValue(row, "CHEST NUMBER", "CHEST NO"),
+            "ON STAGE EVENTS": onStageFiltered.join(", "),
+            "OFF STAGE EVENTS": offStageFiltered.join(", "),
+            "GENERAL EVENTS": generalArr.join(", "),
+            _source: "csv"
+          };
+        });
 
         // --- MERGE LOGIC ---
         const mergedMap = new Map();

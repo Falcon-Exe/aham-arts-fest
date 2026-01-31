@@ -6,6 +6,7 @@ import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
 import Papa from "papaparse";
 import { CSV_URL } from "../config";
+import { isGeneralEvent } from "../constants/events";
 
 export default function ManageRegistrations() {
     const [registrations, setRegistrations] = useState([]);
@@ -149,10 +150,36 @@ export default function ManageRegistrations() {
                 // Debug first row
                 if (idx === 0) console.log("Detected CSV Headers:", Object.keys(row));
 
-                const onStage = normalizeEventString(getValue(row, "ON STAGE EVENTS", "ON STAGE ITEMS", "ON STAGE"));
-                const offStage = normalizeEventString(getValue(row, "OFF STAGE EVENTS", "OFF STAGE ITEMS", "OFF STAGE ITEMES", "OFF STAGE"));
-                const generalRaw = getValue(row, "GENERAL EVENTS", "GENERAL ITEMS", "OFF STAGE - GENERAL", "ON STAGE - GENERAL");
-                const general = normalizeEventString(generalRaw);
+                let onStageStr = normalizeEventString(getValue(row, "ON STAGE EVENTS", "ON STAGE ITEMS", "ON STAGE"));
+                let offStageStr = normalizeEventString(getValue(row, "OFF STAGE EVENTS", "OFF STAGE ITEMS", "OFF STAGE ITEMES", "OFF STAGE"));
+                let generalStr = normalizeEventString(getValue(row, "GENERAL EVENTS", "GENERAL ITEMS", "OFF STAGE - GENERAL", "ON STAGE - GENERAL", "GENERAL"));
+
+                // Helper to split, clean, and filter
+                const splitEvents = (str) => str.split(',').map(s => s.trim()).filter(Boolean);
+
+                let onStageArr = splitEvents(onStageStr);
+                let offStageArr = splitEvents(offStageStr);
+                let generalArr = splitEvents(generalStr);
+
+                // Extract General Events from On Stage
+                const onStageFiltered = [];
+                onStageArr.forEach(evt => {
+                    if (isGeneralEvent(evt)) {
+                        if (!generalArr.includes(evt)) generalArr.push(evt);
+                    } else {
+                        onStageFiltered.push(evt);
+                    }
+                });
+
+                // Extract General Events from Off Stage
+                const offStageFiltered = [];
+                offStageArr.forEach(evt => {
+                    if (isGeneralEvent(evt)) {
+                        if (!generalArr.includes(evt)) generalArr.push(evt);
+                    } else {
+                        offStageFiltered.push(evt);
+                    }
+                });
 
                 return {
                     ...row,
@@ -162,9 +189,9 @@ export default function ManageRegistrations() {
                     "CIC NO": getValue(row, "CIC NO", "CIC NUMBER"),
                     "TEAM": getValue(row, "TEAM", "TEAM NAME"),
                     "CHEST NUMBER": getValue(row, "CHEST NUMBER", "CHEST NO"),
-                    "ON STAGE EVENTS": onStage,
-                    "OFF STAGE EVENTS": offStage,
-                    "GENERAL EVENTS": general,
+                    "ON STAGE EVENTS": onStageFiltered.join(", "),
+                    "OFF STAGE EVENTS": offStageFiltered.join(", "),
+                    "GENERAL EVENTS": generalArr.join(", "),
                     _source: "csv"
                 };
             });
