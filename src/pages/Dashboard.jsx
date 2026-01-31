@@ -27,6 +27,7 @@ function Dashboard() {
     const { confirm, confirmState } = useConfirm();
 
     const [isRegistrationOpen, setIsRegistrationOpen] = useState(true);
+    const [maintenanceMode, setMaintenanceMode] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -56,8 +57,14 @@ function Dashboard() {
             if (docSnap.exists()) {
                 setIsRegistrationOpen(docSnap.data().isRegistrationOpen ?? true);
             } else {
-                // Create default if not exists
                 setDoc(doc(db, "settings", "config"), { isRegistrationOpen: true }, { merge: true });
+            }
+        });
+
+        // Maintenance Mode Listener
+        const unsubPublic = onSnapshot(doc(db, "settings", "publicConfig"), (docSnap) => {
+            if (docSnap.exists()) {
+                setMaintenanceMode(docSnap.data().maintenanceMode ?? false);
             }
         });
 
@@ -66,6 +73,7 @@ function Dashboard() {
             unsubEvents();
             unsubResults();
             unsubSettings();
+            unsubPublic();
         };
     }, [navigate]);
 
@@ -81,6 +89,18 @@ function Dashboard() {
         } catch (error) {
             console.error("Error updating settings:", error);
             alert("Failed to update registration status.");
+        }
+    };
+
+    const toggleMaintenanceMode = async () => {
+        const action = maintenanceMode ? "DISABLE" : "ENABLE";
+        if (!await confirm(`Are you sure you want to ${action} Maintenance Mode?\n\nWhen enabled, regular users will see a 'Be Back Soon' screen. You (Admin) will still have access.`)) return;
+
+        try {
+            await setDoc(doc(db, "settings", "publicConfig"), { maintenanceMode: !maintenanceMode }, { merge: true });
+        } catch (error) {
+            console.error("Error toggling maintenance:", error);
+            alert("Failed to update maintenance settings.");
         }
     };
 
@@ -107,8 +127,23 @@ function Dashboard() {
                             fontWeight: 'bold'
                         }}
                     >
-                        {isRegistrationOpen ? "🔓 Open" : "🔒 Locked"}
+                        {isRegistrationOpen ? "🔓 Registrations: OPEN" : "🔒 Registrations: CLOSED"}
                     </button>
+
+                    <button
+                        onClick={toggleMaintenanceMode}
+                        className="tab-btn"
+                        style={{
+                            background: maintenanceMode ? '#ef4444' : '#22c55e',
+                            color: 'white',
+                            border: 'none',
+                            fontWeight: 'bold',
+                            boxShadow: maintenanceMode ? '0 0 10px #ef4444' : 'none'
+                        }}
+                    >
+                        {maintenanceMode ? "🛑 Maintenance: ON" : "✅ Maintenance: OFF"}
+                    </button>
+
                     <button onClick={() => navigate("/")} className="tab-btn" style={{ background: 'transparent' }}>
                         View Site ↗
                     </button>
@@ -132,10 +167,10 @@ function Dashboard() {
                     <span className="stat-label">Live Standings</span>
                     <span className="stat-value">View Table 🏆</span>
                 </div>
-            </div>
+            </div >
 
             {/* TABS */}
-            <div className="dashboard-tabs">
+            < div className="dashboard-tabs" >
                 <button
                     className={`tab-btn ${activeTab === "events" ? "active" : ""}`}
                     onClick={() => setActiveTab("events")}
@@ -184,11 +219,12 @@ function Dashboard() {
                 >
                     🖼️ Gallery
                 </button>
-            </div>
+            </div >
 
             {/* CONTENT */}
-            <div className="dashboard-content">
-                {activeTab === "events" && <ManageEvents />}
+            < div className="dashboard-content" >
+                {activeTab === "events" && <ManageEvents />
+                }
                 {activeTab === "registrations" && <ManageRegistrations />}
                 {activeTab === "results" && <ManageResults />}
                 {activeTab === "teams" && <ManageTeams />}
@@ -196,8 +232,8 @@ function Dashboard() {
                 {activeTab === "profiles" && <ManageStudentProfiles />}
                 {activeTab === "announcements" && <ManageAnnouncements />}
                 {activeTab === "gallery" && <ManageGallery />}
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }
 

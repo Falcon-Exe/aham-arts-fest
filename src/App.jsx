@@ -1,13 +1,14 @@
 import { useEffect, useState, lazy, Suspense } from "react";
-import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import { HashRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "./firebase";
 
 import AppLayout from "./components/AppLayout";
 import PwaUpdate from "./components/PwaUpdate";
 import AdminLogin from "./components/AdminLogin";
+import Maintenance from "./pages/Maintenance";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
-
-
 
 // Lazy Load Pages
 const Home = lazy(() => import("./pages/Home"));
@@ -20,27 +21,40 @@ const Register = lazy(() => import("./pages/Register"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-export default function App() {
+function AppContent() {
   const [loading, setLoading] = useState(true);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(t);
+    // Check for maintenance mode
+    const unscubscribe = onSnapshot(doc(db, "settings", "publicConfig"), (snapshot) => {
+      if (snapshot.exists()) {
+        setMaintenanceMode(snapshot.data().maintenanceMode || false);
+      }
+      setTimeout(() => setLoading(false), 800);
+    });
+
+    return () => unscubscribe();
   }, []);
 
   if (loading) {
     return (
       <div className="loader">
         <img src="/pwa-512x512.png" alt="AHAM Logo" />
-
       </div>
     );
   }
 
+  // Check if current route is an admin route
+  const isAdminRoute = location.pathname.includes("/admin") || location.pathname.includes("/dashboard");
 
+  if (maintenanceMode && !isAdminRoute) {
+    return <Maintenance />;
+  }
 
   return (
-    <Router>
+    <>
       <Suspense fallback={
         <div style={{ display: 'flex', justifyContent: 'center', marginTop: '50px', color: '#666' }}>
           Loading...
@@ -65,8 +79,15 @@ export default function App() {
       </Suspense>
       <Analytics />
       <SpeedInsights />
-      {/* 🔔 PWA UPDATE BANNER (OUTSIDE ROUTES, INSIDE ROUTER) */}
       <PwaUpdate />
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }
