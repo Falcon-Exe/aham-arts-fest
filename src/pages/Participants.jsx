@@ -30,6 +30,16 @@ function Participants() {
           s = s.replace(/PHOTOFEACHURE/g, "PHOTO FEATURE");
           s = s.replace(/Q&H/g, "Q AND H");
           s = s.replace(/SONG WRITER/g, "SONG WRITING");
+
+          // Fix missing commas (Concat issues)
+          s = s.replace(/TRENT SETTING/g, ", TRENT SETTING");
+          s = s.replace(/REEL MAKING/g, ", REEL MAKING");
+          s = s.replace(/MIME/g, ", MIME");
+          s = s.replace(/MASHUP/g, ", MASHUP");
+
+          // Cleanup resulting double commas
+          s = s.replace(/,,/g, ",");
+          s = s.replace(/^,/, "");
           return s;
         };
 

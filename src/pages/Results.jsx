@@ -23,10 +23,6 @@ function Results() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
 
-  const showToast = (message, type = 'info') => {
-    setToast({ message, type });
-  };
-
   const handleToastClose = () => {
     setToast(null);
   };
@@ -179,19 +175,21 @@ function Results() {
           />
         </div>
 
-        {/* TEAM QUICK-FILTER */}
-        <div className="team-filter-bar">
-          {sortedTeams.map(([team, pts]) => (
-            <button
-              key={team}
-              className={`team-pill team-${team} ${activeTeam === team ? "active" : ""}`}
-              onClick={() => setActiveTeam(activeTeam === team ? null : team)}
-            >
-              <span className="pill-name">{team}</span>
-              <span className="pill-pts">{pts}</span>
-            </button>
-          ))}
-        </div>
+        {/* TEAM QUICK-FILTER (Visible only if Points are enabled) */}
+        {showResultsPoints && (
+          <div className="team-filter-bar">
+            {sortedTeams.map(([team, pts]) => (
+              <button
+                key={team}
+                className={`team-pill team-${team} ${activeTeam === team ? "active" : ""}`}
+                onClick={() => setActiveTeam(activeTeam === team ? null : team)}
+              >
+                <span className="pill-name">{team}</span>
+                <span className="pill-pts">{pts}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* RESULTS GRID */}

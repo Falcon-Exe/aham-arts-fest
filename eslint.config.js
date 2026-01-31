@@ -15,7 +15,11 @@ export default defineConfig([
     ],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        React: 'readonly',
+      },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },
@@ -24,6 +28,19 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      'react-refresh/only-export-components': 'warn',
     },
+  },
+  {
+    files: ['src/*.js'], // Target the utility scripts in src root
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      }
+    },
+    rules: {
+      'no-undef': 'off', // Turn off no-undef for these scripts if needed, but globals.node should suffice
+      'no-unused-vars': 'off' // Relax unused vars for scripts
+    }
   },
 ])

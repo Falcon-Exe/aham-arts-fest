@@ -7,6 +7,8 @@ import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
 import { CSV_URL } from "../config";
+import { isGeneralEvent } from "../constants/events";
+import { TEAMS } from "../constants/teams";
 
 export default function ManageResults() {
     const [events, setEvents] = useState([]);
@@ -234,9 +236,8 @@ export default function ManageResults() {
                 const offStage = p["OFF STAGE ITEMES"] || p["OFF STAGE ITEMS"] || p["OFF STAGE EVENTS"] || "";
                 const general = p["GENERAL EVENTS"] || p["OFF STAGE - GENERAL"] || p["ON STAGE - GENERAL"] || "";
 
-                const allEvents = (onStage + "," + offStage + "," + general);
-                // Try fuzzy match
-                return toComparable(allEvents).includes(toComparable(eventName));
+                const allEventsList = (onStage + "," + offStage + "," + general).split(',').map(s => s.trim().toUpperCase());
+                return allEventsList.includes(eventName.toUpperCase().trim());
             });
             setFilteredParticipants(registered);
         } else {
@@ -294,8 +295,8 @@ export default function ManageResults() {
                     const onStage = p["ON STAGE ITEMS"] || p["ON STAGE EVENTS"] || "";
                     const offStage = p["OFF STAGE ITEMES"] || p["OFF STAGE ITEMS"] || p["OFF STAGE EVENTS"] || "";
                     const general = p["GENERAL EVENTS"] || p["OFF STAGE - GENERAL"] || p["ON STAGE - GENERAL"] || "";
-                    const allEvents = (onStage + "," + offStage + "," + general);
-                    return toComparable(allEvents).includes(toComparable(eventName));
+                    const allEventsList = (onStage + "," + offStage + "," + general).split(',').map(s => s.trim().toUpperCase());
+                    return allEventsList.includes(eventName.toUpperCase().trim());
                 });
 
                 // If none registered, just take the first candidate
@@ -312,10 +313,10 @@ export default function ManageResults() {
         const offStage = student["OFF STAGE ITEMES"] || student["OFF STAGE ITEMS"] || student["OFF STAGE EVENTS"] || "";
         const general = student["GENERAL EVENTS"] || student["OFF STAGE - GENERAL"] || student["ON STAGE - GENERAL"] || "";
 
-        const allEvents = (onStage + "," + offStage + "," + general);
+        const allEventsList = (onStage + "," + offStage + "," + general).split(',').map(s => s.trim().toUpperCase());
 
-        // Fuzzy Check
-        if (!toComparable(allEvents).includes(toComparable(eventName))) {
+        // Exact Check
+        if (!allEventsList.includes(eventName.toUpperCase().trim())) {
             // If name matched but event didn't, and we didn't use chest number, maybe there's ANOTHER student with same name?
             // This is a "weak match" scenario. But for now, we assume name collision needs unique ID or ChestNo.
             return { status: 'warning', msg: `Student is found, but NOT registered for "${eventName}".` };
@@ -359,8 +360,16 @@ export default function ManageResults() {
 
             // 1. Calculate Category Points
             let categoryPoints = 0;
+
+            // Check if General Event (Overrides Category)
+            const isGeneral = isGeneralEvent(ev?.name);
+
             if (place === "None") {
                 categoryPoints = 0;
+            } else if (isGeneral) {       // <--- NEW: General Events Logic
+                if (place === "First") categoryPoints = 25;
+                else if (place === "Second") categoryPoints = 15;
+                else if (place === "Third") categoryPoints = 10;
             } else if (category === "A") {
                 if (place === "First") categoryPoints = 12;
                 else if (place === "Second") categoryPoints = 8;
@@ -387,7 +396,7 @@ export default function ManageResults() {
             const payload = {
                 ...formData,
                 eventName: ev?.name || "Unknown",
-                category: category,
+                category: isGeneral ? "General" : category, // Tag as General if applicable
                 points: totalPoints
             };
 
@@ -417,8 +426,8 @@ export default function ManageResults() {
                 const onStage = p["ON STAGE EVENTS"] || "";
                 const offStage = p["OFF STAGE EVENTS"] || "";
                 const general = p["GENERAL EVENTS"] || p["OFF STAGE - GENERAL"] || p["ON STAGE - GENERAL"] || "";
-                const allEvents = (onStage + "," + offStage + "," + general);
-                return toComparable(allEvents).includes(toComparable(eventName));
+                const allEventsList = (onStage + "," + offStage + "," + general).split(',').map(s => s.trim().toUpperCase());
+                return allEventsList.includes(eventName.toUpperCase().trim());
             });
             setFilteredParticipants(registered);
 
@@ -585,8 +594,14 @@ export default function ManageResults() {
 
             // 1. Calculate Category Points
             let categoryPoints = 0;
+            const isGeneral = isGeneralEvent(ev.name); // Check General
+
             if (place === "None") {
                 categoryPoints = 0;
+            } else if (isGeneral) {       // <--- NEW: General Events Logic Recalc
+                if (place === "First") categoryPoints = 25;
+                else if (place === "Second") categoryPoints = 15;
+                else if (place === "Third") categoryPoints = 10;
             } else if (category === "A") {
                 if (place === "First") categoryPoints = 12;
                 else if (place === "Second") categoryPoints = 8;
@@ -611,7 +626,10 @@ export default function ManageResults() {
             const totalPoints = categoryPoints + gradePoints;
 
             if (r.points !== totalPoints) {
-                await updateDoc(doc(db, "results", r.id), { points: totalPoints, category: category });
+                await updateDoc(doc(db, "results", r.id), {
+                    points: totalPoints,
+                    category: isGeneral ? "General" : category
+                });
                 updated++;
             }
         }
@@ -625,6 +643,9 @@ export default function ManageResults() {
 
     // Event Search State
     const [eventSearchTerm, setEventSearchTerm] = useState("");
+
+    // Results History Search State
+    const [resultsSearchTerm, setResultsSearchTerm] = useState("");
 
     // Cloudinary Config (Reused)
     const CLOUD_NAME = "dncz0c7vu";
@@ -695,6 +716,17 @@ export default function ManageResults() {
         e.name.toLowerCase().includes(eventSearchTerm.toLowerCase())
     );
 
+    const filteredResults = results.filter(r => {
+        const q = resultsSearchTerm.toLowerCase();
+        return (
+            (r.eventName || "").toLowerCase().includes(q) ||
+            (r.name || "").toLowerCase().includes(q) ||
+            (r.team || "").toLowerCase().includes(q) ||
+            (r.chestNo || "").toString().toLowerCase().includes(q) ||
+            (r.grade || "").toLowerCase().includes(q)
+        );
+    });
+
     return (
         <div className="manage-results">
             {toast && <Toast message={toast.message} type={toast.type} onClose={handleToastClose} />}
@@ -763,7 +795,14 @@ export default function ManageResults() {
                             required
                         >
                             <option value="">-- Select Event --</option>
-                            {filteredEventsForSelect.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
+                            {filteredEventsForSelect.map(ev => {
+                                const hasResult = results.some(r => r.eventId === ev.id);
+                                return (
+                                    <option key={ev.id} value={ev.id}>
+                                        {ev.name} {hasResult ? "✅" : ""}
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
 
@@ -778,23 +817,49 @@ export default function ManageResults() {
                         <option value="None">None (Grade Only)</option>
                     </select>
 
-                    <select
-                        className="admin-select full-width"
-                        value={selectedStudentId}
-                        onChange={handleStudentChange}
-                        required={selectedStudentId !== "Manual Entry"}
-                        disabled={!formData.eventId}
-                    >
-                        <option value="">-- Select Registered Student --</option>
-                        {filteredParticipants.map((p) => (
-                            <option key={p._id} value={p._id}>
-                                {(p["CHEST NUMBER"] || p["CHEST NO"]) ? `[${p["CHEST NUMBER"] || p["CHEST NO"]}] ` : ""}{p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"]}
-                            </option>
-                        ))}
-                        <option value="Manual Entry">Enter Manually...</option>
-                    </select>
+                    {/* Dynamic Selection: Team for General, Student for Others */}
+                    {isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) ? (
+                        <div style={{ marginBottom: '15px' }}>
+                            <label style={{ color: '#aaa', fontSize: '0.8rem', marginBottom: '5px', display: 'block' }}>Select Winning Team (General Event)</label>
+                            <select
+                                className="admin-select full-width"
+                                value={formData.team}
+                                onChange={(e) => {
+                                    const t = e.target.value;
+                                    setFormData({
+                                        ...formData,
+                                        team: t,
+                                        name: t ? `${t} Team` : "" // Auto-set name
+                                    });
+                                    setSelectedStudentId("Manual Entry"); // Bypass student validation
+                                }}
+                                required
+                            >
+                                <option value="">-- Select Team --</option>
+                                {TEAMS.map(team => (
+                                    <option key={team} value={team}>{team}</option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : (
+                        <select
+                            className="admin-select full-width"
+                            value={selectedStudentId}
+                            onChange={handleStudentChange}
+                            required={selectedStudentId !== "Manual Entry"}
+                            disabled={!formData.eventId}
+                        >
+                            <option value="">-- Select Registered Student --</option>
+                            {filteredParticipants.map((p) => (
+                                <option key={p._id} value={p._id}>
+                                    {(p["CHEST NUMBER"] || p["CHEST NO"]) ? `[${p["CHEST NUMBER"] || p["CHEST NO"]}] ` : ""}{p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"]}
+                                </option>
+                            ))}
+                            <option value="Manual Entry">Enter Manually...</option>
+                        </select>
+                    )}
 
-                    {selectedStudentId === "Manual Entry" && (
+                    {selectedStudentId === "Manual Entry" && !isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) && (
                         <input
                             className="admin-input full-width"
                             value={formData.name}
@@ -837,8 +902,18 @@ export default function ManageResults() {
                 </div>
             </form>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px', marginBottom: '16px' }}>
-                <h4 style={{ margin: 0, color: 'var(--primary)' }}>Published Results History</h4>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: 1 }}>
+                    <h4 style={{ margin: 0, color: 'var(--primary)', whiteSpace: 'nowrap' }}>Published Results History</h4>
+                    <input
+                        type="text"
+                        placeholder="🔍 Search history..."
+                        value={resultsSearchTerm}
+                        onChange={(e) => setResultsSearchTerm(e.target.value)}
+                        className="admin-input"
+                        style={{ padding: '8px', fontSize: '0.85rem', width: '100%', maxWidth: '300px', background: '#222', border: '1px solid #333' }}
+                    />
+                </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <button
                         onClick={toggleHomePoints}
@@ -894,7 +969,7 @@ export default function ManageResults() {
                         </tr>
                     </thead>
                     <tbody>
-                        {results.map(r => (
+                        {filteredResults.map(r => (
                             <tr key={r.id}>
                                 <td>{r.eventName}</td>
                                 <td>{r.place}</td>

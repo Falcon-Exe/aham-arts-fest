@@ -9,6 +9,8 @@ import ManageEvents from "../components/ManageEvents";
 import ManageResults from "../components/ManageResults";
 import ManageAnnouncements from "../components/ManageAnnouncements";
 import ManageTeams from "../components/ManageTeams";
+import ManageIndividualPoints from "../components/ManageIndividualPoints";
+import ManageStudentProfiles from "../components/ManageStudentProfiles";
 import ManageGallery from "../components/ManageGallery";
 import ManageRegistrations from "../components/ManageRegistrations";
 import { collection, onSnapshot, doc, setDoc } from "firebase/firestore";
@@ -156,7 +158,19 @@ function Dashboard() {
                     className={`tab-btn ${activeTab === "teams" ? "active" : ""}`}
                     onClick={() => setActiveTab("teams")}
                 >
-                    🏆 Points Table
+                    🏆 Team Points
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === "individual" ? "active" : ""}`}
+                    onClick={() => setActiveTab("individual")}
+                >
+                    👤 Individual Points
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === "profiles" ? "active" : ""}`}
+                    onClick={() => setActiveTab("profiles")}
+                >
+                    🔎 Student Search
                 </button>
                 <button
                     className={`tab-btn ${activeTab === "announcements" ? "active" : ""}`}
@@ -178,6 +192,8 @@ function Dashboard() {
                 {activeTab === "registrations" && <ManageRegistrations />}
                 {activeTab === "results" && <ManageResults />}
                 {activeTab === "teams" && <ManageTeams />}
+                {activeTab === "individual" && <ManageIndividualPoints />}
+                {activeTab === "profiles" && <ManageStudentProfiles />}
                 {activeTab === "announcements" && <ManageAnnouncements />}
                 {activeTab === "gallery" && <ManageGallery />}
             </div>
