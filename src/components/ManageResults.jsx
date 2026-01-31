@@ -23,6 +23,8 @@ export default function ManageResults() {
         place: "First",
         name: "",
         team: "",
+        grade: "",
+        chestNo: ""
     });
     const [showHomePoints, setShowHomePoints] = useState(false);
     const [showResultsPoints, setShowResultsPoints] = useState(false);
@@ -366,7 +368,11 @@ export default function ManageResults() {
 
             if (place === "None") {
                 categoryPoints = 0;
-            } else if (isGeneral) {       // <--- NEW: General Events Logic
+            } else if (ev?.name === "PHOTO FEATURE" || ev?.name === "AI VIDEO CREATION") { // Special Case for Photo Feature
+                if (place === "First") categoryPoints = 12;
+                else if (place === "Second") categoryPoints = 8;
+                else if (place === "Third") categoryPoints = 6;
+            } else if (isGeneral) {
                 if (place === "First") categoryPoints = 25;
                 else if (place === "Second") categoryPoints = 15;
                 else if (place === "Third") categoryPoints = 10;
@@ -598,6 +604,10 @@ export default function ManageResults() {
 
             if (place === "None") {
                 categoryPoints = 0;
+            } else if (ev?.name === "PHOTO FEATURE" || ev?.name === "AI VIDEO CREATION") { // Special Case for Photo Feature
+                if (place === "First") categoryPoints = 12;
+                else if (place === "Second") categoryPoints = 8;
+                else if (place === "Third") categoryPoints = 6;
             } else if (isGeneral) {       // <--- NEW: General Events Logic Recalc
                 if (place === "First") categoryPoints = 25;
                 else if (place === "Second") categoryPoints = 15;
@@ -643,6 +653,10 @@ export default function ManageResults() {
 
     // Event Search State
     const [eventSearchTerm, setEventSearchTerm] = useState("");
+
+    // Student-First Search State
+    const [studentSearchTerm, setStudentSearchTerm] = useState("");
+    const [studentEventSuggestions, setStudentEventSuggestions] = useState([]);
 
     // Results History Search State
     const [resultsSearchTerm, setResultsSearchTerm] = useState("");
@@ -727,6 +741,92 @@ export default function ManageResults() {
         );
     });
 
+
+    // Handle Student Search Input
+    const handleStudentSearchChange = (e) => {
+        const term = e.target.value;
+        setStudentSearchTerm(term);
+
+        if (!term || term.length < 2) {
+            setStudentEventSuggestions([]);
+            return;
+        }
+
+        const suggestions = [];
+        const lowerTerm = term.toLowerCase();
+
+        masterParticipants.forEach(p => {
+            const name = p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"] || "";
+            const nameMatches = name.toLowerCase().includes(lowerTerm);
+
+            // Get all events for this student
+            const onStage = (p["ON STAGE EVENTS"] || "").split(',').map(s => s.trim()).filter(Boolean);
+            const offStage = (p["OFF STAGE EVENTS"] || "").split(',').map(s => s.trim()).filter(Boolean);
+            const general = (p["GENERAL EVENTS"] || p["OFF STAGE - GENERAL"] || p["ON STAGE - GENERAL"] || "").split(',').map(s => s.trim()).filter(Boolean);
+
+            const allStudentEvents = [...onStage, ...offStage, ...general];
+
+            allStudentEvents.forEach(evName => {
+                const eventMatches = evName.toLowerCase().includes(lowerTerm);
+
+                // Add to suggestions if either name or event matches
+                if (nameMatches || eventMatches) {
+                    suggestions.push({
+                        studentName: name,
+                        chestNo: p["CHEST NUMBER"] || p["CHEST NO"] || "",
+                        eventName: evName,
+                        studentId: p._id // Assuming _id exists from fetch
+                    });
+                }
+            });
+        });
+        setStudentEventSuggestions(suggestions.slice(0, 10)); // Limit to 10
+    };
+
+    const selectStudentEvent = (suggestion) => {
+        // 1. Find the event obj
+        const ev = events.find(e => e.name.toUpperCase() === suggestion.eventName.toUpperCase());
+        if (!ev) {
+            showToast(`Event '${suggestion.eventName}' not found in system definition.`, "error");
+            return;
+        }
+
+        // 2. Set Event
+        setFormData(prev => ({
+            ...prev,
+            eventId: ev.id,
+            eventName: ev.name,
+            place: "First", // Reset place
+            name: suggestion.studentName,
+            chestNo: suggestion.chestNo,
+            team: "" // Reset team
+            // Grade reset? Keep empty
+        }));
+
+        // 3. Trigger logic to populate student list for this event (simulate handleEventChange partially)
+        const registered = masterParticipants.filter(p => {
+            const onStage = p["ON STAGE EVENTS"] || "";
+            const offStage = p["OFF STAGE EVENTS"] || "";
+            const general = p["GENERAL EVENTS"] || p["OFF STAGE - GENERAL"] || p["ON STAGE - GENERAL"] || "";
+            const allEventsList = (onStage + "," + offStage + "," + general).split(',').map(s => s.trim().toUpperCase());
+            return allEventsList.includes(ev.name.toUpperCase().trim());
+        });
+        setFilteredParticipants(registered);
+
+        // 4. Select the student in the dropdown
+        // Find exact match in filtered participants
+        const exactMatch = registered.find(p => (p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"]) === suggestion.studentName);
+        if (exactMatch) {
+            setSelectedStudentId(exactMatch._id);
+        } else {
+            setSelectedStudentId("Manual Entry");
+        }
+
+        setStudentSearchTerm("");
+        setStudentEventSuggestions([]);
+        showToast(`Selected: ${suggestion.studentName} - ${ev.name}`, "success");
+    };
+
     return (
         <div className="manage-results">
             {toast && <Toast message={toast.message} type={toast.type} onClose={handleToastClose} />}
@@ -804,6 +904,40 @@ export default function ManageResults() {
                                 );
                             })}
                         </select>
+
+                        {/* STUDENT FINDER */}
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                placeholder="🎓 Find by Student Name or Event..."
+                                value={studentSearchTerm}
+                                onChange={handleStudentSearchChange}
+                                className="admin-input"
+                                style={{ width: '100%', padding: '8px', fontSize: '0.8rem', background: '#222', border: '1px solid #333', color: '#ffd700', marginTop: '5px' }}
+                            />
+                            {studentEventSuggestions.length > 0 && (
+                                <ul style={{
+                                    position: 'absolute', top: '100%', left: 0, right: 0,
+                                    background: '#1a1a1a', border: '1px solid #444',
+                                    listStyle: 'none', padding: 0, margin: 0, zIndex: 100,
+                                    maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 10px rgba(0,0,0,0.5)'
+                                }}>
+                                    {studentEventSuggestions.map((s, i) => (
+                                        <li
+                                            key={i}
+                                            onClick={() => selectStudentEvent(s)}
+                                            style={{ padding: '8px 12px', borderBottom: '1px solid #333', cursor: 'pointer', fontSize: '0.85rem' }}
+                                            onMouseEnter={e => e.target.style.background = '#333'}
+                                            onMouseLeave={e => e.target.style.background = 'transparent'}
+                                        >
+                                            <span style={{ color: '#fff', fontWeight: 'bold' }}>{s.studentName}</span>
+                                            <span style={{ color: '#888', marginLeft: '6px' }}>({s.chestNo})</span>
+                                            <br />
+                                            <span style={{ color: 'var(--primary)', fontSize: '0.75rem' }}>👉 {s.eventName}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
                     </div>
 
                     <select
@@ -818,7 +952,12 @@ export default function ManageResults() {
                     </select>
 
                     {/* Dynamic Selection: Team for General, Student for Others */}
-                    {isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) ? (
+                    {(
+                        (() => {
+                            const evName = events.find(e => e.id === formData.eventId)?.name;
+                            return isGeneralEvent(evName) || evName === "PHOTO FEATURE" || evName === "AI VIDEO CREATION";
+                        })()
+                    ) ? (
                         <div style={{ marginBottom: '15px' }}>
                             <label style={{ color: '#aaa', fontSize: '0.8rem', marginBottom: '5px', display: 'block' }}>Select Winning Team (General Event)</label>
                             <select

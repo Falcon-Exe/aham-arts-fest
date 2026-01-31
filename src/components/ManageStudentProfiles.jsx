@@ -13,6 +13,7 @@ export default function ManageStudentProfiles() {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterTeam, setFilterTeam] = useState("All");
     const [filterStatus, setFilterStatus] = useState("All");
+    const [filterEvent, setFilterEvent] = useState("All");
 
     const [sortConfig, setSortConfig] = useState({ key: 'chestNo', direction: 'ascending' });
     const [hoveredStudentId, setHoveredStudentId] = useState(null);
@@ -208,6 +209,14 @@ export default function ManageStudentProfiles() {
             list = list.filter(s => s.totalPoints > 0);
         }
 
+        // Event Filter
+        if (filterEvent !== "All") {
+            list = list.filter(s => {
+                const allEvents = [...s.onStage, ...s.offStage, ...s.general];
+                return allEvents.some(e => e.toUpperCase() === filterEvent.toUpperCase());
+            });
+        }
+
         return list;
     };
 
@@ -285,6 +294,13 @@ export default function ManageStudentProfiles() {
     // Unique Teams for Dropdown
     const teams = ["All", ...new Set(allStudents.map(s => s.team).filter(Boolean))];
 
+    // Unique Events for Dropdown
+    const allEventsSet = new Set();
+    allStudents.forEach(s => {
+        [...s.onStage, ...s.offStage, ...s.general].forEach(e => allEventsSet.add(e));
+    });
+    const events = ["All", ...Array.from(allEventsSet).sort()];
+
     return (
         <div className="manage-student-profiles">
             <h3 className="section-title">🔎 Student Profiles</h3>
@@ -302,6 +318,10 @@ export default function ManageStudentProfiles() {
                     />
                     <select className="admin-input" value={filterTeam} onChange={(e) => setFilterTeam(e.target.value)} style={{ flex: 1 }}>
                         {teams.map(t => <option key={t} value={t}>{t === "All" ? "All Teams" : t}</option>)}
+                    </select>
+                    <select className="admin-input" value={filterEvent} onChange={(e) => setFilterEvent(e.target.value)} style={{ flex: 1 }}>
+                        <option value="All">All Events</option>
+                        {events.filter(e => e !== "All").map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
                     <select className="admin-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ flex: 1 }}>
                         <option value="All">All Status</option>

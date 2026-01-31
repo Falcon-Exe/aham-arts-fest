@@ -9,6 +9,7 @@ import { isGeneralEvent } from "../constants/events";
 function Participants() {
   const [participants, setParticipants] = useState([]);
   const [search, setSearch] = useState("");
+  const [eventFilter, setEventFilter] = useState("");
   const [loading, setLoading] = useState(true);
 
   const csvUrl = CSV_URL;
@@ -205,9 +206,19 @@ function Participants() {
     fetchAllParticipants();
   }, []);
 
+  // Get unique events from all participants
+  const allEvents = new Set();
+  participants.forEach(p => {
+    const onStage = (p["ON STAGE EVENTS"] || "").split(',').map(s => s.trim()).filter(Boolean);
+    const offStage = (p["OFF STAGE EVENTS"] || "").split(',').map(s => s.trim()).filter(Boolean);
+    const general = (p["GENERAL EVENTS"] || "").split(',').map(s => s.trim()).filter(Boolean);
+    [...onStage, ...offStage, ...general].forEach(e => allEvents.add(e));
+  });
+  const sortedEvents = Array.from(allEvents).sort();
+
   const filteredParticipants = participants.filter((p) => {
     const q = search.toLowerCase();
-    return (
+    const textMatch = (
       (p["CANDIDATE NAME"] || "").toLowerCase().includes(q) ||
       (p["CIC NO"] || "").toLowerCase().includes(q) ||
       (p["CHEST NUMBER"] || "").toString().toLowerCase().includes(q) ||
@@ -216,6 +227,19 @@ function Participants() {
       (p["OFF STAGE EVENTS"] || "").toLowerCase().includes(q) ||
       (p["GENERAL EVENTS"] || "").toLowerCase().includes(q)
     );
+
+    // Event filter
+    let eventMatch = true;
+    if (eventFilter) {
+      const allStudentEvents = [
+        ...(p["ON STAGE EVENTS"] || "").split(',').map(s => s.trim()),
+        ...(p["OFF STAGE EVENTS"] || "").split(',').map(s => s.trim()),
+        ...(p["GENERAL EVENTS"] || "").split(',').map(s => s.trim())
+      ].filter(Boolean);
+      eventMatch = allStudentEvents.some(e => e.toUpperCase() === eventFilter.toUpperCase());
+    }
+
+    return textMatch && eventMatch;
   });
 
   return (
@@ -234,10 +258,36 @@ function Participants() {
           <input
             type="text"
             className="participants-search"
-            placeholder="Search by name, chest no, team, events..."
+            placeholder="Search by name, chest no, team..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
+        <div className="search-wrapper" style={{ marginTop: '10px' }}>
+          <span className="search-icon">🎭</span>
+          <select
+            className="participants-search"
+            value={eventFilter}
+            onChange={(e) => setEventFilter(e.target.value)}
+            style={{ cursor: 'pointer' }}
+          >
+            <option value="">All Events ({participants.length} students)</option>
+            {sortedEvents.map(event => {
+              const count = participants.filter(p => {
+                const allStudentEvents = [
+                  ...(p["ON STAGE EVENTS"] || "").split(',').map(s => s.trim()),
+                  ...(p["OFF STAGE EVENTS"] || "").split(',').map(s => s.trim()),
+                  ...(p["GENERAL EVENTS"] || "").split(',').map(s => s.trim())
+                ].filter(Boolean);
+                return allStudentEvents.some(e => e.toUpperCase() === event.toUpperCase());
+              }).length;
+              return (
+                <option key={event} value={event}>
+                  {event} ({count})
+                </option>
+              );
+            })}
+          </select>
         </div>
       </div>
 

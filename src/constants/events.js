@@ -61,7 +61,7 @@ export const EVENT_MAP = {
 export const GENERAL_LIST = [
     "MASHUP", "MIME",
     "BROCHURE MAKING", "PROJECT SUBMISSION", "REEL MAKING",
-    "AI VIDEO CREATION", "TRENT SETTING"
+    "TRENT SETTING"
 ];
 
 export const ALL_EVENTS = Object.keys(EVENT_MAP);
