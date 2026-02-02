@@ -218,12 +218,6 @@ export default function ManageResults() {
     }, [fetchEvents, fetchResults, fetchAllParticipants]);
 
 
-
-    // Helper for fuzzy matching (removes spaces, special chars)
-    const toComparable = (str) => {
-        return str ? str.toLowerCase().replace(/[^a-z0-9]/g, "") : "";
-    };
-
     const handleEventChange = (e) => {
         const eventId = e.target.value;
         const ev = events.find(event => event.id === eventId);
@@ -875,6 +869,84 @@ export default function ManageResults() {
                 {posterUploading && <p style={{ color: 'var(--primary)', marginTop: '10px' }}>Uploading Poster... Please wait...</p>}
             </div>
 
+            {/* DUPLICATE STUDENTS SECTION */}
+            {(() => {
+                // Find all duplicates
+                const nameMap = new Map();
+                masterParticipants.forEach(p => {
+                    const name = (p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"] || "").trim();
+                    if (!name) return;
+
+                    if (!nameMap.has(name)) {
+                        nameMap.set(name, []);
+                    }
+                    nameMap.get(name).push(p);
+                });
+
+                // Filter only duplicates (names with multiple entries)
+                const duplicates = Array.from(nameMap.entries())
+                    .filter(([_, entries]) => entries.length > 1)
+                    .map(([name, entries]) => ({ name, entries }));
+
+                if (duplicates.length === 0) return null;
+
+                return (
+                    <>
+                        <h3 className="section-title" style={{ color: '#ff9800', marginTop: '30px' }}>
+                            ⚠️ Duplicate Students Detected ({duplicates.length} names, {duplicates.reduce((sum, d) => sum + d.entries.length, 0)} total entries)
+                        </h3>
+                        <div className="card" style={{ marginBottom: '30px', padding: '20px', background: '#1a1a1a', border: '1px solid #ff9800' }}>
+                            <p style={{ color: '#ff9800', marginBottom: '15px', fontSize: '0.9rem' }}>
+                                ⚠️ The following students have multiple registrations with different chest numbers. Please review and correct.
+                            </p>
+                            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                <table className="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student Name</th>
+                                            <th>Chest No</th>
+                                            <th>Team</th>
+                                            <th>CIC No</th>
+                                            <th>Events Registered</th>
+                                            <th>Source</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {duplicates.map(({ name, entries }) => (
+                                            entries.map((entry, idx) => {
+                                                const chestNo = entry["CHEST NUMBER"] || entry["CHEST NO"] || "---";
+                                                const team = entry["TEAM"] || entry["TEAM NAME"] || "---";
+                                                const cicNo = entry["CIC NO"] || entry["CIC NUMBER"] || "---";
+                                                const onStage = (entry["ON STAGE EVENTS"] || "").split(',').filter(Boolean).length;
+                                                const offStage = (entry["OFF STAGE EVENTS"] || "").split(',').filter(Boolean).length;
+                                                const general = (entry["GENERAL EVENTS"] || "").split(',').filter(Boolean).length;
+                                                const totalEvents = onStage + offStage + general;
+
+                                                return (
+                                                    <tr key={entry._id} style={{
+                                                        background: idx === 0 ? '#2a1a1a' : 'transparent',
+                                                        borderTop: idx === 0 ? '2px solid #ff9800' : '1px solid #333'
+                                                    }}>
+                                                        <td style={{ fontWeight: idx === 0 ? 'bold' : 'normal', color: idx === 0 ? '#ff9800' : '#fff' }}>
+                                                            {idx === 0 && '🔴 '}{name}
+                                                        </td>
+                                                        <td>{chestNo}</td>
+                                                        <td>{team}</td>
+                                                        <td>{cicNo}</td>
+                                                        <td>{totalEvents} events (On: {onStage}, Off: {offStage}, Gen: {general})</td>
+                                                        <td style={{ fontSize: '0.75rem', color: '#888' }}>{entry._source || 'unknown'}</td>
+                                                    </tr>
+                                                );
+                                            })
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </>
+                );
+            })()}
+
 
             <h3 className="section-title">{editId ? "Edit Result" : "Publish Results (Winners)"}</h3>
 
@@ -989,11 +1061,32 @@ export default function ManageResults() {
                             disabled={!formData.eventId}
                         >
                             <option value="">-- Select Registered Student --</option>
-                            {filteredParticipants.map((p) => (
-                                <option key={p._id} value={p._id}>
-                                    {(p["CHEST NUMBER"] || p["CHEST NO"]) ? `[${p["CHEST NUMBER"] || p["CHEST NO"]}] ` : ""}{p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"]}
-                                </option>
-                            ))}
+                            {filteredParticipants.map((p) => {
+                                const chestNo = p["CHEST NUMBER"] || p["CHEST NO"];
+                                const name = p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"];
+                                const team = p["TEAM"] || p["TEAM NAME"];
+                                const cicNo = p["CIC NO"] || p["CIC NUMBER"];
+
+                                // Check for potential issues
+                                const hasDuplicateName = filteredParticipants.filter(
+                                    participant => (participant["CANDIDATE NAME"] || participant["CANDIDATE  FULL NAME"]) === name
+                                ).length > 1;
+
+                                const hasNoChestNo = !chestNo;
+                                const hasNoTeam = !team;
+
+                                // Build warning flags
+                                let warningFlag = "";
+                                if (hasDuplicateName && chestNo) warningFlag = "⚠️ DUP ";
+                                else if (hasNoChestNo) warningFlag = "⚠️ NO-CHEST ";
+                                else if (hasNoTeam) warningFlag = "⚠️ NO-TEAM ";
+
+                                return (
+                                    <option key={p._id} value={p._id}>
+                                        {warningFlag}{chestNo ? `[${chestNo}] ` : "[---] "}{name}{team ? ` - ${team}` : ""}{cicNo ? ` (CIC: ${cicNo})` : ""}
+                                    </option>
+                                );
+                            })}
                             <option value="Manual Entry">Enter Manually...</option>
                         </select>
                     )}

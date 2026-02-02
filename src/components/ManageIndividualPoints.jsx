@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -87,7 +87,12 @@ export default function ManageIndividualPoints() {
         }
     };
 
-    const sortedScores = [...individualScores].sort((a, b) => {
+    // Filter out team entries (those without chest numbers)
+    const individualOnlyScores = individualScores.filter(student =>
+        student.chestNo && student.chestNo !== '-'
+    );
+
+    const sortedScores = [...individualOnlyScores].sort((a, b) => {
         if (a[sortConfig.key] < b[sortConfig.key]) {
             return sortConfig.direction === 'asc' ? -1 : 1;
         }
@@ -99,23 +104,12 @@ export default function ManageIndividualPoints() {
 
     // CHAMPIONSHIP LOGIC
     const calculateChampions = (scores) => {
-        let sargaWinner = null;
-        let sargaMax = -1;
-
+        // First, find Kalaprathibha (most restrictive criteria)
         let kalaWinner = null;
         let kalaMax = -1;
 
         scores.forEach(student => {
-            // Sargaprathibha: Pure highest points
-            if (student.total > sargaMax) {
-                sargaMax = student.total;
-                sargaWinner = student;
-            } else if (student.total === sargaMax) {
-                // Tie: Keep first found or handle array (Keep simple for now)
-            }
-
-            // Kalaprathibha: 
-            // Condition 1: Must have 1st Place with A+ in Category "A"
+            // Kalaprathibha: Must have 1st Place with A+ in Category "A"
             const isEligible = student.rawResults && student.rawResults.some(r =>
                 (r.category === "A" || r.category === "a") &&
                 r.place === "First" &&
@@ -130,10 +124,37 @@ export default function ManageIndividualPoints() {
             }
         });
 
+        // Then find Sargaprathibha (highest points, but exclude Kalaprathibha winner)
+        let sargaWinner = null;
+        let sargaMax = -1;
+
+        scores.forEach(student => {
+            // Skip if this is the Kalaprathibha winner
+            if (kalaWinner && student.key === kalaWinner.key) {
+                return;
+            }
+
+            // Sargaprathibha: Highest points (excluding Kalaprathibha)
+            if (student.total > sargaMax) {
+                sargaMax = student.total;
+                sargaWinner = student;
+            }
+        });
+
         return { sargaWinner, kalaWinner };
     };
 
-    const champions = calculateChampions(individualScores);
+    const champions = calculateChampions(individualOnlyScores);
+
+    // TROPHY TIER LOGIC
+    const getTrophyTier = (points) => {
+        if (points >= 71 && points <= 84) return '⭐⭐⭐⭐⭐';
+        if (points >= 56 && points <= 70) return '⭐⭐⭐⭐';
+        if (points >= 39 && points <= 55) return '⭐⭐⭐';
+        if (points >= 22 && points <= 38) return '⭐⭐';
+        if (points >= 5 && points <= 21) return '⭐';
+        return '-';
+    };
 
     // FILTER LOGIC
     const filteredScores = sortedScores.filter(s =>
@@ -291,17 +312,208 @@ export default function ManageIndividualPoints() {
                 </div>
             )}
 
+            {/* DUPLICATE STUDENTS DETECTION */}
+            {!loading && (() => {
+                // Find students with same name but different chest numbers
+                const nameMap = new Map();
+                individualOnlyScores.forEach(student => {
+                    const name = student.name.trim();
+                    if (!name || name === "Unknown") return;
+
+                    if (!nameMap.has(name)) {
+                        nameMap.set(name, []);
+                    }
+                    nameMap.get(name).push(student);
+                });
+
+                // Filter only duplicates (same name, different chest numbers)
+                const duplicates = Array.from(nameMap.entries())
+                    .filter(([_, entries]) => {
+                        if (entries.length <= 1) return false;
+                        // Check if they have different chest numbers
+                        const chestNumbers = new Set(entries.map(e => e.chestNo).filter(c => c !== "-"));
+                        return chestNumbers.size > 1; // Multiple different chest numbers
+                    })
+                    .map(([name, entries]) => ({ name, entries }));
+
+                if (duplicates.length === 0) return null;
+
+                return (
+                    <>
+                        <h3 className="section-title" style={{ color: '#ff9800', marginTop: '30px' }}>
+                            ⚠️ Duplicate Students in Scoring ({duplicates.length} names, {duplicates.reduce((sum, d) => sum + d.entries.length, 0)} total entries)
+                        </h3>
+                        <div className="card" style={{ marginBottom: '30px', padding: '20px', background: '#1a1a1a', border: '1px solid #ff9800' }}>
+                            <p style={{ color: '#ff9800', marginBottom: '15px', fontSize: '0.9rem' }}>
+                                ⚠️ The following students appear multiple times with different chest numbers in the results. This may indicate duplicate entries or data errors.
+                            </p>
+                            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                <table className="admin-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Student Name</th>
+                                            <th>Chest No</th>
+                                            <th>Team</th>
+                                            <th>🥇 1st</th>
+                                            <th>🥈 2nd</th>
+                                            <th>🥉 3rd</th>
+                                            <th>Total Points</th>
+                                            <th>Events Won</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {duplicates.map(({ name, entries }) => (
+                                            <React.Fragment key={name}>
+                                                {entries.map((entry, idx) => (
+                                                    <tr key={entry.key} style={{
+                                                        background: idx === 0 ? '#2a1a1a' : 'transparent',
+                                                        borderTop: idx === 0 ? '2px solid #ff9800' : '1px solid #333'
+                                                    }}>
+                                                        <td style={{ fontWeight: idx === 0 ? 'bold' : 'normal', color: idx === 0 ? '#ff9800' : '#fff' }}>
+                                                            {idx === 0 && '🔴 '}{name}
+                                                        </td>
+                                                        <td style={{ fontFamily: 'monospace', fontSize: '1.1rem' }}>{entry.chestNo}</td>
+                                                        <td>{entry.team || "N/A"}</td>
+                                                        <td>{entry.first}</td>
+                                                        <td>{entry.second}</td>
+                                                        <td>{entry.third}</td>
+                                                        <td style={{ color: '#22c55e', fontWeight: '900' }}>{entry.total}</td>
+                                                        <td style={{ fontSize: '0.85rem', color: '#888' }}>{entry.items.length} events</td>
+                                                    </tr>
+                                                ))}
+                                            </React.Fragment>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div style={{ marginTop: '15px', padding: '10px', background: '#2a1a1a', borderRadius: '6px', fontSize: '0.85rem', color: '#ffd700' }}>
+                                💡 <strong>Action Required:</strong> Review these entries in the Results management section. Verify the correct chest number for each student and remove duplicate entries.
+                            </div>
+                        </div>
+                    </>
+                );
+            })()}
+
+            {/* TROPHY TIER STATISTICS */}
+            {!loading && filteredScores.length > 0 && (() => {
+                const tierCounts = {
+                    '5star': filteredScores.filter(s => s.total >= 71 && s.total <= 84).length,
+                    '4star': filteredScores.filter(s => s.total >= 56 && s.total <= 70).length,
+                    '3star': filteredScores.filter(s => s.total >= 39 && s.total <= 55).length,
+                    '2star': filteredScores.filter(s => s.total >= 22 && s.total <= 38).length,
+                    '1star': filteredScores.filter(s => s.total >= 5 && s.total <= 21).length,
+                    'none': filteredScores.filter(s => s.total < 5).length
+                };
+
+                return (
+                    <div className="card" style={{ marginBottom: '30px', padding: '20px', background: '#1a1a1a' }}>
+                        <h4 style={{ margin: '0 0 15px 0', color: '#ffd700', fontSize: '1.1rem' }}>🏆 Trophy Tier Distribution</h4>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
+                            <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
+                                <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>⭐⭐⭐⭐⭐</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ffd700' }}>{tierCounts['5star']}</div>
+                                <div style={{ fontSize: '0.8rem', color: '#888' }}>71-84 pts</div>
+                            </div>
+                            <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
+                                <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>⭐⭐⭐⭐</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#22c55e' }}>{tierCounts['4star']}</div>
+                                <div style={{ fontSize: '0.8rem', color: '#888' }}>56-70 pts</div>
+                            </div>
+                            <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
+                                <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>⭐⭐⭐</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>{tierCounts['3star']}</div>
+                                <div style={{ fontSize: '0.8rem', color: '#888' }}>39-55 pts</div>
+                            </div>
+                            <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
+                                <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>⭐⭐</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#a855f7' }}>{tierCounts['2star']}</div>
+                                <div style={{ fontSize: '0.8rem', color: '#888' }}>22-38 pts</div>
+                            </div>
+                            <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
+                                <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>⭐</div>
+                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#f97316' }}>{tierCounts['1star']}</div>
+                                <div style={{ fontSize: '0.8rem', color: '#888' }}>5-21 pts</div>
+                            </div>
+                            {tierCounts['none'] > 0 && (
+                                <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
+                                    <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>-</div>
+                                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#666' }}>{tierCounts['none']}</div>
+                                    <div style={{ fontSize: '0.8rem', color: '#888' }}>{'<'} 5 pts</div>
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ marginTop: '15px', padding: '10px', background: '#2a1a1a', borderRadius: '6px', textAlign: 'center' }}>
+                            <span style={{ fontSize: '0.9rem', color: '#888' }}>Total Students: </span>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fff' }}>{filteredScores.length}</span>
+                        </div>
+                    </div>
+                );
+            })()}
+
+
             <h3 className="section-title">👤 Individual Standings</h3>
 
-            <div className="table-controls" style={{ marginBottom: '20px', display: 'flex', gap: '15px' }}>
+            <div className="table-controls" style={{ marginBottom: '20px', display: 'flex', gap: '15px', alignItems: 'center' }}>
                 <input
                     type="text"
                     className="admin-input"
                     placeholder="🔍 Search by Name, Chest No, or Team..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ maxWidth: '400px' }}
+                    style={{ maxWidth: '400px', flex: 1 }}
                 />
+                <button
+                    onClick={() => {
+                        // Prepare CSV data
+                        const csvData = filteredScores.map((student, index) => ({
+                            Rank: sortConfig.key === 'total' ? index + 1 : '-',
+                            'Chest No': student.chestNo,
+                            Name: student.name,
+                            Team: student.team || 'N/A',
+                            '1st Place': student.first,
+                            '2nd Place': student.second,
+                            '3rd Place': student.third,
+                            'Total Points': student.total,
+                            'Trophy Tier': getTrophyTier(student.total),
+                            'Events Won': student.items.length
+                        }));
+
+                        // Convert to CSV string
+                        const headers = Object.keys(csvData[0] || {});
+                        const csvContent = [
+                            headers.join(','),
+                            ...csvData.map(row =>
+                                headers.map(header => {
+                                    const value = row[header];
+                                    // Escape commas and quotes
+                                    if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                                        return `"${value.replace(/"/g, '""')}"`;
+                                    }
+                                    return value;
+                                }).join(',')
+                            )
+                        ].join('\n');
+
+                        // Download
+                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                        const link = document.createElement('a');
+                        const url = URL.createObjectURL(blob);
+                        link.setAttribute('href', url);
+                        link.setAttribute('download', `individual_points_${new Date().toISOString().split('T')[0]}.csv`);
+                        link.style.visibility = 'hidden';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }}
+                    className="admin-btn"
+                    style={{
+                        background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                        padding: '10px 20px',
+                        whiteSpace: 'nowrap'
+                    }}
+                >
+                    📥 Download CSV
+                </button>
             </div>
 
             {loading ? <div className="spinner"></div> : (
@@ -327,6 +539,7 @@ export default function ManageIndividualPoints() {
                                 <th onClick={() => handleSort('total')} style={{ cursor: 'pointer' }}>
                                     Total Points {sortConfig.key === 'total' && (sortConfig.direction === 'desc' ? '▼' : '▲')}
                                 </th>
+                                <th>🏆 Trophy</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -374,10 +587,11 @@ export default function ManageIndividualPoints() {
                                             <td style={{ color: '#22c55e', fontWeight: '900', fontSize: '1.2rem' }}>
                                                 {student.total}
                                             </td>
+                                            <td style={{ fontSize: '1.2rem' }}>{getTrophyTier(student.total)}</td>
                                         </tr>
                                         {expandedRow === student.key && (
                                             <tr key={`${student.key}-detail`} style={{ background: 'rgba(255,255,255,0.02)' }}>
-                                                <td colSpan="8" style={{ padding: '0 0 20px 0' }}>
+                                                <td colSpan="9" style={{ padding: '0 0 20px 0' }}>
                                                     <div style={{ padding: '15px', marginLeft: '50px', borderLeft: '2px solid #555' }}>
                                                         <h4 style={{ marginTop: 0, marginBottom: '10px', color: '#aaa', fontSize: '0.9rem' }}>Detailed Results for {student.name}</h4>
                                                         <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
