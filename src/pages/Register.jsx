@@ -165,30 +165,76 @@ export default function Register() {
         );
     }
 
-    if (!isRegistrationOpen) {
+    // Show event concluded message
+    const eventConcluded = true; // Arts fest has ended
+
+    if (eventConcluded || !isRegistrationOpen) {
         return (
             <div className="register-container">
+                <Helmet>
+                    <title>Registration Closed | AHAM Arts Fest</title>
+                </Helmet>
                 <header className="register-header">
                     <button onClick={() => navigate("/")} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#666', marginBottom: '10px' }}>
                         ← Home
                     </button>
-                    <h2 className="register-title">Registration Closed</h2>
+                    <h2 className="register-title">AHAM Arts Fest 2026</h2>
                 </header>
-                <div className="register-form" style={{ textAlign: 'center', padding: '40px' }}>
-                    <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🔒</div>
-                    <h3>Registrations are currently locked by the Admin.</h3>
-                    <p style={{ color: '#666' }}>Please contact the event coordinators for assistance.</p>
+                <div className="register-form" style={{ textAlign: 'center', padding: '50px 20px' }}>
+                    <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🎉</div>
+                    <h3 style={{ fontSize: '1.8rem', marginBottom: '15px', color: '#22c55e' }}>Event Concluded!</h3>
+                    <p style={{ color: '#aaa', fontSize: '1.1rem', marginBottom: '10px' }}>
+                        AHAM Arts Fest 2026 has successfully concluded.
+                    </p>
+                    <p style={{ color: '#666', marginBottom: '30px' }}>
+                        Thank you to all participants, teams, and organizers for making this event a success!
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '30px' }}>
+                        <button
+                            onClick={() => navigate("/results")}
+                            style={{
+                                background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '12px 24px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                fontWeight: '600'
+                            }}
+                        >
+                            🏆 View Final Results
+                        </button>
+                        <button
+                            onClick={() => navigate("/gallery")}
+                            style={{
+                                background: '#333',
+                                color: '#fff',
+                                border: 'none',
+                                padding: '12px 24px',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                fontWeight: '600'
+                            }}
+                        >
+                            📸 View Gallery
+                        </button>
+                    </div>
+
                     {user && (
                         <button
                             onClick={() => signOut(auth)}
                             style={{
-                                marginTop: '20px',
+                                marginTop: '30px',
                                 background: '#ffebee',
                                 color: '#d32f2f',
                                 border: 'none',
                                 padding: '8px 16px',
                                 borderRadius: '4px',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                fontSize: '0.9rem'
                             }}
                         >
                             Logout ({user.email})

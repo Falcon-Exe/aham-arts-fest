@@ -19,8 +19,8 @@ const BattleArena = () => {
   return (
     <section className="battle-arena-section">
       <div className="arena-header">
-        <h2 className="arena-title">BATTLE ARENA</h2>
-        <div className="live-badge-pulse">LIVE</div>
+        <h2 className="arena-title">FINAL STANDINGS</h2>
+        <div className="live-badge-pulse" style={{ background: '#22c55e', animation: 'none' }}>FINAL</div>
       </div>
 
       <div className="arena-grid">
@@ -80,8 +80,8 @@ function Home() {
         <div className="hero-center-badge">
           <div className="circle-frame">
             <span className="visual-text">
-              <span className="month-text">JANUARY</span>
-              <span className="date-text">30 31</span>
+              <span className="month-text" style={{ fontSize: '0.9rem' }}>EVENT</span>
+              <span className="date-text" style={{ fontSize: '1.3rem' }}>CONCLUDED</span>
             </span>
           </div>
         </div>
@@ -94,10 +94,10 @@ function Home() {
             <span className="card-icon">🎭</span>
           </Link>
 
-          <Link to="/register" className="bento-card card-register">
+          <Link to="/results" className="bento-card card-register">
             <span className="card-num">02</span>
-            <span className="card-label">REGISTER</span>
-            <span className="card-icon">✍️</span>
+            <span className="card-label">VIEW RESULTS</span>
+            <span className="card-icon">🏆</span>
           </Link>
 
           <Link to="/participants" className="bento-card card-players">
@@ -109,7 +109,7 @@ function Home() {
           <Link to="/results" className="bento-card card-results">
             <div className="card-header">
               <span className="card-num">04</span>
-              <span className="live-badge">LIVE</span>
+              <span className="live-badge" style={{ background: '#22c55e' }}>FINAL</span>
             </div>
             <span className="card-label">RESULTS</span>
           </Link>

@@ -10,6 +10,7 @@ export default function ManageIndividualPoints() {
     const [expandedRow, setExpandedRow] = useState(null); // Track expanded student key
 
     const [expandedChampion, setExpandedChampion] = useState(null); // 'kala' or 'sarga' or null
+    const [expandedTier, setExpandedTier] = useState(null); // Track which trophy tier is expanded
 
     useEffect(() => {
         // Real-time listener for results
@@ -405,46 +406,199 @@ export default function ManageIndividualPoints() {
                     'none': filteredScores.filter(s => s.total < 5).length
                 };
 
+                const tierStudents = {
+                    '5star': filteredScores.filter(s => s.total >= 71 && s.total <= 84),
+                    '4star': filteredScores.filter(s => s.total >= 56 && s.total <= 70),
+                    '3star': filteredScores.filter(s => s.total >= 39 && s.total <= 55),
+                    '2star': filteredScores.filter(s => s.total >= 22 && s.total <= 38),
+                    '1star': filteredScores.filter(s => s.total >= 5 && s.total <= 21),
+                    'none': filteredScores.filter(s => s.total < 5)
+                };
+
+                const handleDownloadTier = (tierName, students, stars) => {
+                    if (students.length === 0) return;
+
+                    const csvData = students.map((student, index) => ({
+                        Rank: index + 1,
+                        'Chest No': student.chestNo,
+                        Name: student.name,
+                        Team: student.team || 'N/A',
+                        '1st Place': student.first,
+                        '2nd Place': student.second,
+                        '3rd Place': student.third,
+                        'Total Points': student.total,
+                        'Trophy Tier': stars
+                    }));
+
+                    const headers = Object.keys(csvData[0] || {});
+                    const csvContent = [
+                        headers.join(','),
+                        ...csvData.map(row =>
+                            headers.map(header => {
+                                const value = row[header];
+                                if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
+                                    return `"${value.replace(/"/g, '""')}"`;
+                                }
+                                return value;
+                            }).join(',')
+                        )
+                    ].join('\n');
+
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    const url = URL.createObjectURL(blob);
+                    link.setAttribute('href', url);
+                    link.setAttribute('download', `trophy_tier_${tierName}_${new Date().toISOString().split('T')[0]}.csv`);
+                    link.style.visibility = 'hidden';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                };
+
+                const TierCard = ({ tier, stars, count, pointRange, color, students }) => (
+                    <div
+                        style={{
+                            textAlign: 'center',
+                            padding: '15px',
+                            background: '#2a1a1a',
+                            borderRadius: '8px',
+                            border: expandedTier === tier ? `2px solid ${color}` : '1px solid #444',
+                            transition: 'all 0.2s ease',
+                            position: 'relative'
+                        }}
+                    >
+                        <div
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => setExpandedTier(expandedTier === tier ? null : tier)}
+                        >
+                            <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>{stars}</div>
+                            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: color }}>{count}</div>
+                            <div style={{ fontSize: '0.8rem', color: '#888' }}>{pointRange}</div>
+                        </div>
+                        {students.length > 0 && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDownloadTier(tier, students, stars);
+                                }}
+                                style={{
+                                    marginTop: '10px',
+                                    padding: '6px 12px',
+                                    background: color,
+                                    color: tier === 'none' ? '#fff' : '#000',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold',
+                                    width: '100%'
+                                }}
+                            >
+                                📥 Download List
+                            </button>
+                        )}
+                        {expandedTier === tier && students.length > 0 && (
+                            <div style={{
+                                marginTop: '15px',
+                                paddingTop: '15px',
+                                borderTop: '1px solid #444',
+                                maxHeight: '300px',
+                                overflowY: 'auto',
+                                textAlign: 'left'
+                            }}>
+                                <div style={{ fontSize: '0.75rem', color: '#aaa', marginBottom: '8px', fontWeight: 'bold' }}>
+                                    Students in this tier:
+                                </div>
+                                {students.map((student, idx) => (
+                                    <div
+                                        key={student.key}
+                                        style={{
+                                            padding: '6px 8px',
+                                            marginBottom: '4px',
+                                            background: 'rgba(255,255,255,0.05)',
+                                            borderRadius: '4px',
+                                            fontSize: '0.8rem',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}
+                                    >
+                                        <div>
+                                            <span style={{ fontWeight: '600', color: '#fff' }}>{student.name}</span>
+                                            <span style={{ color: '#888', marginLeft: '8px' }}>({student.chestNo})</span>
+                                        </div>
+                                        <span style={{ color: color, fontWeight: 'bold' }}>{student.total} pts</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {expandedTier === tier && (
+                            <div style={{ fontSize: '0.7rem', color: '#666', marginTop: '10px' }}>
+                                {students.length > 0 ? 'Click to collapse' : 'No students in this tier'}
+                            </div>
+                        )}
+                    </div>
+                );
+
                 return (
                     <div className="card" style={{ marginBottom: '30px', padding: '20px', background: '#1a1a1a' }}>
                         <h4 style={{ margin: '0 0 15px 0', color: '#ffd700', fontSize: '1.1rem' }}>🏆 Trophy Tier Distribution</h4>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
-                            <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
-                                <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>⭐⭐⭐⭐⭐</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ffd700' }}>{tierCounts['5star']}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#888' }}>71-84 pts</div>
-                            </div>
-                            <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
-                                <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>⭐⭐⭐⭐</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#22c55e' }}>{tierCounts['4star']}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#888' }}>56-70 pts</div>
-                            </div>
-                            <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
-                                <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>⭐⭐⭐</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#3b82f6' }}>{tierCounts['3star']}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#888' }}>39-55 pts</div>
-                            </div>
-                            <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
-                                <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>⭐⭐</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#a855f7' }}>{tierCounts['2star']}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#888' }}>22-38 pts</div>
-                            </div>
-                            <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
-                                <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>⭐</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#f97316' }}>{tierCounts['1star']}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#888' }}>5-21 pts</div>
-                            </div>
+                            <TierCard
+                                tier="5star"
+                                stars="⭐⭐⭐⭐⭐"
+                                count={tierCounts['5star']}
+                                pointRange="71-84 pts"
+                                color="#ffd700"
+                                students={tierStudents['5star']}
+                            />
+                            <TierCard
+                                tier="4star"
+                                stars="⭐⭐⭐⭐"
+                                count={tierCounts['4star']}
+                                pointRange="56-70 pts"
+                                color="#22c55e"
+                                students={tierStudents['4star']}
+                            />
+                            <TierCard
+                                tier="3star"
+                                stars="⭐⭐⭐"
+                                count={tierCounts['3star']}
+                                pointRange="39-55 pts"
+                                color="#3b82f6"
+                                students={tierStudents['3star']}
+                            />
+                            <TierCard
+                                tier="2star"
+                                stars="⭐⭐"
+                                count={tierCounts['2star']}
+                                pointRange="22-38 pts"
+                                color="#a855f7"
+                                students={tierStudents['2star']}
+                            />
+                            <TierCard
+                                tier="1star"
+                                stars="⭐"
+                                count={tierCounts['1star']}
+                                pointRange="5-21 pts"
+                                color="#f97316"
+                                students={tierStudents['1star']}
+                            />
                             {tierCounts['none'] > 0 && (
-                                <div style={{ textAlign: 'center', padding: '15px', background: '#2a1a1a', borderRadius: '8px', border: '1px solid #444' }}>
-                                    <div style={{ fontSize: '1.5rem', marginBottom: '5px' }}>-</div>
-                                    <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#666' }}>{tierCounts['none']}</div>
-                                    <div style={{ fontSize: '0.8rem', color: '#888' }}>{'<'} 5 pts</div>
-                                </div>
+                                <TierCard
+                                    tier="none"
+                                    stars="-"
+                                    count={tierCounts['none']}
+                                    pointRange="< 5 pts"
+                                    color="#666"
+                                    students={tierStudents['none']}
+                                />
                             )}
                         </div>
                         <div style={{ marginTop: '15px', padding: '10px', background: '#2a1a1a', borderRadius: '6px', textAlign: 'center' }}>
                             <span style={{ fontSize: '0.9rem', color: '#888' }}>Total Students: </span>
                             <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fff' }}>{filteredScores.length}</span>
+                            <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>💡 Click on any tier to see student names</div>
                         </div>
                     </div>
                 );
@@ -587,7 +741,14 @@ export default function ManageIndividualPoints() {
                                             <td style={{ color: '#22c55e', fontWeight: '900', fontSize: '1.2rem' }}>
                                                 {student.total}
                                             </td>
-                                            <td style={{ fontSize: '1.2rem' }}>{getTrophyTier(student.total)}</td>
+                                            <td style={{ fontSize: '1.2rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                    <div>{getTrophyTier(student.total)}</div>
+                                                    <div style={{ fontSize: '0.75rem', color: '#888', fontWeight: '500' }}>
+                                                        {student.name}
+                                                    </div>
+                                                </div>
+                                            </td>
                                         </tr>
                                         {expandedRow === student.key && (
                                             <tr key={`${student.key}-detail`} style={{ background: 'rgba(255,255,255,0.02)' }}>

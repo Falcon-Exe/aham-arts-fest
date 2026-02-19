@@ -228,8 +228,8 @@ export default function ManageResults() {
 
         if (eventName) {
             const registered = masterParticipants.filter(p => {
-                const onStage = p["ON STAGE ITEMS"] || p["ON STAGE EVENTS"] || "";
-                const offStage = p["OFF STAGE ITEMES"] || p["OFF STAGE ITEMS"] || p["OFF STAGE EVENTS"] || "";
+                const onStage = p["ON STAGE EVENTS"] || p["ON STAGE ITEMS"] || "";
+                const offStage = p["OFF STAGE EVENTS"] || p["OFF STAGE ITEMS"] || p["OFF STAGE ITEMES"] || "";
                 const general = p["GENERAL EVENTS"] || p["OFF STAGE - GENERAL"] || p["ON STAGE - GENERAL"] || "";
 
                 const allEventsList = (onStage + "," + offStage + "," + general).split(',').map(s => s.trim().toUpperCase());
@@ -1027,7 +1027,7 @@ export default function ManageResults() {
                     {(
                         (() => {
                             const evName = events.find(e => e.id === formData.eventId)?.name;
-                            return isGeneralEvent(evName) || evName === "PHOTO FEATURE" || evName === "AI VIDEO CREATION";
+                            return isGeneralEvent(evName);
                         })()
                     ) ? (
                         <div style={{ marginBottom: '15px' }}>
