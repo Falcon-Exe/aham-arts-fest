@@ -256,7 +256,7 @@ export default function ManageRegistrations() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [csvUrl]);
 
     useEffect(() => {
         fetchRegistrations();

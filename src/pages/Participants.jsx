@@ -203,8 +203,7 @@ function Participants() {
       }
     };
 
-    fetchAllParticipants();
-  }, []);
+  }, [csvUrl]);
 
   // Get unique events from all participants
   const allEvents = new Set();

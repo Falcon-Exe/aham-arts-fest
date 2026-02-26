@@ -26,5 +26,32 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Additional Collections needed for the app
+    match /settings/{setting} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /registrations/{registration} {
+      allow read: if true;
+      allow create: if true; // Allow students to register
+      allow update, delete: if isAdmin();
+    }
+
+    match /teams/{team} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /gallery/{item} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /student_profiles/{profile} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

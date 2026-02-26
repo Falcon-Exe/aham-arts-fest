@@ -329,7 +329,7 @@ export default function ManageIndividualPoints() {
 
                 // Filter only duplicates (same name, different chest numbers)
                 const duplicates = Array.from(nameMap.entries())
-                    .filter(([_, entries]) => {
+                    .filter(([name, entries]) => {
                         if (entries.length <= 1) return false;
                         // Check if they have different chest numbers
                         const chestNumbers = new Set(entries.map(e => e.chestNo).filter(c => c !== "-"));
@@ -509,7 +509,7 @@ export default function ManageIndividualPoints() {
                                 <div style={{ fontSize: '0.75rem', color: '#aaa', marginBottom: '8px', fontWeight: 'bold' }}>
                                     Students in this tier:
                                 </div>
-                                {students.map((student, idx) => (
+                                {students.map((student) => (
                                     <div
                                         key={student.key}
                                         style={{

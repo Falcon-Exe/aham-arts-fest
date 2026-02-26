@@ -2,7 +2,6 @@
 const { initializeApp } = require('firebase/app');
 const { getFirestore, collection, getDocs } = require('firebase/firestore');
 const Papa = require('papaparse');
-const fetch = require('node-fetch');
 
 const firebaseConfig = {
     apiKey: "AIzaSyDlE8OiYLlgWgVPUqSQiPKpjXVdRDdGLfU",

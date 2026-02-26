@@ -215,7 +215,7 @@ export default function ManageResults() {
             await fetchAllParticipants();
         };
         run();
-    }, [fetchEvents, fetchResults, fetchAllParticipants]);
+    }, [fetchEvents, fetchResults, fetchAllParticipants, csvUrl]);
 
 
     const handleEventChange = (e) => {
@@ -885,7 +885,7 @@ export default function ManageResults() {
 
                 // Filter only duplicates (names with multiple entries)
                 const duplicates = Array.from(nameMap.entries())
-                    .filter(([_, entries]) => entries.length > 1)
+                    .filter(([name, entries]) => entries.length > 1)
                     .map(([name, entries]) => ({ name, entries }));
 
                 if (duplicates.length === 0) return null;
