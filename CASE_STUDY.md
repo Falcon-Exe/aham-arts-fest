@@ -1,18 +1,7 @@
 # Case Study: AHAM Arts Fest Management Platform
 
-[![Live Demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://aham-arts-fest.vercel.app)
-> **Note:** The live demo is hosted on Vercel. 
-
 ## 1. Project Overview
 **AHAM Arts Fest** is a comprehensive, real-time web application designed to digitize and streamline the management of a large-scale school/college arts festival. From participant registration and event scheduling to live championship leaderboards and automated team scoring, the platform serves as the central hub for both students and festival administrators. It eliminates manual spreadsheet tracking, reduces error margins, and provides a cinematic, dynamic experience for end-users.
-
-## Screenshots
-<p align="center">
-  <img src="./public/pwa-512x512.png" width="200" alt="AHAM Logo" />
-</p>
-<p align="center">
-  <i>(Replace this placeholder with an actual full-page screenshot of the dashboard or home page. You can add images like `screenshot1.png` to the repository and link them here.)</i>
-</p>
 
 ## 2. Problem Statement
 Managing a massive arts festival involves coordinating hundreds of students across dozens of "On Stage" and "Off Stage" events. Traditional methods involving paper registrations, manual result tabulation, and delayed announcements lead to confusion, data silos, and a poor experience for the student body. The goal was to build a highly responsive system that could handle live data updates, ensure data integrity across thousands of candidate registrations, and provide an intuitive dashboard for admins to manage the entire lifecycle of the fest.
@@ -42,14 +31,5 @@ The project adopts a modern serverless architecture, optimized for speed, reliab
 *   **Complex Route Protection & Lazy Loading:** Given the heavy admin dashboard components, React `Suspense` and `lazy` loading were implemented to split the bundle size, ensuring the initial load for the public facing "Home" page remains exceptionally fast.
 *   **Data Duplication Prevention:** Dedicated scripts (`merge_duplicates.js`, `diagnose_mismatch.js`) and strict Firestore rules were written to identify, report, and merge duplicate student registrations from legacy incoming CSVs.
 
-## 6. Local Development Setup
-
-To run this project locally:
-
-1. Clone the repository: `git clone https://github.com/Falcon-Exe/aham-arts-fest.git`
-2. Install dependencies: `npm install`
-3. Add a `.env` file with your Firebase configuration.
-4. Run the development server: `npm run dev`
-
-## 7. Outcome & Impact
+## 6. Outcome & Impact
 The AHAM Arts Fest platform transformed a chaotic manual coordination effort into a sleek, transparent digital experience. Admins gained the ability to publish results instantly, while students and parents received a cinematic, PWA-enabled portal to track live performances, scores, and media in real-time. The architecture proves highly resilient under traffic spikes, representing a scalable model for event management systems.
