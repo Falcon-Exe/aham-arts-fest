@@ -3,15 +3,13 @@
   width: 100%;
   overflow: hidden;
   background: transparent;
-  /* No box */
   color: var(--primary);
-  /* Text color matches theme */
-  padding: 8px 0;
+  padding: 12px 0;
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 1.1rem;
+  line-height: 1.4;
   text-transform: uppercase;
-  z-index: 100;
-  /* border-bottom removed */
+  z-index: 1001;
 }
 
 .ticker:hover {

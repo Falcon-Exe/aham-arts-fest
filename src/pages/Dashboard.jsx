@@ -12,8 +12,12 @@ import ManageTeams from "../components/ManageTeams";
 import ManageIndividualPoints from "../components/ManageIndividualPoints";
 import ManageStudentProfiles from "../components/ManageStudentProfiles";
 import ManageGallery from "../components/ManageGallery";
+import ManageTeamAccounts from "../components/ManageTeamAccounts";
+import ManageStudents from "../components/ManageStudents";
 import ManageRegistrations from "../components/ManageRegistrations";
-import { collection, onSnapshot, doc, setDoc } from "firebase/firestore";
+import ManageAuditLogs from "../components/ManageAuditLogs";
+import ManageSettings from "../components/ManageSettings";
+import { collection, onSnapshot, doc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { useConfirm } from "../hooks/useConfirm";
 import { ADMIN_EMAILS } from "../constants/auth";
@@ -22,19 +26,37 @@ function Dashboard() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("events");
-    const [stats, setStats] = useState({ events: 0, results: 0 });
+    const [stats, setStats] = useState({ events: 0, participants: 0, teams: 0 });
     const navigate = useNavigate();
     const { confirm, confirmState } = useConfirm();
 
     const [isRegistrationOpen, setIsRegistrationOpen] = useState(true);
+    const [onStageOpen, setOnStageOpen] = useState(true);
+    const [offStageOpen, setOffStageOpen] = useState(true);
+    const [generalOpen, setGeneralOpen] = useState(true);
     const [maintenanceMode, setMaintenanceMode] = useState(false);
+    const [showCategoryMenu, setShowCategoryMenu] = useState(false);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (!currentUser) {
                 navigate("/admin");
             } else {
-                if (!ADMIN_EMAILS.includes(currentUser.email)) {
+                const email = currentUser.email.toLowerCase();
+                let isAuthorized = ADMIN_EMAILS.includes(email);
+
+                if (!isAuthorized) {
+                    try {
+                        const adminDoc = await getDoc(doc(db, "admins", email));
+                        if (adminDoc.exists()) {
+                            isAuthorized = true;
+                        }
+                    } catch (err) {
+                        console.error("Error verifying admin whitelist:", err);
+                    }
+                }
+
+                if (!isAuthorized) {
                     alert("🚫 Access Denied: You are not authorized to view the Admin Dashboard.");
                     navigate("/");
                     return;
@@ -55,9 +77,18 @@ function Dashboard() {
         // Registration Lock Listener
         const unsubSettings = onSnapshot(doc(db, "settings", "config"), (docSnap) => {
             if (docSnap.exists()) {
-                setIsRegistrationOpen(docSnap.data().isRegistrationOpen ?? true);
+                const data = docSnap.data();
+                setIsRegistrationOpen(data.isRegistrationOpen ?? true);
+                setOnStageOpen(data.onStageOpen ?? true);
+                setOffStageOpen(data.offStageOpen ?? true);
+                setGeneralOpen(data.generalOpen ?? true);
             } else {
-                setDoc(doc(db, "settings", "config"), { isRegistrationOpen: true }, { merge: true });
+                setDoc(doc(db, "settings", "config"), { 
+                    isRegistrationOpen: true,
+                    onStageOpen: true,
+                    offStageOpen: true,
+                    generalOpen: true
+                }, { merge: true });
             }
         });
 
@@ -89,6 +120,17 @@ function Dashboard() {
         } catch (error) {
             console.error("Error updating settings:", error);
             alert("Failed to update registration status.");
+        }
+    };
+
+    const toggleCategoryLock = async (category, currentState) => {
+        const catName = category === 'onStageOpen' ? 'On Stage' : (category === 'offStageOpen' ? 'Off Stage' : 'General');
+        if (!await confirm(`Are you sure you want to ${currentState ? "LOCK" : "UNLOCK"} ${catName} registrations?`)) return;
+        try {
+            await setDoc(doc(db, "settings", "config"), { [category]: !currentState }, { merge: true });
+        } catch (error) {
+            console.error("Error updating settings:", error);
+            alert(`Failed to update ${catName} registration status.`);
         }
     };
 
@@ -129,6 +171,56 @@ function Dashboard() {
                     >
                         {isRegistrationOpen ? "🔓 Registrations: OPEN" : "🔒 Registrations: CLOSED"}
                     </button>
+                    <div style={{ position: 'relative' }}>
+                        <button
+                            onClick={() => setShowCategoryMenu(!showCategoryMenu)}
+                            className="tab-btn"
+                            style={{ background: 'var(--bg-secondary)', color: 'var(--text-main)', border: '1px solid var(--border-soft)', fontWeight: 'bold' }}
+                        >
+                            🛠️ Category Toggles {showCategoryMenu ? '▴' : '▾'}
+                        </button>
+                        
+                        {showCategoryMenu && (
+                            <div style={{ 
+                                position: 'absolute', 
+                                top: '100%', 
+                                left: 0, 
+                                marginTop: '8px',
+                                background: 'var(--bg-main)', 
+                                border: '1px solid var(--border-soft)', 
+                                borderRadius: '8px',
+                                padding: '12px',
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                gap: '8px',
+                                zIndex: 100,
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                                minWidth: '180px'
+                            }}>
+                                <button
+                                    onClick={() => { toggleCategoryLock('onStageOpen', onStageOpen); setShowCategoryMenu(false); }}
+                                    className="tab-btn"
+                                    style={{ background: onStageOpen ? '#22c55e' : '#ef4444', color: 'white', border: 'none', fontWeight: 'bold', width: '100%', justifyContent: 'flex-start' }}
+                                >
+                                    🎭 On Stage: {onStageOpen ? "ON" : "OFF"}
+                                </button>
+                                <button
+                                    onClick={() => { toggleCategoryLock('offStageOpen', offStageOpen); setShowCategoryMenu(false); }}
+                                    className="tab-btn"
+                                    style={{ background: offStageOpen ? '#22c55e' : '#ef4444', color: 'white', border: 'none', fontWeight: 'bold', width: '100%', justifyContent: 'flex-start' }}
+                                >
+                                    📝 Off Stage: {offStageOpen ? "ON" : "OFF"}
+                                </button>
+                                <button
+                                    onClick={() => { toggleCategoryLock('generalOpen', generalOpen); setShowCategoryMenu(false); }}
+                                    className="tab-btn"
+                                    style={{ background: generalOpen ? '#22c55e' : '#ef4444', color: 'white', border: 'none', fontWeight: 'bold', width: '100%', justifyContent: 'flex-start' }}
+                                >
+                                    🌐 General: {generalOpen ? "ON" : "OFF"}
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                     <button
                         onClick={toggleMaintenanceMode}
@@ -205,8 +297,15 @@ function Dashboard() {
                     className={`tab-btn ${activeTab === "profiles" ? "active" : ""}`}
                     onClick={() => setActiveTab("profiles")}
                 >
-                    🔎 Student Search
+                    🔎 Student Database
                 </button>
+                <button
+                    className={`tab-btn ${activeTab === "team_accounts" ? "active" : ""}`}
+                    onClick={() => setActiveTab("team_accounts")}
+                >
+                    🔐 Team Accounts
+                </button>
+
                 <button
                     className={`tab-btn ${activeTab === "announcements" ? "active" : ""}`}
                     onClick={() => setActiveTab("announcements")}
@@ -219,19 +318,34 @@ function Dashboard() {
                 >
                     🖼️ Gallery
                 </button>
+                <button
+                    className={`tab-btn ${activeTab === "audit" ? "active" : ""}`}
+                    onClick={() => setActiveTab("audit")}
+                >
+                    📜 Audit Logs
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === "settings" ? "active" : ""}`}
+                    onClick={() => setActiveTab("settings")}
+                >
+                    ⚙️ Settings
+                </button>
             </div >
 
             {/* CONTENT */}
             < div className="dashboard-content" >
-                {activeTab === "events" && <ManageEvents />
-                }
+                {activeTab === "events" && <ManageEvents />}
                 {activeTab === "registrations" && <ManageRegistrations />}
+
                 {activeTab === "results" && <ManageResults />}
                 {activeTab === "teams" && <ManageTeams />}
                 {activeTab === "individual" && <ManageIndividualPoints />}
                 {activeTab === "profiles" && <ManageStudentProfiles />}
+                {activeTab === "team_accounts" && <ManageTeamAccounts />}
                 {activeTab === "announcements" && <ManageAnnouncements />}
                 {activeTab === "gallery" && <ManageGallery />}
+                {activeTab === "audit" && <ManageAuditLogs />}
+                {activeTab === "settings" && <ManageSettings />}
             </div >
         </div >
     );

@@ -1,0 +1,26 @@
+import { useState, useEffect } from "react";
+import "./NetworkStatus.css";
+
+export default function NetworkStatus() {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  return (
+    <div className={`network-status ${isOnline ? "online" : "offline"}`}>
+      <span className="dot"></span>
+      <span className="label">{isOnline ? "Online" : "Offline"}</span>
+    </div>
+  );
+}

@@ -3,17 +3,17 @@ import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
 import { db } from "../firebase";
 import "./Gallery.css";
 
-import pic1 from "../assets/pic1.jpg";
-import pic2 from "../assets/pic2.jpg";
-import pic3 from "../assets/pic3.jpg";
+// import pic1 from "../assets/pic1.jpg";
+// import pic2 from "../assets/pic2.jpg";
+// import pic3 from "../assets/pic3.jpg";
 // import pic4 from "../assets/pic4.jpg";
 
-const defaultItems = [
-  { src: pic1, title: "COMMITTE" },
-  { src: pic2, title: "LOGO LAUNCHING" },
-  { src: pic3, title: "LOGO DETAILS" },
-  // { src: pic4, title: "VISION" },
-];
+// const defaultItems = [
+//   { src: pic1, title: "COMMITTE" },
+//   { src: pic2, title: "LOGO LAUNCHING" },
+//   { src: pic3, title: "LOGO DETAILS" },
+//   // { src: pic4, title: "VISION" },
+// ];
 
 function Gallery() {
   const [items, setItems] = useState([]);
@@ -21,11 +21,22 @@ function Gallery() {
   const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, "gallery"), orderBy("title"));
+    const q = query(collection(db, "gallery"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map(doc => doc.data());
-      setItems(list.length > 0 ? list : defaultItems);
+      let list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      list = list.filter(item => item.isPinned);
+      list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+      if (list.length > 0) {
+        setItems(list);
+      } else {
+        setItems(defaultItems);
+      }
+    }, (error) => {
+      console.error("Error fetching curated gallery:", error);
+      setItems(defaultItems);
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -66,7 +77,11 @@ function Gallery() {
         {displayItems.map((item, i) => (
           <div className="featured-frame" key={i}>
             <div className="image-wrapper">
-              <img src={item.src} alt={item.title} loading="lazy" />
+              {item.mediaType === "VIDEO" && item.videoUrl ? (
+                <video src={item.videoUrl} muted loop playsInline autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <img src={item.src} alt={item.title} loading="lazy" />
+              )}
               <div className="frame-overlay"></div>
             </div>
             <div className="frame-info">

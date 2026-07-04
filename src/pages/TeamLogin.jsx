@@ -34,11 +34,13 @@ export default function TeamLogin() {
         }
     };
 
-    return (
-        <div className="team-login-container">
-            <Helmet>
-                <title>Team Lead Login | AHAM Arts Fest</title>
-            </Helmet>
+  const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+
+  return (
+    <div className="team-login-container">
+      <Helmet>
+        <title>{`Team Lead Login | ${appName}`}</title>
+      </Helmet>
 
             <div className="login-card">
                 <div className="login-header">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTeamScores } from "../hooks/useTeamScores";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase"; // Still needed for raw rows if we want detailed list, 
 // BUT the current implementation fetches raw rows separately.
 // Let's keep the raw rows fetch for the details, but use the hook for the headers.
@@ -14,6 +14,7 @@ import { db } from "../firebase"; // Still needed for raw rows if we want detail
 // Let's just import the hook for the Champion/Scoreboard part to ensure consistency.
 
 import Toast from '../components/Toast';
+import StandingsChart from "../components/StandingsChart";
 import "./Results.css";
 
 function Results() {
@@ -28,20 +29,58 @@ function Results() {
   };
 
   // Use Hook for official scores
-  const { scores: sortedTeamsData, champion: hookChampion, runnerUp: hookRunnerUp, showResultsPoints } = useTeamScores();
+  const { scores: sortedTeamsData, champion: hookChampion, runnerUp: hookRunnerUp, showResultsPoints, teamColors } = useTeamScores();
 
   // Map Event Name -> Result Image URL
   const [eventPosters, setEventPosters] = useState({});
 
-  // Load results from Firestore (Raw data for list)
+  // Request notification permissions
   useEffect(() => {
-    const fetchResults = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "results"));
-        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setRows(data);
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    }
+  }, []);
 
-        // Also fetch events to get poster images
+  // Load results from Firestore (Raw data for list with real-time updates)
+  useEffect(() => {
+    let isFirstLoad = true;
+
+    // Real-time listener for results
+    const unsubscribeResults = onSnapshot(collection(db, "results"), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setRows(data);
+      setLoading(false);
+
+      if (!isFirstLoad) {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            const newRes = change.doc.data();
+            const title = `🏆 New Result Announced!`;
+            const body = `${newRes.name} (${newRes.chestNo || "No Chest No"}) from Team ${newRes.team} won ${newRes.place === 'None' ? 'Grade Only' : newRes.place} for ${newRes.eventName}!`;
+            
+            setToast({ message: `${title} - ${body}`, type: "success" });
+
+            if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+              try {
+                new Notification(title, { body, icon: "/pwa-192x192.png" });
+              } catch (e) {
+                console.error("Browser notification trigger failed:", e);
+              }
+            }
+          }
+        });
+      }
+      isFirstLoad = false;
+    }, (error) => {
+      console.error("Error loading real-time results:", error);
+      setLoading(false);
+    });
+
+    // Also fetch events to get poster images
+    const fetchEvents = async () => {
+      try {
         const eventsSnap = await getDocs(collection(db, "events"));
         const posterMap = {};
         eventsSnap.docs.forEach(doc => {
@@ -51,21 +90,49 @@ function Results() {
           }
         });
         setEventPosters(posterMap);
-
       } catch (error) {
-        console.error("Error loading results:", error);
-      } finally {
-        setLoading(false);
+        console.error("Error loading events:", error);
       }
     };
-    fetchResults();
+    
+    fetchEvents();
+
+    return () => unsubscribeResults();
   }, []);
 
-  // Map hook data to the format Results.jsx expects if needed, 
-  // or just use the hook data directly for the Hero section.
+  // Load dynamic student categories
+  let dynamicCategories = [];
+  try {
+    const storedCats = localStorage.getItem("branding_studentCategories");
+    if (storedCats) dynamicCategories = JSON.parse(storedCats);
+  } catch (e) {
+    console.error(e);
+  }
+  if (dynamicCategories.length === 0) {
+    dynamicCategories = ["Junior", "Senior"];
+  }
 
-  const champion = hookChampion ? [hookChampion.team, hookChampion.total] : null;
-  const runnerUp = hookRunnerUp ? [hookRunnerUp.team, hookRunnerUp.total] : null;
+  const [activeCategoryTab, setActiveCategoryTab] = useState("Overall");
+  const [activeSubTab, setActiveSubTab] = useState("All"); // All | On Stage | Off Stage
+
+  const activeScoresData = sortedTeamsData.map(s => {
+    let total;
+    if (activeCategoryTab === "Overall") {
+      if (activeSubTab === "All") total = s.total;
+      else if (activeSubTab === "On Stage") total = s.onStage || 0;
+      else total = s.offStage || 0;
+    } else {
+      const catObj = s.categories?.[activeCategoryTab];
+      if (!catObj) { total = 0; }
+      else if (activeSubTab === "All") total = catObj.total || 0;
+      else if (activeSubTab === "On Stage") total = catObj.onStage || 0;
+      else total = catObj.offStage || 0;
+    }
+    return { team: s.team, total };
+  }).sort((a, b) => b.total - a.total);
+
+  const champion = activeScoresData.length > 0 && activeScoresData[0].total > 0 ? [activeScoresData[0].team, activeScoresData[0].total] : null;
+  const runnerUp = activeScoresData.length > 1 && activeScoresData[1].total > 0 ? [activeScoresData[1].team, activeScoresData[1].total] : null;
 
   /* ===============================
      GROUP BY EVENT
@@ -73,6 +140,16 @@ function Results() {
   const grouped = {};
   rows.forEach((r) => {
     if (!r.eventName) return;
+    // Category filter
+    if (activeCategoryTab !== "Overall") {
+      const rowCat = r.studentCategory || "General";
+      if (rowCat !== activeCategoryTab) return;
+    }
+    // Sub-tab (stage type) filter
+    if (activeSubTab !== "All") {
+      const evType = r.type || "On Stage";
+      if (evType !== activeSubTab) return;
+    }
     if (!grouped[r.eventName]) grouped[r.eventName] = [];
     grouped[r.eventName].push(r);
   });
@@ -98,7 +175,7 @@ function Results() {
   });
 
   // We need an array [teamName, points] for the filter bar to match existing map
-  const sortedTeams = sortedTeamsData.map(s => [s.team, s.total]);
+  const sortedTeams = activeScoresData.map(s => [s.team, s.total]);
 
 
   const gradeClass = (g) => {
@@ -127,9 +204,42 @@ function Results() {
         </div>
       </header>
 
+      {/* Category tabs */}
+      <div className="tab-container" style={{ display: 'flex', gap: '8px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
+          <button className="tab-btn" style={{ background: activeCategoryTab === "Overall" ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "9px 18px", borderRadius: "30px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab("Overall")}>
+              🏆 Overall
+          </button>
+          {dynamicCategories.map(cat => (
+              <button key={cat} className="tab-btn" style={{ background: activeCategoryTab === cat ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "9px 18px", borderRadius: "30px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab(cat)}>
+                  👤 {cat}
+              </button>
+          ))}
+          <button className="tab-btn" style={{ background: activeCategoryTab === "General" ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "9px 18px", borderRadius: "30px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab("General")}>
+              🌐 General
+          </button>
+      </div>
+
+      {/* Sub-tabs: On Stage / Off Stage */}
+      <div className="tab-container" style={{ display: 'flex', gap: '8px', marginBottom: '22px', overflowX: 'auto' }}>
+          {['All', 'On Stage', 'Off Stage'].map(sub => (
+              <button key={sub} className="tab-btn" style={{ background: activeSubTab === sub ? "var(--secondary, #e63946)" : "rgba(255,255,255,0.05)", color: "white", border: "1px solid var(--border-soft)", padding: "6px 14px", borderRadius: "20px", cursor: "pointer", whiteSpace: "nowrap", fontSize: "0.82rem", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveSubTab(sub)}>
+                  {sub === 'All' ? '📋 All Events' : sub === 'On Stage' ? '🎭 On Stage' : '📝 Off Stage'}
+              </button>
+          ))}
+      </div>
+
+      {showResultsPoints && (
+        <StandingsChart
+            scores={activeScoresData.map(s => ({ name: s.team, total: s.total }))}
+            activeCategory={activeCategoryTab}
+            subCategory={activeSubTab}
+            teamColors={teamColors}
+        />
+      )}
+
       {/* HERO SECTION: CHAMPIONSHIP PROGRESS */}
       {showResultsPoints && champion && (
-        <section className={`hero-section team-${champion[0]}`}>
+        <section className={`hero-section team-${champion[0]} stagger-reveal-badge`}>
           <div className="hero-grid">
             <div className="hero-main">
               <div className="hero-label">Festival Leader</div>
@@ -196,9 +306,9 @@ function Results() {
       {filteredEvents.length === 0 ? (
         <p style={{ textAlign: "center", color: "var(--muted)", marginTop: "20px" }}>No results found.</p>
       ) : (
-        <div className="results-grid">
+        <div className="results-grid stagger-reveal-grid">
           {filteredEvents.map(([event, list]) => (
-            <div key={event} className="results-card">
+            <div key={event} className="results-card premium-glass-hover">
               <div className="result-card-header">
                 <h3 className="results-event">{event}</h3>
 
@@ -245,6 +355,7 @@ function Results() {
           ))}
         </div>
       )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={handleToastClose} />}
     </div>
   );
 }

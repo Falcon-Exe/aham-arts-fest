@@ -18,18 +18,23 @@ function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+  const words = appName.split(" ");
+  const lastWord = words.length > 1 ? words.pop() : "";
+  const mainTitle = words.join(" ");
+
   return (
     <header className={`island-header ${scrolled ? "hidden" : "visible"}`}>
       <div className="island-capsule">
         {/* LOGO ICON */}
         <div className="island-logo">
-          <img src="/pwa-512x512.png" alt="Logo" />
+          <img src={localStorage.getItem("branding_logoUrl") || "/pwa-512x512.png"} alt="Logo" />
         </div>
 
         {/* TITLE COMPACT */}
         <div className="island-title">
-          <span className="bold">AHAM</span>
-          <span className="thin">2026</span>
+          <span className="bold">{mainTitle}</span>
+          <span className="thin">{lastWord || appName}</span>
         </div>
 
         {/* LIVE INDICATOR */}

@@ -19,11 +19,13 @@ export default function AppLayout() {
   const isHome = location.pathname === "/";
   const currentItem = NAV_ITEMS.find(item => item.path === location.pathname);
 
+  const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+
   return (
     <div className="app-layout">
       <Helmet>
-        <title>AHAM Arts Fest 2026</title>
-        <meta name="description" content="Majlis Umariyya Students' Federation Arts Festival - Live Results and Updates" />
+        <title>{appName}</title>
+        <meta name="description" content={`Official standings and live updates for ${appName}.`} />
       </Helmet>
       {/* GLOBAL ANNOUNCEMENT TICKER (TOP) */}
       <AnnouncementTicker />

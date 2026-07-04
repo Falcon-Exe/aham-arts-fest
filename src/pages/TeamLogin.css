@@ -1,131 +1,175 @@
-
 /* Dark Theme Team Login */
 .team-login-container {
-    min-height: 80vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    background: transparent; /* Assuming global background handles it, or use var(--bg-color) */
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+  background: transparent;
+  position: relative;
+}
+
+.team-login-container::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  max-width: 800px;
+  height: 800px;
+  background: radial-gradient(circle, rgba(194, 65, 12, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+  pointer-events: none;
+  z-index: -1;
+  border-radius: 50%;
+  animation: pulseGlow 6s infinite alternate ease-in-out;
+}
+
+@keyframes pulseGlow {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+  100% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
 }
 
 .login-card {
-    background: var(--card-bg, #121212);
-    width: 100%;
-    max-width: 400px;
-    padding: 2.5rem;
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border-soft, rgba(255, 255, 255, 0.1));
-    backdrop-filter: blur(10px);
+  background: rgba(20, 20, 20, 0.6);
+  width: 100%;
+  max-width: 440px;
+  padding: 50px 40px;
+  border-radius: var(--radius-xl);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  opacity: 0.5;
 }
 
 .login-header {
-    text-align: center;
-    margin-bottom: 2rem;
+  text-align: center;
+  margin-bottom: var(--space-4);
 }
 
 .login-header h2 {
-    color: var(--primary);
-    font-size: 1.8rem;
-    margin-bottom: 0.5rem;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  color: var(--text-main);
+  font-size: 1.8rem;
+  margin-bottom: var(--space-1);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 .login-header p {
-    color: var(--muted, #a0a0a0);
-    font-size: 0.95rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
 }
 
 .form-group {
-    margin-bottom: 1.25rem;
+  margin-bottom: var(--space-3);
 }
 
 .form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    color: var(--text-main, #f8f9fa);
-    font-weight: 500;
-    font-size: 0.9rem;
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .form-group input {
-    width: 100%;
-    padding: 12px 16px;
-    border: 1px solid var(--border-soft, rgba(255, 255, 255, 0.1));
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: all 0.2s;
-    background: rgba(0, 0, 0, 0.3);
-    color: var(--text-color, #fff);
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  transition: all var(--transition-normal);
+  background: var(--bg-main);
+  color: var(--text-main);
+  font-family: var(--font-family);
+}
+
+.form-group input:hover {
+  border-color: rgba(0, 0, 0, 0.15);
 }
 
 .form-group input:focus {
-    background: rgba(0, 0, 0, 0.5);
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--primary-soft, rgba(230, 57, 70, 0.1));
-    outline: none;
+  background: var(--bg-tertiary);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(194, 65, 12, 0.2);
+  outline: none;
 }
 
 .login-btn {
-    width: 100%;
-    padding: 14px;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.1s, background 0.2s;
-    margin-top: 1rem;
-    box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-top: var(--space-2);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-family);
 }
 
 .login-btn:hover {
-    background: var(--primary-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 6px 20px rgba(230, 57, 70, 0.4);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md), var(--shadow-glow);
+  border-color: rgba(0, 0, 0, 0.2);
 }
 
 .login-btn:active {
-    transform: scale(0.98);
+  transform: translateY(0);
 }
 
 .login-btn:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-    background: #444;
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .error-message {
-    background: rgba(230, 57, 70, 0.1);
-    color: #ff6b6b;
-    padding: 10px;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    margin-bottom: 1rem;
-    border-left: 3px solid #ff6b6b;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-3);
+  border-left: 3px solid var(--danger);
 }
 
 .login-footer {
-    margin-top: 1.5rem;
-    text-align: center;
-    border-top: 1px solid var(--border-soft, rgba(255, 255, 255, 0.1));
-    padding-top: 1.5rem;
+  margin-top: var(--space-4);
+  text-align: center;
+  border-top: 1px solid var(--border-soft);
+  padding-top: var(--space-4);
 }
 
 .back-link {
-    background: none;
-    border: none;
-    color: var(--muted, #888);
-    font-size: 0.9rem;
-    cursor: pointer;
-    padding: 5px 10px;
-    transition: color 0.2s;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 6px 12px;
+  transition: color var(--transition-fast);
+  font-family: var(--font-family);
 }
 
 .back-link:hover {
-    color: var(--primary);
-    text-decoration: none;
+  color: var(--text-main);
+  text-decoration: none;
 }

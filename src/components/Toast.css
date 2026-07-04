@@ -1,53 +1,50 @@
 /* TOAST NOTIFICATION */
 .toast-notification {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(30, 30, 30, 0.9);
-    color: white;
-    padding: 12px 24px;
-    border-radius: 50px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    z-index: 9999;
-    animation: slideDown 0.3s ease-out;
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    min-width: 300px;
-    justify-content: center;
-    text-align: center;
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  color: var(--text-main);
+  padding: 12px 24px;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-lg);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 9999;
+  animation: slideDown var(--transition-normal) ease-out;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-soft);
+  min-width: 300px;
+  justify-content: center;
+  text-align: center;
 }
 
 .toast-notification.success {
-    background: rgba(34, 197, 94, 0.9);
-    /* Green */
-    border-color: rgba(34, 197, 94, 0.3);
+  border-color: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
 }
 
 .toast-notification.error {
-    background: rgba(230, 57, 70, 0.9);
-    /* Red */
-    border-color: rgba(230, 57, 70, 0.3);
+  border-color: rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
 }
 
 .toast-notification.info {
-    background: rgba(0, 150, 255, 0.9);
-    /* Blue */
-    border-color: rgba(0, 150, 255, 0.3);
+  border-color: rgba(6, 182, 212, 0.3);
+  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.15);
 }
 
 @keyframes slideDown {
-    from {
-        transform: translate(-50%, -20px);
-        opacity: 0;
-    }
-
-    to {
-        transform: translate(-50%, 0);
-        opacity: 1;
-    }
+  from {
+    transform: translate(-50%, -20px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
 }

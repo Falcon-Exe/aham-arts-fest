@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
-import Papa from "papaparse";
-import { CSV_URL } from "../config";
+import ManageStudents from "./ManageStudents";
 
 export default function ManageStudentProfiles() {
+    const [activeTab, setActiveTab] = useState("master"); // 'master' or 'profiles'
     const [allStudents, setAllStudents] = useState([]);
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -23,21 +23,11 @@ export default function ManageStudentProfiles() {
         const fetchData = async () => {
             setLoading(true);
             try {
-                // 1. Fetch Registrations (CSV + Firestore)
-                const csvPromise = fetch(CSV_URL + "&t=" + Date.now())
-                    .then(res => res.text())
-                    .then(csv => new Promise(resolve => {
-                        Papa.parse(csv, {
-                            header: true,
-                            skipEmptyLines: true,
-                            complete: (res) => resolve(res.data)
-                        });
-                    }));
-
+                // 1. Fetch Registrations and Results
                 const regPromise = getDocs(collection(db, "registrations"));
                 const resPromise = getDocs(collection(db, "results"));
 
-                const [csvData, regSnap, resSnap] = await Promise.all([csvPromise, regPromise, resPromise]);
+                const [regSnap, resSnap] = await Promise.all([regPromise, resPromise]);
 
                 // Normalize Registrations
                 const regList = [];
@@ -56,28 +46,6 @@ export default function ManageStudentProfiles() {
                         offStage: d.offStageEvents || [],
                         general: d.generalEvents || []
                     });
-                });
-                // Process CSV Regs
-                csvData.forEach((row, idx) => {
-                    const chestNo = row["CHEST NUMBER"] || row["CHEST NO"] || "";
-                    if (!chestNo) return;
-
-                    const existing = regList.find(r => r.chestNo === chestNo);
-                    if (!existing) {
-                        const cleanEvents = (str) => str ? str.split(',').map(s => s.trim()).filter(Boolean) : [];
-                        regList.push({
-                            id: `csv_${idx}`,
-                            source: 'csv',
-                            name: row["CANDIDATE NAME"] || row["CANDIDATE  FULL NAME"],
-                            chestNo: chestNo,
-                            cicNo: row["CIC NUMBER"] || row["CIC NO"],
-                            team: row["TEAM"] || row["TEAM NAME"],
-                            category: row["CATEGORY"] || row["SECTION"] || "",
-                            onStage: cleanEvents(row["ON STAGE EVENTS"] || row["ON STAGE ITEMS"]),
-                            offStage: cleanEvents(row["OFF STAGE EVENTS"] || row["OFF STAGE ITEMS"]),
-                            general: cleanEvents(row["GENERAL EVENTS"] || row["GENERAL ITEMS"])
-                        });
-                    }
                 });
 
                 // Process Results
@@ -303,11 +271,32 @@ export default function ManageStudentProfiles() {
 
     return (
         <div className="manage-student-profiles">
-            <h3 className="section-title">🔎 Student Profiles</h3>
+            <h3 className="section-title">🎓 Student Database</h3>
 
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                <button 
+                    onClick={() => setActiveTab('master')}
+                    className={`tab-btn ${activeTab === 'master' ? 'active' : ''}`}
+                    style={{ background: activeTab === 'master' ? 'var(--primary)' : 'var(--bg-secondary)', color: 'white', flex: 1, padding: '12px' }}
+                >
+                    1. Pre-Register (Master DB)
+                </button>
+                <button 
+                    onClick={() => setActiveTab('profiles')}
+                    className={`tab-btn ${activeTab === 'profiles' ? 'active' : ''}`}
+                    style={{ background: activeTab === 'profiles' ? 'var(--primary)' : 'var(--bg-secondary)', color: 'white', flex: 1, padding: '12px' }}
+                >
+                    2. Track Performance (Profiles)
+                </button>
+            </div>
+
+            {activeTab === 'master' ? (
+                <ManageStudents />
+            ) : (
+                <>
             {/* Controls Bar */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginBottom: '20px', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', gap: '10px', flex: 1, minWidth: '300px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', flex: '1 1 auto', minWidth: '200px' }}>
                     <input
                         type="text"
                         className="admin-input"
@@ -356,7 +345,7 @@ export default function ManageStudentProfiles() {
                                     <th>Grade</th>
                                     <th>Pts</th>
                                     <th style={{ width: '120px' }}>Summary</th>
-                                    <th onClick={() => handleSort('totalPoints')} style={{ cursor: 'pointer', width: '80px', color: '#facc15' }}>
+                                    <th onClick={() => handleSort('totalPoints')} style={{ cursor: 'pointer', width: '80px', color: 'var(--primary)' }}>
                                         Total Pts {sortConfig.key === 'totalPoints' && (sortConfig.direction === 'descending' ? '▼' : '▲')}
                                     </th>
                                 </tr>
@@ -370,7 +359,7 @@ export default function ManageStudentProfiles() {
                                     // Highlight Logic
                                     const isHovered = hoveredStudentId === student.id;
                                     const bgStyle = isHovered
-                                        ? 'rgba(255, 255, 255, 0.1)' // Highlight
+                                        ? 'var(--bg-tertiary)' // Highlight
                                         : studentIndex % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent'; // Zebra
 
                                     return rows.map((row, rowIndex) => (
@@ -381,27 +370,27 @@ export default function ManageStudentProfiles() {
                                             style={{
                                                 background: bgStyle,
                                                 transition: 'background 0.2s',
-                                                borderBottom: rowIndex === rows.length - 1 ? '1px solid #444' : 'none'
+                                                borderBottom: rowIndex === rows.length - 1 ? '1px solid var(--border-soft)' : 'none'
                                             }}
                                         >
                                             {rowIndex === 0 && (
                                                 <>
-                                                    <td rowSpan={rows.length} style={{ fontFamily: 'monospace', fontSize: '1.1rem', verticalAlign: 'top', padding: '12px 8px', borderRight: '1px solid #333' }}>{student.chestNo}</td>
-                                                    <td rowSpan={rows.length} style={{ fontWeight: '600', verticalAlign: 'top', padding: '12px 8px', borderRight: '1px solid #333' }}>{student.name}</td>
-                                                    <td rowSpan={rows.length} style={{ verticalAlign: 'top', padding: '12px 8px', borderRight: '1px solid #333' }}>
-                                                        <span className={`tag ${student.team?.toLowerCase()}-tag`} style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: '#333', color: '#ccc', fontSize: '0.8rem' }}>{student.team || "N/A"}</span>
+                                                    <td rowSpan={rows.length} style={{ fontFamily: 'monospace', fontSize: '1.1rem', verticalAlign: 'top', padding: '12px 8px', borderRight: '1px solid var(--border-soft)' }}>{student.chestNo}</td>
+                                                    <td rowSpan={rows.length} style={{ fontWeight: '600', verticalAlign: 'top', padding: '12px 8px', borderRight: '1px solid var(--border-soft)' }}>{student.name}</td>
+                                                    <td rowSpan={rows.length} style={{ verticalAlign: 'top', padding: '12px 8px', borderRight: '1px solid var(--border-soft)' }}>
+                                                        <span className={`tag ${student.team?.toLowerCase()}-tag`} style={{ padding: '2px 8px', borderRadius: '4px', backgroundColor: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{student.team || "N/A"}</span>
                                                     </td>
                                                 </>
                                             )}
-                                            <td style={{ color: '#eee', padding: '8px 5px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>{row.eventName}</td>
-                                            <td style={{ color: '#aaa', padding: '8px 5px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>{row.category}</td>
-                                            <td style={{ padding: '8px 5px', borderBottom: '1px solid rgba(255,255,255,0.05)', color: row.place === 'First' ? '#ffd700' : row.place === 'Second' ? '#c0c0c0' : row.place === 'Third' ? '#cd7f32' : '#fff' }}>{row.place}</td>
-                                            <td style={{ padding: '8px 5px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontWeight: 'bold', color: row.grade?.startsWith('A') ? '#4ade80' : '#fff' }}>{row.grade}</td>
-                                            <td style={{ padding: '8px 5px', borderBottom: '1px solid rgba(255,255,255,0.05)', borderRight: '1px solid #333', fontWeight: 'bold', color: row.points > 0 ? '#22c55e' : '#666' }}>{row.points}</td>
+                                            <td style={{ color: 'var(--text-main)', padding: '8px 5px', borderBottom: '1px solid var(--border-soft)' }}>{row.eventName}</td>
+                                            <td style={{ color: 'var(--text-secondary)', padding: '8px 5px', borderBottom: '1px solid var(--border-soft)' }}>{row.category}</td>
+                                            <td style={{ padding: '8px 5px', borderBottom: '1px solid var(--border-soft)', color: row.place === 'First' ? '#ffd700' : row.place === 'Second' ? '#c0c0c0' : row.place === 'Third' ? '#cd7f32' : 'var(--text-main)' }}>{row.place}</td>
+                                            <td style={{ padding: '8px 5px', borderBottom: '1px solid var(--border-soft)', fontWeight: 'bold', color: row.grade?.startsWith('A') ? 'var(--primary)' : 'var(--text-main)' }}>{row.grade}</td>
+                                            <td style={{ padding: '8px 5px', borderBottom: '1px solid var(--border-soft)', borderRight: '1px solid var(--border-soft)', fontWeight: 'bold', color: row.points > 0 ? 'var(--primary)' : 'var(--text-muted)' }}>{row.points}</td>
 
                                             {rowIndex === 0 && (
                                                 <>
-                                                    <td rowSpan={rows.length} style={{ verticalAlign: 'top', padding: '12px 8px', borderRight: '1px solid #333', fontSize: '0.8rem' }}>
+                                                    <td rowSpan={rows.length} style={{ verticalAlign: 'top', padding: '12px 8px', borderRight: '1px solid var(--border-soft)', fontSize: '0.8rem' }}>
                                                         {(student.first > 0 || student.second > 0 || student.third > 0) && (
                                                             <div style={{ marginBottom: '4px', display: 'flex', gap: '6px' }}>
                                                                 {student.first > 0 && <span title="1st Place" style={{ color: '#ffd700' }}>🥇{student.first}</span>}
@@ -409,9 +398,9 @@ export default function ManageStudentProfiles() {
                                                                 {student.third > 0 && <span title="3rd Place" style={{ color: '#cd7f32' }}>🥉{student.third}</span>}
                                                             </div>
                                                         )}
-                                                        <div style={{ color: '#aaa' }}>{student.gradesStr || "-"}</div>
+                                                        <div style={{ color: 'var(--text-secondary)' }}>{student.gradesStr || "-"}</div>
                                                     </td>
-                                                    <td rowSpan={rows.length} style={{ verticalAlign: 'top', padding: '12px 8px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2rem', color: student.totalPoints > 0 ? '#4ade80' : '#666' }}>{student.totalPoints}</td>
+                                                    <td rowSpan={rows.length} style={{ verticalAlign: 'top', padding: '12px 8px', textAlign: 'center', fontWeight: 'bold', fontSize: '1.2rem', color: student.totalPoints > 0 ? 'var(--primary)' : 'var(--text-muted)' }}>{student.totalPoints}</td>
                                                 </>
                                             )}
                                         </tr>
@@ -435,21 +424,21 @@ export default function ManageStudentProfiles() {
                         {filteredList.map(student => {
                             const rows = generateStudentRows(student);
                             return (
-                                <div key={student.id} style={{ background: '#1e1e1e', borderRadius: '8px', padding: '15px', marginBottom: '15px', border: '1px solid #333' }}>
+                                <div key={student.id} style={{ background: 'var(--bg-secondary)', borderRadius: '8px', padding: '15px', marginBottom: '15px', border: '1px solid var(--border-soft)' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                         <div>
                                             <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{student.name}</div>
-                                            <div style={{ color: '#aaa', fontSize: '0.9rem' }}>#{student.chestNo} • <span className={`tag ${student.team?.toLowerCase()}-tag`}>{student.team}</span></div>
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>#{student.chestNo} • <span className={`tag ${student.team?.toLowerCase()}-tag`}>{student.team}</span></div>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#facc15' }}>{student.totalPoints}</div>
-                                            <div style={{ fontSize: '0.8rem', color: '#666' }}>Points</div>
+                                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)' }}>{student.totalPoints}</div>
+                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Points</div>
                                         </div>
                                     </div>
 
                                     {/* Summary Line */}
                                     {(student.first > 0 || student.second > 0 || student.third > 0 || student.gradesStr) && (
-                                        <div style={{ background: '#333', padding: '8px', borderRadius: '4px', marginBottom: '10px', fontSize: '0.9rem', display: 'flex', gap: '10px' }}>
+                                        <div style={{ background: 'var(--bg-secondary)', padding: '8px', borderRadius: '4px', marginBottom: '10px', fontSize: '0.9rem', display: 'flex', gap: '10px' }}>
                                             {student.first > 0 && <span style={{ color: '#ffd700' }}>🥇 {student.first}</span>}
                                             {student.second > 0 && <span style={{ color: '#c0c0c0' }}>🥈 {student.second}</span>}
                                             {student.third > 0 && <span style={{ color: '#cd7f32' }}>🥉 {student.third}</span>}
@@ -460,11 +449,11 @@ export default function ManageStudentProfiles() {
                                     {/* Events List */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                         {rows.map(row => (
-                                            <div key={row.uniqueId} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
-                                                <div style={{ color: '#eee' }}>{row.eventName}</div>
+                                            <div key={row.uniqueId} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: 'var(--bg-tertiary)', borderRadius: '4px' }}>
+                                                <div style={{ color: 'var(--text-main)' }}>{row.eventName}</div>
                                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                                    {row.grade && row.grade !== '-' && <span style={{ fontWeight: 'bold', color: row.grade.startsWith && row.grade.startsWith('A') ? '#4ade80' : '#fff' }}>{row.grade}</span>}
-                                                    {row.place !== '-' && <span style={{ fontSize: '0.8rem', background: '#444', padding: '2px 6px', borderRadius: '4px' }}>{row.place}</span>}
+                                                    {row.grade && row.grade !== '-' && <span style={{ fontWeight: 'bold', color: row.grade.startsWith && row.grade.startsWith('A') ? 'var(--primary)' : 'var(--text-main)' }}>{row.grade}</span>}
+                                                    {row.place !== '-' && <span style={{ fontSize: '0.8rem', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>{row.place}</span>}
                                                 </div>
                                             </div>
                                         ))}
@@ -475,7 +464,9 @@ export default function ManageStudentProfiles() {
                     </div>
                 </>
             )}
-            {filteredList.length > 100 && <p style={{ textAlign: 'center', color: '#666', fontSize: '0.8rem', marginTop: '10px' }}>Showing first 100 matches. Use search.</p>}
+                    {filteredList.length > 100 && <p style={{ textAlign: 'center', color: '#666', fontSize: '0.8rem', marginTop: '10px' }}>Showing first 100 matches. Use search.</p>}
+                </>
+            )}
         </div>
     );
 }

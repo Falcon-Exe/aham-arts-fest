@@ -15,6 +15,18 @@ export default function ManageEvents() {
     const [toast, setToast] = useState(null);
     const { confirm, confirmState } = useConfirm();
 
+    // Load dynamic student categories
+    let dynamicCategories = [];
+    try {
+        const storedCats = localStorage.getItem("branding_studentCategories");
+        if (storedCats) dynamicCategories = JSON.parse(storedCats);
+    } catch (e) {
+        console.error(e);
+    }
+    if (dynamicCategories.length === 0) {
+        dynamicCategories = ["Junior", "Senior"];
+    }
+
     const showToast = (message, type = 'info') => {
         setToast({ message, type });
     };
@@ -29,7 +41,8 @@ export default function ManageEvents() {
         date: "",
         time: "",
         stage: "",
-        type: "On Stage", // New field
+        type: "On Stage",
+        studentCategory: "General",
     });
 
 
@@ -89,7 +102,7 @@ export default function ManageEvents() {
                 await addDoc(collection(db, "events"), { ...formData, name: eventName });
                 showToast("Event added successfully!", "success");
             }
-            setFormData({ name: "", category: "", date: "", time: "", stage: "", type: "On Stage" });
+            setFormData({ name: "", category: "", date: "", time: "", stage: "", type: "On Stage", studentCategory: "General" });
             setEditId(null);
             fetchEvents(); // Refresh list
         } catch (err) {
@@ -106,13 +119,14 @@ export default function ManageEvents() {
             time: event.time || "",
             stage: event.stage || "",
             type: event.type || "On Stage",
+            studentCategory: event.studentCategory || "General",
         });
         setEditId(event.id);
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     const handleCancelEdit = () => {
-        setFormData({ name: "", category: "", date: "", time: "", stage: "", type: "On Stage" });
+        setFormData({ name: "", category: "", date: "", time: "", stage: "", type: "On Stage", studentCategory: "General" });
         setEditId(null);
     };
 
@@ -300,6 +314,12 @@ export default function ManageEvents() {
                         <option value="Off Stage">Off Stage 📝</option>
                         <option value="General">General 🌐</option>
                     </select>
+                    <select className="admin-select" name="studentCategory" value={formData.studentCategory} onChange={handleChange}>
+                        <option value="General">Common / General</option>
+                        {dynamicCategories.map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                    </select>
                 </div>
                 <div className="admin-form-actions" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
                     <button type="submit" className="submit-btn" style={{ width: '100%', padding: '15px', fontSize: '1.1rem' }}>
@@ -307,7 +327,7 @@ export default function ManageEvents() {
                     </button>
 
                     {editId && (
-                        <button type="button" onClick={handleCancelEdit} className="submit-btn" style={{ background: '#555', width: '100%' }}>
+                        <button type="button" onClick={handleCancelEdit} className="submit-btn" style={{ background: 'var(--bg-tertiary)', width: '100%' }}>
                             Cancel
                         </button>
                     )}
@@ -317,10 +337,10 @@ export default function ManageEvents() {
                             <button type="button" onClick={handleSeedDatabase} className="submit-btn" style={{ background: '#22c55e', fontSize: '0.85rem' }}>
                                 🌱 Seed DB
                             </button>
-                            <button type="button" onClick={handleCheckSync} className="submit-btn" style={{ background: '#0ea5e9', fontSize: '0.85rem' }}>
+                            <button type="button" onClick={handleCheckSync} className="submit-btn" style={{ background: 'var(--primary)', fontSize: '0.85rem' }}>
                                 🔎 Check Sync
                             </button>
-                            <button type="button" onClick={fixEventTypes} className="submit-btn" style={{ background: '#e63946', fontSize: '0.85rem' }}>
+                            <button type="button" onClick={fixEventTypes} className="submit-btn" style={{ background: 'var(--secondary)', fontSize: '0.85rem' }}>
                                 🔧 Fix Types
                             </button>
 
@@ -340,6 +360,7 @@ export default function ManageEvents() {
                                 <th onClick={() => requestSort('name')} style={{ cursor: 'pointer' }}>Name{getSortIndicator('name')}</th>
                                 <th onClick={() => requestSort('category')} style={{ cursor: 'pointer' }}>Category{getSortIndicator('category')}</th>
                                 <th onClick={() => requestSort('type')} style={{ cursor: 'pointer' }}>Type{getSortIndicator('type')}</th>
+                                <th>Category Scope</th>
                                 <th onClick={() => requestSort('time')} style={{ cursor: 'pointer' }}>Time{getSortIndicator('time')}</th>
                                 <th onClick={() => requestSort('date')} style={{ cursor: 'pointer' }}>Date{getSortIndicator('date')}</th>
                                 <th onClick={() => requestSort('stage')} style={{ cursor: 'pointer' }}>Stage{getSortIndicator('stage')}</th>
@@ -356,19 +377,20 @@ export default function ManageEvents() {
                                             padding: '2px 8px',
                                             borderRadius: '4px',
                                             fontSize: '0.75rem',
-                                            background: ev.type === 'Off Stage' ? '#333' : 'rgba(230, 57, 70, 0.1)',
-                                            color: ev.type === 'Off Stage' ? '#aaa' : '#e63946',
-                                            border: `1px solid ${ev.type === 'Off Stage' ? '#444' : '#e63946'}`
+                                            background: ev.type === 'Off Stage' ? 'var(--bg-tertiary)' : 'rgba(230, 57, 70, 0.1)',
+                                            color: ev.type === 'Off Stage' ? 'var(--text-secondary)' : 'var(--secondary)',
+                                            border: `1px solid ${ev.type === 'Off Stage' ? 'var(--border-soft)' : 'var(--secondary)'}`
                                         }}>
                                             {ev.type || 'On Stage'}
                                         </span>
                                     </td>
+                                    <td style={{ fontWeight: '600', color: 'var(--primary-light)' }}>{ev.studentCategory || 'General'}</td>
                                     <td>{ev.time}</td>
                                     <td>{ev.date}</td>
                                     <td>{ev.stage}</td>
                                     <td>
                                         <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button onClick={() => handleEdit(ev)} className="tab-btn" style={{ padding: '4px 10px', fontSize: '0.8rem', minWidth: 'auto', background: '#222' }}>Edit</button>
+                                            <button onClick={() => handleEdit(ev)} className="tab-btn" style={{ padding: '4px 10px', fontSize: '0.8rem', minWidth: 'auto', background: 'var(--bg-tertiary)' }}>Edit</button>
                                             <button onClick={() => handleDelete(ev.id)} className="delete-btn">Delete</button>
                                         </div>
                                     </td>

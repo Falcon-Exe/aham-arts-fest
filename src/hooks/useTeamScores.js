@@ -9,6 +9,8 @@ export function useTeamScores() {
     const [showPoints, setShowPoints] = useState(false);
     const [showHomePoints, setShowHomePoints] = useState(false);
     const [showResultsPoints, setShowResultsPoints] = useState(false);
+    const [teamColors, setTeamColors] = useState({});
+
     useEffect(() => {
         const q = query(collection(db, "results"));
 
@@ -26,7 +28,8 @@ export function useTeamScores() {
                         team,
                         total: 0,
                         onStage: 0,
-                        offStage: 0
+                        offStage: 0,
+                        categories: {}
                     };
                 }
 
@@ -38,6 +41,17 @@ export function useTeamScores() {
                     teamMap[team].onStage += pts;
                 } else {
                     teamMap[team].offStage += pts;
+                }
+
+                const cat = r.studentCategory || "General";
+                if (!teamMap[team].categories[cat]) {
+                    teamMap[team].categories[cat] = { total: 0, onStage: 0, offStage: 0 };
+                }
+                teamMap[team].categories[cat].total += pts;
+                if (type === "On Stage") {
+                    teamMap[team].categories[cat].onStage = (teamMap[team].categories[cat].onStage || 0) + pts;
+                } else {
+                    teamMap[team].categories[cat].offStage = (teamMap[team].categories[cat].offStage || 0) + pts;
                 }
             });
 
@@ -55,19 +69,33 @@ export function useTeamScores() {
             if (doc.exists()) {
                 const data = doc.data();
                 setShowPoints(data.showPoints);
-                setShowHomePoints(data.showHomePoints ?? data.showPoints); // Fallback to showPoints if undefined
-                setShowResultsPoints(data.showResultsPoints ?? data.showPoints); // Fallback to showPoints if undefined
+                setShowHomePoints(data.showHomePoints ?? data.showPoints);
+                setShowResultsPoints(data.showResultsPoints ?? data.showPoints);
             }
+        });
+
+        // Real-time listener for team colors
+        const unsubscribeTeams = onSnapshot(collection(db, "teams"), (snapshot) => {
+            const colors = {};
+            snapshot.docs.forEach(d => {
+                const t = d.data();
+                if (t.name && t.color) {
+                    colors[t.name.toUpperCase()] = t.color;
+                }
+            });
+            setTeamColors(colors);
         });
 
         return () => {
             unsubscribeScores();
             unsubscribeSettings();
+            unsubscribeTeams();
         };
     }, []);
 
     const champion = scores.length > 0 ? scores[0] : null;
     const runnerUp = scores.length > 1 ? scores[1] : null;
 
-    return { scores, loading, champion, runnerUp, showPoints, showHomePoints, showResultsPoints };
+    return { scores, loading, champion, runnerUp, showPoints, showHomePoints, showResultsPoints, teamColors };
 }
+

@@ -1,31 +1,46 @@
+/* Schedule.css - SaaS Premium */
+.schedule-page {
+  background: var(--bg-main); min-height: 100vh; padding-bottom: var(--space-6); color: var(--text-main);
+}
+.schedule-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); padding-top: var(--space-2);
+}
 .schedule-title {
-  text-align: center;
-  margin-bottom: 20px;
-  color: var(--primary);
+  font-size: 2rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text-main); margin: 0; text-align: center; margin-bottom: var(--space-4);
 }
 
 .schedule-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
 }
 
 .schedule-card {
-  background-color: var(--card-bg);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  background-color: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-xl);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+}
+.schedule-card:hover {
+  transform: translateY(-4px); border-color: rgba(255,255,255,0.15); box-shadow: var(--shadow-md);
 }
 
 .schedule-event {
-  margin-bottom: 10px;
-  color: var(--primary);
+  margin: 0 0 var(--space-2) 0;
+  font-size: 1.25rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.01em;
 }
+
 .schedule-card p:first-of-type {
-  color: var(--primary);
+  color: var(--text-muted);
   font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: var(--space-1);
 }
+
 .schedule-time {
   font-weight: 700;
   color: var(--primary);
+  font-size: 1rem;
 }

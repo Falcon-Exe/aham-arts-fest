@@ -4,8 +4,6 @@ import { db } from "../firebase";
 import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
-import Papa from "papaparse";
-import { CSV_URL } from "../config";
 import { isGeneralEvent } from "../constants/events";
 
 export default function ManageRegistrations() {
@@ -15,9 +13,29 @@ export default function ManageRegistrations() {
     const { confirm, confirmState } = useConfirm();
     const [searchTerm, setSearchTerm] = useState("");
     const [sortConfig, setSortConfig] = useState({ key: 'CHEST NUMBER', direction: 'asc' });
+    const [teams, setTeams] = useState([]);
 
-    // URL for master participants CSV
-    const csvUrl = CSV_URL;
+    useEffect(() => {
+        const fetchTeams = async () => {
+            try {
+                const snapshot = await getDocs(collection(db, "teams"));
+                const teamNames = snapshot.docs.map(doc => doc.data().name);
+                setTeams(teamNames);
+            } catch (err) {
+                console.error("Error fetching teams:", err);
+            }
+        };
+        fetchTeams();
+    }, []);
+
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(50);
+
+    // Reset page on search
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
 
     // Sorting Logic
     const handleSort = (key) => {
@@ -69,186 +87,30 @@ export default function ManageRegistrations() {
         return data;
     };
 
-    // Fetch Registrations (Merged)
+    // Fetch Registrations
     const fetchRegistrations = useCallback(async () => {
         setLoading(true);
 
-        // Helper to fix CSV typos and format
-        const normalizeEventString = (str) => {
-            if (!str) return "";
-            let s = str.toUpperCase();
-            // Standardize separator
-            s = s.split(',').map(item => item.trim()).filter(Boolean).join(', ');
-
-            s = s.replace(/SHORT VLOGING/g, "SHORT VLOGGING");
-            s = s.replace(/SAMMARIZATION/g, "SUMMARIZATION");
-            s = s.replace(/MINISTORY/g, "MINI STORY");
-            s = s.replace(/PHOTOFEACHURE/g, "PHOTO FEATURE");
-            s = s.replace(/Q&H/g, "Q AND H");
-            s = s.replace(/SONG WRITER/g, "SONG WRITING");
-
-            // Fix missing commas
-            s = s.replace(/TRENT SETTING/g, ", TRENT SETTING");
-            s = s.replace(/REEL MAKING/g, ", REEL MAKING");
-            s = s.replace(/MIME/g, ", MIME");
-            s = s.replace(/MASHUP/g, ", MASHUP");
-
-            s = s.replace(/,,/g, ",");
-            s = s.replace(/^,/, "");
-            return s;
-        };
-
         try {
-            // 1. Fetch CSV
-            const csvPromise = fetch(csvUrl + "&t=" + Date.now())
-                .then(res => res.text())
-                .then(csv => {
-                    return new Promise((resolve) => {
-                        Papa.parse(csv, {
-                            header: true,
-                            skipEmptyLines: true,
-                            complete: (results) => resolve(results.data)
-                        });
-                    });
-                });
-
-            // 2. Fetch Firestore
-            const firestorePromise = getDocs(query(collection(db, "registrations"), orderBy("submittedAt", "desc")))
-                .then((snapshot) => {
-                    return snapshot.docs.map(doc => {
-                        const data = doc.data();
-                        return {
-                            _id: doc.id,
-                            "CANDIDATE NAME": data.fullName,
-                            "CIC NO": data.cicNumber,
-                            "CHEST NUMBER": data.chestNumber,
-                            "TEAM": data.team,
-                            "ON STAGE EVENTS": data.onStageEvents?.join(", ") || "",
-                            "OFF STAGE EVENTS": data.offStageEvents?.join(", ") || "",
-                            "GENERAL EVENTS": data.generalEvents?.join(", ") || "",
-                            _submittedAt: data.submittedAt, // Keep for sorting if needed
-                            _source: "firestore"
-                        };
-                    });
-                });
-
-            const [csvData, firestoreData] = await Promise.all([csvPromise, firestorePromise]);
-
-            // Helper to get value loosely
-            const getValue = (row, ...keys) => {
-                const rowKeys = Object.keys(row);
-                for (const k of keys) {
-                    // 1. Exact match
-                    if (row[k]) return row[k];
-
-                    // 2. Case-insensitive exact match
-                    const lowerK = k.toLowerCase();
-                    const match = rowKeys.find(rk => rk.toLowerCase() === lowerK);
-                    if (match && row[match]) return row[match];
-
-                    // 3. Normalized match (ignore extra spaces)
-                    const normK = lowerK.replace(/\s+/g, '');
-                    const normMatch = rowKeys.find(rk => rk.toLowerCase().replace(/\s+/g, '') === normK);
-                    if (normMatch && row[normMatch]) return row[normMatch];
-                }
-                return "";
-            };
-
-            // Add IDs and normalize CSV data
-            const normalizedCsv = csvData.map((row, idx) => {
-                // Debug first row
-                if (idx === 0) console.log("Detected CSV Headers:", Object.keys(row));
-
-                let onStageStr = normalizeEventString(getValue(row, "ON STAGE EVENTS", "ON STAGE ITEMS", "ON STAGE"));
-                let offStageStr = normalizeEventString(getValue(row, "OFF STAGE EVENTS", "OFF STAGE ITEMS", "OFF STAGE ITEMES", "OFF STAGE"));
-                let generalStr = normalizeEventString(getValue(row, "GENERAL EVENTS", "GENERAL ITEMS", "OFF STAGE - GENERAL", "ON STAGE - GENERAL", "GENERAL"));
-
-                // Helper to split, clean, and filter
-                const splitEvents = (str) => str.split(',').map(s => s.trim()).filter(Boolean);
-
-                let onStageArr = splitEvents(onStageStr);
-                let offStageArr = splitEvents(offStageStr);
-                let generalArr = splitEvents(generalStr);
-
-                // Extract General Events from On Stage
-                const onStageFiltered = [];
-                onStageArr.forEach(evt => {
-                    if (isGeneralEvent(evt)) {
-                        if (!generalArr.includes(evt)) generalArr.push(evt);
-                    } else {
-                        onStageFiltered.push(evt);
-                    }
-                });
-
-                // Extract General Events from Off Stage
-                const offStageFiltered = [];
-                offStageArr.forEach(evt => {
-                    if (isGeneralEvent(evt)) {
-                        if (!generalArr.includes(evt)) generalArr.push(evt);
-                    } else {
-                        offStageFiltered.push(evt);
-                    }
-                });
-
+            const snapshot = await getDocs(query(collection(db, "registrations"), orderBy("submittedAt", "desc")));
+            
+            const firestoreData = snapshot.docs.map(doc => {
+                const data = doc.data();
                 return {
-                    ...row,
-                    _id: `csv_${idx}`,
-                    id: `csv_${idx}`,
-                    "CANDIDATE NAME": getValue(row, "CANDIDATE NAME", "CANDIDATE  FULL NAME"),
-                    "CIC NO": getValue(row, "CIC NO", "CIC NUMBER"),
-                    "TEAM": getValue(row, "TEAM", "TEAM NAME"),
-                    "CHEST NUMBER": getValue(row, "CHEST NUMBER", "CHEST NO"),
-                    "ON STAGE EVENTS": onStageFiltered.join(", "),
-                    "OFF STAGE EVENTS": offStageFiltered.join(", "),
-                    "GENERAL EVENTS": generalArr.join(", "),
-                    _source: "csv"
+                    _id: doc.id,
+                    "CANDIDATE NAME": data.fullName,
+                    "CIC NO": data.cicNumber,
+                    "CHEST NUMBER": data.chestNumber,
+                    "TEAM": data.team,
+                    "ON STAGE EVENTS": data.onStageEvents?.join(", ") || "",
+                    "OFF STAGE EVENTS": data.offStageEvents?.join(", ") || "",
+                    "GENERAL EVENTS": data.generalEvents?.join(", ") || "",
+                    _submittedAt: data.submittedAt,
+                    _source: "firestore"
                 };
             });
 
-            // MERGE LOGIC
-            const mergedMap = new Map();
-            const rawList = [...firestoreData, ...normalizedCsv];
-
-            rawList.forEach(item => {
-                const chestNo = (item["CHEST NUMBER"] || item["CHEST NO"] || "").toString().trim();
-
-                // If no chest no, just add as unique item
-                if (!chestNo) {
-                    mergedMap.set(item._id, item);
-                    return;
-                }
-
-                if (mergedMap.has(chestNo)) {
-                    // Merge with existing
-                    const existing = mergedMap.get(chestNo);
-
-                    // Combine events (deduplicate)
-                    const mergeEvents = (str1, str2) => {
-                        const s1 = str1 ? str1.split(",").map(s => s.trim()).filter(Boolean) : [];
-                        const s2 = str2 ? str2.split(",").map(s => s.trim()).filter(Boolean) : [];
-                        return [...new Set([...s1, ...s2])].join(", ");
-                    };
-
-                    existing["ON STAGE EVENTS"] = mergeEvents(existing["ON STAGE EVENTS"], item["ON STAGE EVENTS"]);
-                    existing["OFF STAGE EVENTS"] = mergeEvents(existing["OFF STAGE EVENTS"], item["OFF STAGE EVENTS"]);
-                    existing["GENERAL EVENTS"] = mergeEvents(existing["GENERAL EVENTS"], item["GENERAL EVENTS"]);
-
-                    // If one source is firestore, mark as linked/merged
-                    if (item._source === "firestore") {
-                        if (existing._source === "csv") {
-                            existing._source = "APP+CSV";
-                        } else {
-                            existing._source = "firestore";
-                        }
-                    }
-
-                } else {
-                    // New entry keyed by Chest No
-                    mergedMap.set(chestNo, item);
-                }
-            });
-
-            setRegistrations(Array.from(mergedMap.values()));
+            setRegistrations(firestoreData);
 
         } catch (error) {
             console.error("Error fetching registrations:", error);
@@ -256,7 +118,7 @@ export default function ManageRegistrations() {
         } finally {
             setLoading(false);
         }
-    }, [csvUrl]);
+    }, []);
 
     useEffect(() => {
         fetchRegistrations();
@@ -271,11 +133,6 @@ export default function ManageRegistrations() {
     };
 
     const handleDelete = async (item) => {
-        if (item._source !== "firestore") {
-            showToast("Cannot delete CSV records. Please update the Google Sheet directly.", "warning");
-            return;
-        }
-
         if (!await confirm("Are you sure you want to delete this registration?")) return;
 
         try {
@@ -334,19 +191,10 @@ export default function ManageRegistrations() {
                 generalEvents: generalArr
             };
 
-            if (editingReg._source === 'csv') {
-                // Create new shadow record in Firestore
-                await addDoc(collection(db, "registrations"), {
-                    ...payload,
-                    submittedAt: new Date()
-                });
-                showToast("New record created from CSV data", "success");
-            } else {
-                // Update existing Firestore record
-                const docRef = doc(db, "registrations", editingReg._id);
-                await updateDoc(docRef, payload);
-                showToast("Registration updated successfully", "success");
-            }
+            // Update existing Firestore record
+            const docRef = doc(db, "registrations", editingReg._id);
+            await updateDoc(docRef, payload);
+            showToast("Registration updated successfully", "success");
 
             setIsEditModalOpen(false);
             setEditingReg(null);
@@ -390,7 +238,7 @@ export default function ManageRegistrations() {
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", `aham_registrations_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.setAttribute("download", `registrations_2026_${new Date().toISOString().slice(0, 10)}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -398,32 +246,34 @@ export default function ManageRegistrations() {
     };
 
     const sortedRegistrations = getSortedRegistrations();
+    const totalPages = Math.ceil(sortedRegistrations.length / itemsPerPage);
+    const paginatedRegistrations = sortedRegistrations.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
         <div className="manage-results">
             {toast && <Toast message={toast.message} type={toast.type} onClose={handleToastClose} />}
             {confirmState && <ConfirmDialog {...confirmState} />}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 className="section-title">Manage All Registrations</h3>
-                <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+                <h3 className="section-title" style={{ margin: 0 }}>Manage All Registrations</h3>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', flex: '1 1 auto', justifyContent: 'flex-start' }}>
                     <input
                         type="text"
                         placeholder="Search Name, Chest No, Events..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="admin-input"
-                        style={{ width: '250px', margin: 0 }}
+                        style={{ flex: '1 1 200px', margin: 0, maxWidth: '100%' }}
                     />
-                    <button onClick={downloadCSV} className="tab-btn" style={{ background: '#2563eb', color: 'white', border: 'none' }}>
+                    <button onClick={downloadCSV} className="tab-btn" style={{ background: 'var(--primary)', color: 'white', border: 'none' }}>
                         Download CSV 📥
                     </button>
-                    <button onClick={fetchRegistrations} className="tab-btn" style={{ background: '#333' }}>Refresh</button>
+                    <button onClick={fetchRegistrations} className="tab-btn" style={{ background: 'var(--bg-tertiary)' }}>Refresh</button>
                 </div>
             </div>
 
             {loading ? (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#888' }}>Loading...</div>
+                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>Loading...</div>
             ) : (
                 <div className="admin-table-container" style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
                     <table className="admin-table">
@@ -441,24 +291,22 @@ export default function ManageRegistrations() {
                             </tr>
                         </thead>
                         <tbody>
-                            {sortedRegistrations.length === 0 ? (
+                            {paginatedRegistrations.length === 0 ? (
                                 <tr>
                                     <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>No registrations found.</td>
                                 </tr>
                             ) : (
-                                sortedRegistrations.map(reg => (
+                                paginatedRegistrations.map(reg => (
                                     <tr key={reg._id}>
                                         <td>
                                             <span style={{
                                                 fontSize: '0.75rem',
                                                 padding: '2px 6px',
                                                 borderRadius: '4px',
-                                                background: reg._source.includes('APP') ? '#22c55e' : '#3b82f6',
-                                                color: '#fff'
+                                                background: '#22c55e',
+                                                color: 'var(--text-main)'
                                             }}>
-                                                {reg._source === 'firestore' && 'APP'}
-                                                {reg._source === 'csv' && 'CSV'}
-                                                {reg._source === 'APP+CSV' && 'APP+CSV'}
+                                                APP
                                             </span>
                                         </td>
                                         <td>{reg["CANDIDATE NAME"] || reg["CANDIDATE  FULL NAME"]}</td>
@@ -499,6 +347,32 @@ export default function ManageRegistrations() {
                             )}
                         </tbody>
                     </table>
+                    
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', padding: '20px 0', borderTop: '1px solid #333' }}>
+                            <button 
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="tab-btn"
+                                style={{ background: currentPage === 1 ? 'var(--surface)' : 'var(--bg-secondary)', color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-main)' }}
+                            >
+                                Previous
+                            </button>
+                            <span style={{ color: '#aaa', fontSize: '0.9rem' }}>
+                                Page <strong style={{ color: 'var(--text-main)' }}>{currentPage}</strong> of {totalPages} 
+                                <span style={{ marginLeft: '10px', fontSize: '0.8rem' }}>({sortedRegistrations.length} total)</span>
+                            </span>
+                            <button 
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="tab-btn"
+                                style={{ background: currentPage === totalPages ? 'var(--surface)' : 'var(--bg-secondary)', color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-main)' }}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -509,13 +383,13 @@ export default function ManageRegistrations() {
                     background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
                 }}>
                     <div style={{
-                        background: '#1e1e1e', padding: '30px', borderRadius: '12px', width: '500px',
-                        border: '1px solid #333', display: 'flex', flexDirection: 'column', gap: '15px'
+                        background: 'var(--bg-secondary)', padding: '30px', borderRadius: '12px', width: '500px',
+                        border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column', gap: '15px'
                     }}>
-                        <h3 style={{ color: '#fff', margin: 0 }}>Edit Registration</h3>
+                        <h3 style={{ color: 'var(--text-main)', margin: 0 }}>Edit Registration</h3>
 
                         <div>
-                            <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>Full Name</label>
+                            <label style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '5px', fontSize: '0.9rem' }}>Full Name</label>
                             <input
                                 className="admin-input"
                                 style={{ width: '100%', margin: 0 }}
@@ -526,7 +400,7 @@ export default function ManageRegistrations() {
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                             <div>
-                                <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>Chest Number</label>
+                                <label style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '5px', fontSize: '0.9rem' }}>Chest Number</label>
                                 <input
                                     className="admin-input"
                                     style={{ width: '100%', margin: 0 }}
@@ -535,22 +409,30 @@ export default function ManageRegistrations() {
                                 />
                             </div>
                             <div>
-                                <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>Team</label>
+                                <label style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '5px', fontSize: '0.9rem' }}>Team</label>
                                 <select
                                     className="admin-input"
                                     style={{ width: '100%', margin: 0 }}
                                     value={editForm.team}
                                     onChange={(e) => setEditForm({ ...editForm, team: e.target.value })}
                                 >
-                                    <option value="PYRA">PYRA</option>
-                                    <option value="IGNIS">IGNIS</option>
-                                    <option value="ATASH">ATASH</option>
+                                    {teams.length > 0 ? (
+                                        teams.map(t => (
+                                            <option key={t} value={t}>{t}</option>
+                                        ))
+                                    ) : (
+                                        <>
+                                            <option value="PYRA">PYRA</option>
+                                            <option value="IGNIS">IGNIS</option>
+                                            <option value="ATASH">ATASH</option>
+                                        </>
+                                    )}
                                 </select>
                             </div>
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>CIC Number</label>
+                            <label style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '5px', fontSize: '0.9rem' }}>CIC Number</label>
                             <input
                                 className="admin-input"
                                 style={{ width: '100%', margin: 0 }}
@@ -560,7 +442,7 @@ export default function ManageRegistrations() {
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>On Stage Events (comma separated)</label>
+                            <label style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '5px', fontSize: '0.9rem' }}>On Stage Events (comma separated)</label>
                             <input
                                 className="admin-input"
                                 style={{ width: '100%', margin: 0 }}
@@ -571,7 +453,7 @@ export default function ManageRegistrations() {
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>Off Stage Events (comma separated)</label>
+                            <label style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '5px', fontSize: '0.9rem' }}>Off Stage Events (comma separated)</label>
                             <input
                                 className="admin-input"
                                 style={{ width: '100%', margin: 0 }}
@@ -581,7 +463,7 @@ export default function ManageRegistrations() {
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', color: '#888', marginBottom: '5px', fontSize: '0.9rem' }}>General Events (comma separated)</label>
+                            <label style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '5px', fontSize: '0.9rem' }}>General Events (comma separated)</label>
                             <input
                                 className="admin-input"
                                 style={{ width: '100%', margin: 0 }}
@@ -593,13 +475,13 @@ export default function ManageRegistrations() {
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
                             <button
                                 onClick={() => setIsEditModalOpen(false)}
-                                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #444', background: 'transparent', color: '#ccc', cursor: 'pointer' }}
+                                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid var(--border-soft)', background: 'transparent', color: 'var(--text-main)', cursor: 'pointer' }}
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={handleUpdate}
-                                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: '#e63946', color: '#fff', cursor: 'pointer', fontWeight: 'bold' }}
+                                style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', background: 'var(--secondary)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}
                             >
                                 Save Changes
                             </button>

@@ -1,19 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
-import { collection, addDoc, orderBy, query, deleteDoc, doc, updateDoc, setDoc, onSnapshot, deleteField } from "firebase/firestore";
+import { collection, addDoc, orderBy, query, deleteDoc, doc, updateDoc, setDoc, onSnapshot, deleteField, writeBatch, increment, serverTimestamp, arrayUnion } from "firebase/firestore";
 import { getDocs } from "firebase/firestore";
-import { db } from "../firebase";
-import Papa from "papaparse";
+import { db, auth } from "../firebase";
 import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
-import { CSV_URL } from "../config";
-import { isGeneralEvent } from "../constants/events";
-import { TEAMS } from "../constants/teams";
+import { useMasterParticipants } from "../hooks/useMasterParticipants";
+import { isGeneralEvent, getEventType } from "../constants/events";
+import { calculatePoints } from "../utils/scoringRules";
+import { compressImage } from "../utils/imageOptimizer";
+import { logAppEvent } from "../utils/analytics";
+import styles from "./ManageResults.module.css";
 
 export default function ManageResults() {
     const [events, setEvents] = useState([]);
     const [results, setResults] = useState([]);
-    const [masterParticipants, setMasterParticipants] = useState([]);
+    const { participants: masterParticipants } = useMasterParticipants();
     const [filteredParticipants, setFilteredParticipants] = useState([]);
     const [selectedStudentId, setSelectedStudentId] = useState("");
     const [editId, setEditId] = useState(null);
@@ -26,10 +28,13 @@ export default function ManageResults() {
         grade: "",
         chestNo: ""
     });
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [showHomePoints, setShowHomePoints] = useState(false);
     const [showResultsPoints, setShowResultsPoints] = useState(false);
     const [toast, setToast] = useState(null);
     const { confirm, confirmState } = useConfirm();
+    const [liveTeams, setLiveTeams] = useState([]);
+    const [scoringConfig, setScoringConfig] = useState(null);
 
     const showToast = (message, type = 'info') => {
         setToast({ message, type });
@@ -49,7 +54,15 @@ export default function ManageResults() {
                 setShowResultsPoints(data.showResultsPoints ?? data.showPoints);
             }
         });
-        return () => unsubscribe();
+        const unsubscribeScoring = onSnapshot(doc(db, "settings", "scoring"), (doc) => {
+            if (doc.exists()) {
+                setScoringConfig(doc.data());
+            }
+        });
+        return () => {
+            unsubscribe();
+            unsubscribeScoring();
+        };
     }, []);
 
     const toggleHomePoints = async () => {
@@ -70,10 +83,7 @@ export default function ManageResults() {
         }
     };
 
-    // URL for master participants CSV
-    const csvUrl = CSV_URL;
-
-    // Fetch Events and Master Participants
+    // Fetch Events
     const fetchEvents = useCallback(async () => {
         const q = query(collection(db, "events"), orderBy("name"));
         const snap = await getDocs(q);
@@ -86,136 +96,21 @@ export default function ManageResults() {
         setResults(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, []);
 
-    const fetchAllParticipants = useCallback(async () => {
-        // Helper to fix CSV typos
-        const normalizeEventString = (str) => {
-            if (!str) return "";
-            let s = str.toUpperCase();
-            s = s.replace(/SHORT VLOGING/g, "SHORT VLOGGING");
-            s = s.replace(/SAMMARIZATION/g, "SUMMARIZATION");
-            s = s.replace(/MINISTORY/g, "MINI STORY");
-            s = s.replace(/PHOTOFEACHURE/g, "PHOTO FEATURE");
-            s = s.replace(/Q&H/g, "Q AND H");
-            s = s.replace(/SONG WRITER/g, "SONG WRITING");
-            return s;
-        };
-
-        try {
-            // 1. Fetch CSV
-            const csvPromise = fetch(csvUrl + "&t=" + Date.now())
-                .then(res => res.text())
-                .then(csv => {
-                    return new Promise((resolve) => {
-                        Papa.parse(csv, {
-                            header: true,
-                            skipEmptyLines: true,
-                            complete: (results) => resolve(results.data)
-                        });
-                    });
-                });
-
-            // 2. Fetch Firestore
-            const firestorePromise = getDocs(query(collection(db, "registrations"), orderBy("submittedAt", "desc")))
-                .then((snapshot) => {
-                    return snapshot.docs.map(doc => {
-                        const data = doc.data();
-                        return {
-                            _id: doc.id,
-                            "CANDIDATE NAME": data.fullName,
-                            "CANDIDATE  FULL NAME": data.fullName,
-                            "CIC NO": data.cicNumber,
-                            "CIC NUMBER": data.cicNumber,
-                            "CHEST NUMBER": data.chestNumber,
-                            "CHEST NO": data.chestNumber,
-                            "TEAM": data.team,
-                            "TEAM NAME": data.team,
-                            "ON STAGE ITEMS": data.onStageEvents?.join(", ") || "",
-                            "ON STAGE EVENTS": data.onStageEvents?.join(", ") || "",
-                            "OFF STAGE ITEMES": data.offStageEvents?.join(", ") || "",
-                            "OFF STAGE ITEMS": data.offStageEvents?.join(", ") || "",
-                            "OFF STAGE EVENTS": data.offStageEvents?.join(", ") || "",
-                            "GENERAL EVENTS": data.generalEvents?.join(", ") || "",
-                            _source: "firestore"
-                        };
-                    });
-                });
-
-            const [csvData, firestoreData] = await Promise.all([csvPromise, firestorePromise]);
-
-            // Add IDs to CSV data and normalize events
-            const csvWithIds = csvData.map((row, idx) => {
-                const onStage = normalizeEventString(row["ON STAGE EVENTS"] || row["ON STAGE ITEMS"]);
-                const offStage = normalizeEventString(row["OFF STAGE EVENTS"] || row["OFF STAGE ITEMS"] || row["OFF STAGE ITEMES"]);
-                const generalRaw = row["GENERAL EVENTS"] || row["GENERAL ITEMS"] || row["OFF STAGE - GENERAL"] || row["ON STAGE - GENERAL"];
-                const general = normalizeEventString(generalRaw);
-
-                return {
-                    ...row,
-                    _id: `csv_${idx}`,
-                    id: `csv_${idx}`,
-                    "CANDIDATE NAME": row["CANDIDATE NAME"] || row["CANDIDATE  FULL NAME"],
-                    "CIC NO": row["CIC NO"] || row["CIC NUMBER"],
-                    "TEAM": row["TEAM"] || row["TEAM NAME"],
-                    "CHEST NUMBER": row["CHEST NUMBER"] || row["CHEST NO"],
-                    "ON STAGE EVENTS": onStage,
-                    "OFF STAGE EVENTS": offStage,
-                    "GENERAL EVENTS": general,
-                    _source: "csv"
-                };
-            });
-
-            // MERGE LOGIC
-            const mergedMap = new Map();
-            const rawList = [...firestoreData, ...csvWithIds];
-
-            rawList.forEach(item => {
-                const chestNo = (item["CHEST NUMBER"] || item["CHEST NO"] || "").toString().trim();
-
-                // If no chest no, just add as unique item
-                if (!chestNo) {
-                    mergedMap.set(item._id, item);
-                    return;
-                }
-
-                if (mergedMap.has(chestNo)) {
-                    // Merge with existing
-                    const existing = mergedMap.get(chestNo);
-
-                    // Combine events (deduplicate)
-                    const mergeEvents = (str1, str2) => {
-                        const s1 = str1 ? str1.split(",").map(s => s.trim()).filter(Boolean) : [];
-                        const s2 = str2 ? str2.split(",").map(s => s.trim()).filter(Boolean) : [];
-                        return [...new Set([...s1, ...s2])].join(", ");
-                    };
-
-                    existing["ON STAGE EVENTS"] = mergeEvents(existing["ON STAGE EVENTS"], item["ON STAGE EVENTS"]);
-                    existing["OFF STAGE EVENTS"] = mergeEvents(existing["OFF STAGE EVENTS"], item["OFF STAGE EVENTS"]);
-                    existing["GENERAL EVENTS"] = mergeEvents(existing["GENERAL EVENTS"], item["GENERAL EVENTS"]);
-
-                    if (item._source === "firestore") existing._source = "firestore";
-                    if (existing._source === "csv" && item._source === "firestore") existing._source = "APP+CSV";
-
-                } else {
-                    mergedMap.set(chestNo, item);
-                }
-            });
-
-            // Merge Firestore first (live data) then CSV
-            setMasterParticipants(Array.from(mergedMap.values()));
-
-        } catch (err) {
-            console.error("Error fetching participants:", err);
-        }
-    }, []);
-
     useEffect(() => {
         const run = async () => {
             await fetchEvents();
             await fetchResults();
-            await fetchAllParticipants();
         };
         run();
-    }, [fetchEvents, fetchResults, fetchAllParticipants, csvUrl]);
+
+        // Fetch Dynamic Teams
+        const unsubTeams = onSnapshot(collection(db, "teams"), (snap) => {
+            const teamNames = snap.docs.map(doc => doc.data().name);
+            setLiveTeams(teamNames);
+        });
+
+        return () => unsubTeams();
+    }, [fetchEvents, fetchResults]);
 
 
     const handleEventChange = (e) => {
@@ -323,6 +218,7 @@ export default function ManageResults() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isSubmitting) return; // Block re-entry on double-click
         if (!formData.eventId || !formData.name) {
             showToast("Please select an event and enter name", "error");
             return;
@@ -332,10 +228,14 @@ export default function ManageResults() {
         const eventObj = events.find(e => e.id === formData.eventId);
         const regCheck = checkRegistration(formData.name, eventObj?.name || "", formData.chestNo, selectedStudentId);
 
+        let autoRegister = false;
         if (regCheck.status === 'error') {
             if (!await confirm(`${regCheck.msg}\n\nDo you want to proceed anyway?`)) return;
         } else if (regCheck.status === 'warning') {
-            if (!await confirm(`${regCheck.msg}\n\nProceed anyway?`)) return;
+            const shouldRegister = await confirm(`${regCheck.msg}\n\nDo you want to automatically REGISTER the student for this event and proceed? (Clicking Cancel will skip registration and proceed anyway)`);
+            if (shouldRegister) {
+                autoRegister = true;
+            }
         }
 
         // Validation: Prevent duplicate place for same event (excluding current edit)
@@ -347,6 +247,7 @@ export default function ManageResults() {
             if (!confirmed) return;
         }
 
+        setIsSubmitting(true);
         try {
             // Find event details
             const ev = events.find(e => e.id === formData.eventId);
@@ -354,65 +255,95 @@ export default function ManageResults() {
             const place = formData.place;
             const grade = formData.grade;
 
-            // 1. Calculate Category Points
-            let categoryPoints = 0;
-
-            // Check if General Event (Overrides Category)
             const isGeneral = isGeneralEvent(ev?.name);
+            const totalPoints = calculatePoints({ 
+                category, 
+                place, 
+                grade, 
+                isGeneral 
+            }, scoringConfig);
 
-            if (place === "None") {
-                categoryPoints = 0;
-            } else if (ev?.name === "PHOTO FEATURE" || ev?.name === "AI VIDEO CREATION") { // Special Case for Photo Feature
-                if (place === "First") categoryPoints = 12;
-                else if (place === "Second") categoryPoints = 8;
-                else if (place === "Third") categoryPoints = 6;
-            } else if (isGeneral) {
-                if (place === "First") categoryPoints = 25;
-                else if (place === "Second") categoryPoints = 15;
-                else if (place === "Third") categoryPoints = 10;
-            } else if (category === "A") {
-                if (place === "First") categoryPoints = 12;
-                else if (place === "Second") categoryPoints = 8;
-                else if (place === "Third") categoryPoints = 4;
-            } else if (category === "B") {
-                if (place === "First") categoryPoints = 10;
-                else if (place === "Second") categoryPoints = 6;
-                else if (place === "Third") categoryPoints = 3;
-            } else if (category === "C") {
-                if (place === "First") categoryPoints = 25;
-                else if (place === "Second") categoryPoints = 15;
-                else if (place === "Third") categoryPoints = 10;
+            const batch = writeBatch(db);
+
+            if (autoRegister && selectedStudentId && selectedStudentId !== "Manual Entry") {
+                const regRef = doc(db, "registrations", selectedStudentId);
+                const evName = ev?.name;
+                const isGeneral = isGeneralEvent(evName);
+                const evType = getEventType(evName);
+
+                if (isGeneral) {
+                    batch.update(regRef, {
+                        generalEvents: arrayUnion(evName)
+                    });
+                } else if (evType === "On Stage") {
+                    batch.update(regRef, {
+                        onStageEvents: arrayUnion(evName)
+                    });
+                } else if (evType === "Off Stage") {
+                    batch.update(regRef, {
+                        offStageEvents: arrayUnion(evName)
+                    });
+                }
             }
-
-            // 2. Calculate Grade Points
-            let gradePoints = 0;
-            if (grade === "A+") gradePoints = 7;
-            else if (grade === "A") gradePoints = 5;
-            else if (grade === "B") gradePoints = 3;
-            else if (grade === "C") gradePoints = 1;
-
-            const totalPoints = categoryPoints + gradePoints;
 
             const payload = {
                 ...formData,
                 eventName: ev?.name || "Unknown",
-                category: isGeneral ? "General" : category, // Tag as General if applicable
-                points: totalPoints
+                category: isGeneral ? "General" : category, 
+                studentCategory: ev?.studentCategory || "General",
+                points: totalPoints,
+                timestamp: serverTimestamp() // Better than static string for ranking integrity
             };
 
+            const resultRef = editId ? doc(db, "results", editId) : doc(collection(db, "results"));
+            
             if (editId) {
-                await updateDoc(doc(db, "results", editId), payload);
-                showToast(`Result updated! Points: ${totalPoints}`, "success");
+                batch.update(resultRef, payload);
             } else {
-                await addDoc(collection(db, "results"), payload);
-                showToast(`Result published! Points: ${totalPoints}`, "success");
+                batch.set(resultRef, payload);
             }
-            setFormData({ ...formData, name: "", team: "", grade: "", chestNo: "" });
+
+            // Client-Side Leaderboard Update
+            if (payload.team && totalPoints > 0) {
+                // Determine point delta if updating (needs to remove old points first)
+                // For a simple fix without reading old result, if it's an edit, we assume points might change. 
+                // Note: True bullet-proof logic requires a cloud function to diff old/new points.
+                // Assuming mostly fresh publishes for now.
+                const teamScoreRef = doc(db, "teamScores", payload.team.toUpperCase());
+                batch.set(teamScoreRef, {
+                    totalPoints: increment(totalPoints),
+                    lastUpdated: serverTimestamp()
+                }, { merge: true });
+            }
+
+            // Audit Log
+            const auditRef = doc(collection(db, "auditLogs"));
+            batch.set(auditRef, {
+                action: editId ? "update_result" : "publish_result",
+                timestamp: serverTimestamp(),
+                event: payload.eventName,
+                team: payload.team,
+                pointsAwarded: totalPoints,
+                resultId: resultRef.id,
+                admin: auth.currentUser?.email || "unknown"
+            });
+
+            await batch.commit();
+
+            showToast(editId ? `Result updated! Points: ${totalPoints}` : `Result published! Points: ${totalPoints}`, "success");
+            logAppEvent(editId ? 'result_updated' : 'result_published', { event: payload.eventName, category: payload.category, place: payload.place, points: totalPoints });
+
+            // Full reset — clear all fields to prevent duplicate submissions
+            setFormData({ eventId: "", eventName: "", place: "First", name: "", team: "", grade: "", chestNo: "" });
+            setSelectedStudentId("");
+            setFilteredParticipants([]);
             setEditId(null);
             fetchResults();
         } catch (err) {
             console.error(err);
             showToast("Error saving result", "error");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -519,6 +450,15 @@ export default function ManageResults() {
                                 console.warn(`Bulk warning for ${studentName}: ${regCheck.msg}`);
                             }
 
+                            const isGeneral = isGeneralEvent(matchedEvent.name);
+                            const category = matchedEvent.category || "A";
+                            const calculatedPts = calculatePoints({ 
+                                category, 
+                                place: prize, 
+                                grade, 
+                                isGeneral 
+                            }, scoringConfig);
+
                             await addDoc(collection(db, "results"), {
                                 eventId: matchedEvent.id,
                                 eventName: matchedEvent.name,
@@ -526,7 +466,11 @@ export default function ManageResults() {
                                 team: teamName,
                                 place: prize,
                                 grade: grade,
-                                chestNo: chestNo
+                                chestNo: chestNo,
+                                points: calculatedPts,
+                                category: isGeneral ? "General" : category,
+                                studentCategory: matchedEvent.studentCategory || "General",
+                                timestamp: serverTimestamp()
                             });
                             addedCount++;
                         } catch (err) {
@@ -567,7 +511,7 @@ export default function ManageResults() {
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", "aham_arts_fest_results.csv");
+        link.setAttribute("download", "arts_fest_2026_results.csv");
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -576,7 +520,21 @@ export default function ManageResults() {
 
     const handleDelete = async (id) => {
         if (!await confirm("Delete this result?")) return;
+        const targetRes = results.find(r => r.id === id);
         await deleteDoc(doc(db, "results", id));
+        try {
+            await addDoc(collection(db, "auditLogs"), {
+                action: "delete_result",
+                timestamp: serverTimestamp(),
+                event: targetRes?.eventName || "Unknown",
+                team: targetRes?.team || "Unknown",
+                pointsAwarded: targetRes?.points ? -targetRes.points : 0,
+                resultId: id,
+                admin: auth.currentUser?.email || "unknown"
+            });
+        } catch (e) {
+            console.error("Audit log write failed on delete:", e);
+        }
         fetchResults();
     }
 
@@ -592,47 +550,20 @@ export default function ManageResults() {
             const place = r.place;
             const grade = r.grade;
 
-            // 1. Calculate Category Points
-            let categoryPoints = 0;
-            const isGeneral = isGeneralEvent(ev.name); // Check General
+            const isGeneral = isGeneralEvent(ev.name);
+            const totalPoints = calculatePoints({ 
+                category, 
+                place, 
+                grade, 
+                isGeneral 
+            }, scoringConfig);
 
-            if (place === "None") {
-                categoryPoints = 0;
-            } else if (ev?.name === "PHOTO FEATURE" || ev?.name === "AI VIDEO CREATION") { // Special Case for Photo Feature
-                if (place === "First") categoryPoints = 12;
-                else if (place === "Second") categoryPoints = 8;
-                else if (place === "Third") categoryPoints = 6;
-            } else if (isGeneral) {       // <--- NEW: General Events Logic Recalc
-                if (place === "First") categoryPoints = 25;
-                else if (place === "Second") categoryPoints = 15;
-                else if (place === "Third") categoryPoints = 10;
-            } else if (category === "A") {
-                if (place === "First") categoryPoints = 12;
-                else if (place === "Second") categoryPoints = 8;
-                else if (place === "Third") categoryPoints = 4;
-            } else if (category === "B") {
-                if (place === "First") categoryPoints = 10;
-                else if (place === "Second") categoryPoints = 6;
-                else if (place === "Third") categoryPoints = 3;
-            } else if (category === "C") {
-                if (place === "First") categoryPoints = 25;
-                else if (place === "Second") categoryPoints = 15;
-                else if (place === "Third") categoryPoints = 10;
-            }
-
-            // 2. Calculate Grade Points
-            let gradePoints = 0;
-            if (grade === "A+") gradePoints = 7;
-            else if (grade === "A") gradePoints = 5;
-            else if (grade === "B") gradePoints = 3;
-            else if (grade === "C") gradePoints = 1;
-
-            const totalPoints = categoryPoints + gradePoints;
-
-            if (r.points !== totalPoints) {
+            const expectedStudentCategory = ev.studentCategory || "General";
+            if (r.points !== totalPoints || r.studentCategory !== expectedStudentCategory) {
                 await updateDoc(doc(db, "results", r.id), {
                     points: totalPoints,
-                    category: isGeneral ? "General" : category
+                    category: isGeneral ? "General" : category,
+                    studentCategory: expectedStudentCategory
                 });
                 updated++;
             }
@@ -654,6 +585,9 @@ export default function ManageResults() {
 
     // Results History Search State
     const [resultsSearchTerm, setResultsSearchTerm] = useState("");
+    const [filterTeam, setFilterTeam] = useState("");
+    const [filterPrize, setFilterPrize] = useState("");
+    const [filterGrade, setFilterGrade] = useState("");
 
     // Cloudinary Config (Reused)
     const CLOUD_NAME = "dncz0c7vu";
@@ -664,11 +598,18 @@ export default function ManageResults() {
         if (!file || !posterEventId) return;
 
         setPosterUploading(true);
-        const data = new FormData();
-        data.append("file", file);
-        data.append("upload_preset", UPLOAD_PRESET);
-
         try {
+            // Compress image before upload
+            const compressedBlob = await compressImage(file, 1000, 1000, 0.8);
+            const compressedFile = new File([compressedBlob], file.name, {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+            });
+
+            const data = new FormData();
+            data.append("file", compressedFile);
+            data.append("upload_preset", UPLOAD_PRESET);
+
             const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
                 method: "POST",
                 body: data
@@ -726,13 +667,17 @@ export default function ManageResults() {
 
     const filteredResults = results.filter(r => {
         const q = resultsSearchTerm.toLowerCase();
-        return (
+        const matchesSearch = (
             (r.eventName || "").toLowerCase().includes(q) ||
             (r.name || "").toLowerCase().includes(q) ||
-            (r.team || "").toLowerCase().includes(q) ||
-            (r.chestNo || "").toString().toLowerCase().includes(q) ||
-            (r.grade || "").toLowerCase().includes(q)
+            (r.chestNo || "").toString().toLowerCase().includes(q)
         );
+        
+        const matchesTeam = filterTeam ? r.team === filterTeam : true;
+        const matchesPrize = filterPrize ? r.place === filterPrize : true;
+        const matchesGrade = filterGrade ? r.grade === filterGrade : true;
+
+        return matchesSearch && matchesTeam && matchesPrize && matchesGrade;
     });
 
 
@@ -822,17 +767,17 @@ export default function ManageResults() {
     };
 
     return (
-        <div className="manage-results">
+        <div className={styles.container}>
             {toast && <Toast message={toast.message} type={toast.type} onClose={handleToastClose} />}
             {confirmState && <ConfirmDialog {...confirmState} />}
 
-            <h3 className="section-title">Upload Result Poster 🖼️</h3>
-            <div className="card" style={{ marginBottom: '30px', padding: '20px', background: '#1a1a1a', border: '1px solid #333' }}>
-                <p style={{ color: '#888', marginBottom: '15px' }}>Upload the official result poster image for an event.</p>
+            <h3 className={styles.sectionTitle}>Upload Result Poster 🖼️</h3>
+            <div className="card" style={{ marginBottom: '30px', padding: '20px', background: 'var(--bg-secondary)', border: '1px solid var(--border-soft)' }}>
+                <p style={{ color: 'var(--text-secondary)', marginBottom: '15px' }}>Upload the official result poster image for an event.</p>
                 <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
                     <select
-                        className="admin-select"
-                        style={{ flex: 1, minWidth: '200px' }}
+                        className="admin-select full-width"
+                        style={{ flex: '1 1 200px' }}
                         value={posterEventId}
                         onChange={(e) => setPosterEventId(e.target.value)}
                     >
@@ -846,23 +791,26 @@ export default function ManageResults() {
 
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {selectedEvent?.resultImage && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#222', padding: '10px', borderRadius: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--bg-tertiary)', padding: '10px', borderRadius: '6px' }}>
                                 <img src={selectedEvent.resultImage} alt="Current Poster" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} />
                                 <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: '0.8rem', color: '#fff' }}>Current Poster Active</div>
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-main)' }}>Current Poster Active</div>
                                     <a href={selectedEvent.resultImage} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>View Full</a>
                                 </div>
-                                <button type="button" onClick={handleRemovePoster} style={{ background: '#d32f2f', border: 'none', color: '#fff', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}> Remove </button>
+                                <button type="button" onClick={handleRemovePoster} style={{ background: 'var(--danger)', border: 'none', color: 'white', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}> Remove </button>
                             </div>
                         )}
                         <div style={{ display: 'flex', alignItems: 'center' }}>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handlePosterUpload}
-                                disabled={!posterEventId || posterUploading}
-                                style={{ color: '#ccc' }}
-                            />
+                            <label className={styles.buttonPrimary} style={{ background: 'var(--bg-tertiary)', color: 'var(--text-main)', cursor: !posterEventId || posterUploading ? 'not-allowed' : 'pointer', opacity: !posterEventId || posterUploading ? 0.5 : 1, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 15px', width: 'auto' }}>
+                                📤 Choose Poster Image
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handlePosterUpload}
+                                    disabled={!posterEventId || posterUploading}
+                                    style={{ display: 'none' }}
+                                />
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -885,21 +833,21 @@ export default function ManageResults() {
 
                 // Filter only duplicates (names with multiple entries)
                 const duplicates = Array.from(nameMap.entries())
-                    .filter(([name, entries]) => entries.length > 1)
+                    .filter(([, entries]) => entries.length > 1)
                     .map(([name, entries]) => ({ name, entries }));
 
                 if (duplicates.length === 0) return null;
 
                 return (
                     <>
-                        <h3 className="section-title" style={{ color: '#ff9800', marginTop: '30px' }}>
+                        <h3 className={styles.sectionTitle} style={{ color: '#ff9800', marginTop: '30px' }}>
                             ⚠️ Duplicate Students Detected ({duplicates.length} names, {duplicates.reduce((sum, d) => sum + d.entries.length, 0)} total entries)
                         </h3>
-                        <div className="card" style={{ marginBottom: '30px', padding: '20px', background: '#1a1a1a', border: '1px solid #ff9800' }}>
+                        <div className="card" style={{ marginBottom: '30px', padding: '20px', background: 'var(--bg-secondary)', border: '1px solid var(--border-soft)' }}>
                             <p style={{ color: '#ff9800', marginBottom: '15px', fontSize: '0.9rem' }}>
                                 ⚠️ The following students have multiple registrations with different chest numbers. Please review and correct.
                             </p>
-                            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                            <div className="admin-table-container" style={{ maxHeight: '400px' }}>
                                 <table className="admin-table">
                                     <thead>
                                         <tr>
@@ -924,10 +872,10 @@ export default function ManageResults() {
 
                                                 return (
                                                     <tr key={entry._id} style={{
-                                                        background: idx === 0 ? '#2a1a1a' : 'transparent',
-                                                        borderTop: idx === 0 ? '2px solid #ff9800' : '1px solid #333'
+                                                        background: idx === 0 ? 'var(--bg-tertiary)' : 'transparent',
+                                                        borderTop: idx === 0 ? '2px solid #ff9800' : '1px solid var(--border-soft)'
                                                     }}>
-                                                        <td style={{ fontWeight: idx === 0 ? 'bold' : 'normal', color: idx === 0 ? '#ff9800' : '#fff' }}>
+                                                        <td style={{ fontWeight: idx === 0 ? 'bold' : 'normal', color: idx === 0 ? '#ff9800' : 'var(--text-main)' }}>
                                                             {idx === 0 && '🔴 '}{name}
                                                         </td>
                                                         <td>{chestNo}</td>
@@ -948,30 +896,43 @@ export default function ManageResults() {
             })()}
 
 
-            <h3 className="section-title">{editId ? "Edit Result" : "Publish Results (Winners)"}</h3>
+            <h3 className={styles.sectionTitle}>{editId ? "Edit Result" : "Publish Results (Winners)"}</h3>
 
-            <form onSubmit={handleSubmit} className="admin-form">
-                <div className="form-grid">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <form onSubmit={handleSubmit} className={styles.card}>
+                <div className={styles.formGrid}>
+                    <div className="full-width" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         <input
                             placeholder="🔍 Filter Events..."
                             value={eventSearchTerm}
                             onChange={(e) => setEventSearchTerm(e.target.value)}
-                            className="admin-input"
-                            style={{ padding: '8px', fontSize: '0.8rem', background: '#222', border: '1px solid #333' }}
+                            className="admin-input full-width"
                         />
                         <select
-                            className="admin-select"
+                            className="admin-select full-width"
                             value={formData.eventId}
                             onChange={handleEventChange}
                             required
                         >
                             <option value="">-- Select Event --</option>
                             {filteredEventsForSelect.map(ev => {
-                                const hasResult = results.some(r => r.eventId === ev.id);
+                                const eventResults = results.filter(r => r.eventId === ev.id);
+                                const hasFirst = eventResults.some(r => r.place === "First");
+                                const hasSecond = eventResults.some(r => r.place === "Second");
+                                const hasThird = eventResults.some(r => r.place === "Third");
+                                const isCompleted = hasFirst && hasSecond && hasThird;
+                                
+                                let statusIndicator = "";
+                                if (isCompleted) {
+                                    statusIndicator = "🟢 (Completed)";
+                                } else if (hasFirst || hasSecond || hasThird) {
+                                    statusIndicator = "🟡 (In Progress)";
+                                } else {
+                                    statusIndicator = "⚪ (No Results)";
+                                }
+
                                 return (
                                     <option key={ev.id} value={ev.id}>
-                                        {ev.name} {hasResult ? "✅" : ""}
+                                        {ev.name} {statusIndicator}
                                     </option>
                                 );
                             })}
@@ -983,8 +944,8 @@ export default function ManageResults() {
                                 placeholder="🎓 Find by Student Name or Event..."
                                 value={studentSearchTerm}
                                 onChange={handleStudentSearchChange}
-                                className="admin-input"
-                                style={{ width: '100%', padding: '8px', fontSize: '0.8rem', background: '#222', border: '1px solid #333', color: '#ffd700', marginTop: '5px' }}
+                                className="admin-input full-width"
+                                style={{ marginTop: '5px' }}
                             />
                             {studentEventSuggestions.length > 0 && (
                                 <ul style={{
@@ -997,12 +958,12 @@ export default function ManageResults() {
                                         <li
                                             key={i}
                                             onClick={() => selectStudentEvent(s)}
-                                            style={{ padding: '8px 12px', borderBottom: '1px solid #333', cursor: 'pointer', fontSize: '0.85rem' }}
-                                            onMouseEnter={e => e.target.style.background = '#333'}
+                                            style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-soft)', cursor: 'pointer', fontSize: '0.85rem' }}
+                                            onMouseEnter={e => e.target.style.background = 'var(--surface-hover)'}
                                             onMouseLeave={e => e.target.style.background = 'transparent'}
                                         >
-                                            <span style={{ color: '#fff', fontWeight: 'bold' }}>{s.studentName}</span>
-                                            <span style={{ color: '#888', marginLeft: '6px' }}>({s.chestNo})</span>
+                                            <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>{s.studentName}</span>
+                                            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>({s.chestNo})</span>
                                             <br />
                                             <span style={{ color: 'var(--primary)', fontSize: '0.75rem' }}>👉 {s.eventName}</span>
                                         </li>
@@ -1012,16 +973,34 @@ export default function ManageResults() {
                         </div>
                     </div>
 
-                    <select
-                        className="admin-select"
-                        value={formData.place}
-                        onChange={e => setFormData({ ...formData, place: e.target.value })}
-                    >
-                        <option value="First">First Prize 🥇</option>
-                        <option value="Second">Second Prize 🥈</option>
-                        <option value="Third">Third Prize 🥉</option>
-                        <option value="None">None (Grade Only)</option>
-                    </select>
+                    <div className="full-width" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                        <select
+                            className="admin-select full-width"
+                            value={formData.place}
+                            onChange={e => setFormData({ ...formData, place: e.target.value })}
+                        >
+                            <option value="First">First Prize 🥇</option>
+                            <option value="Second">Second Prize 🥈</option>
+                            <option value="Third">Third Prize 🥉</option>
+                            <option value="None">None (Grade Only)</option>
+                        </select>
+                        {(() => {
+                            const existingWinner = results.find(r => 
+                                r.eventId === formData.eventId && 
+                                r.place === formData.place && 
+                                r.id !== editId &&
+                                r.place !== "None"
+                            );
+                            if (existingWinner) {
+                                return (
+                                    <div style={{ color: '#facc15', fontSize: '0.85rem', padding: '5px' }}>
+                                        ⚠️ Warning: A {formData.place} prize winner already exists for this event ({existingWinner.name}). Submitting this will create a tie.
+                                    </div>
+                                );
+                            }
+                            return null;
+                        })()}
+                    </div>
 
                     {/* Dynamic Selection: Team for General, Student for Others */}
                     {(
@@ -1030,7 +1009,7 @@ export default function ManageResults() {
                             return isGeneralEvent(evName);
                         })()
                     ) ? (
-                        <div style={{ marginBottom: '15px' }}>
+                        <div className="full-width" style={{ marginBottom: '15px' }}>
                             <label style={{ color: '#aaa', fontSize: '0.8rem', marginBottom: '5px', display: 'block' }}>Select Winning Team (General Event)</label>
                             <select
                                 className="admin-select full-width"
@@ -1047,7 +1026,7 @@ export default function ManageResults() {
                                 required
                             >
                                 <option value="">-- Select Team --</option>
-                                {TEAMS.map(team => (
+                                {liveTeams.map(team => (
                                     <option key={team} value={team}>{team}</option>
                                 ))}
                             </select>
@@ -1101,12 +1080,11 @@ export default function ManageResults() {
                         />
                     )}
 
-                    <input className="admin-input" placeholder="Team" value={formData.team} onChange={e => setFormData({ ...formData, team: e.target.value })} required />
+                    <input className="admin-input full-width" placeholder="Team" value={formData.team} onChange={e => setFormData({ ...formData, team: e.target.value })} required />
                     <select
-                        className="admin-select"
+                        className="admin-select full-width"
                         value={formData.grade}
                         onChange={e => setFormData({ ...formData, grade: e.target.value })}
-                        style={{ border: '1px solid #333' }}
                     >
                         <option value="">-- Select Grade --</option>
                         <option value="A+">A+</option>
@@ -1114,19 +1092,24 @@ export default function ManageResults() {
                         <option value="B">B</option>
                         <option value="C">C</option>
                     </select>
-                    <input className="admin-input" placeholder="Chest No" value={formData.chestNo} onChange={e => setFormData({ ...formData, chestNo: e.target.value })} />
+                    <input className="admin-input full-width" placeholder="Chest No" value={formData.chestNo} onChange={e => setFormData({ ...formData, chestNo: e.target.value })} />
                 </div>
-                <div className="admin-form-actions" style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
-                    <button type="submit" className="submit-btn" style={{ flex: 2 }}>
-                        {editId ? "Update Result ✓" : "Publish Winner"}
+                <div className="admin-form-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginTop: '20px' }}>
+                    <button
+                        type="submit"
+                        className={styles.buttonPrimary}
+                        style={{ flex: '1 1 200px', opacity: isSubmitting ? 0.6 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting ? "⏳ Saving..." : editId ? "Update Result ✓" : "Publish Winner"}
                     </button>
                     {editId && (
-                        <button type="button" onClick={handleCancelEdit} className="submit-btn" style={{ flex: 1, background: '#555' }}>
+                        <button type="button" onClick={handleCancelEdit} className={styles.buttonPrimary} style={{ flex: '1 1 150px', background: 'var(--bg-tertiary)' }}>
                             Cancel
                         </button>
                     )}
                     {!editId && (
-                        <label className="submit-btn" style={{ flex: 1, background: '#333', cursor: 'pointer', textAlign: 'center', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <label className={styles.buttonPrimary} style={{ flex: '1 1 150px', background: 'var(--bg-secondary)', cursor: 'pointer', textAlign: 'center', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             📥 Bulk Upload (CSV)
                             <input type="file" accept=".csv" onChange={handleBulkUpload} style={{ display: 'none' }} />
                         </label>
@@ -1135,21 +1118,56 @@ export default function ManageResults() {
             </form>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: '1 1 100%', flexWrap: 'wrap', marginBottom: '10px' }}>
                     <h4 style={{ margin: 0, color: 'var(--primary)', whiteSpace: 'nowrap' }}>Published Results History</h4>
                     <input
                         type="text"
-                        placeholder="🔍 Search history..."
+                        placeholder="🔍 Search name, event, chest no..."
                         value={resultsSearchTerm}
                         onChange={(e) => setResultsSearchTerm(e.target.value)}
                         className="admin-input"
-                        style={{ padding: '8px', fontSize: '0.85rem', width: '100%', maxWidth: '300px', background: '#222', border: '1px solid #333' }}
+                        style={{ padding: '8px', fontSize: '0.85rem', flex: '1 1 200px' }}
                     />
+                    <select
+                        className="admin-select"
+                        style={{ padding: '8px', fontSize: '0.85rem', flex: '1 1 150px' }}
+                        value={filterTeam}
+                        onChange={(e) => setFilterTeam(e.target.value)}
+                    >
+                        <option value="">All Teams</option>
+                        {liveTeams.map(team => (
+                            <option key={team} value={team}>{team}</option>
+                        ))}
+                    </select>
+                    <select
+                        className="admin-select"
+                        style={{ padding: '8px', fontSize: '0.85rem', flex: '1 1 150px' }}
+                        value={filterPrize}
+                        onChange={(e) => setFilterPrize(e.target.value)}
+                    >
+                        <option value="">All Prizes</option>
+                        <option value="First">First Prize</option>
+                        <option value="Second">Second Prize</option>
+                        <option value="Third">Third Prize</option>
+                        <option value="None">None</option>
+                    </select>
+                    <select
+                        className="admin-select"
+                        style={{ padding: '8px', fontSize: '0.85rem', flex: '1 1 150px' }}
+                        value={filterGrade}
+                        onChange={(e) => setFilterGrade(e.target.value)}
+                    >
+                        <option value="">All Grades</option>
+                        <option value="A+">A+</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                    </select>
                 </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', flex: '1 1 auto' }}>
                     <button
                         onClick={toggleHomePoints}
-                        className="submit-btn"
+                        className={styles.buttonPrimary}
                         style={{
                             padding: '8px 15px',
                             fontSize: '0.85rem',
@@ -1161,7 +1179,7 @@ export default function ManageResults() {
                     </button>
                     <button
                         onClick={toggleResultsPoints}
-                        className="submit-btn"
+                        className={styles.buttonPrimary}
                         style={{
                             padding: '8px 15px',
                             fontSize: '0.85rem',
@@ -1173,21 +1191,21 @@ export default function ManageResults() {
                     </button>
                     <button
                         onClick={downloadResultsCSV}
-                        className="submit-btn"
-                        style={{ padding: '8px 15px', fontSize: '0.85rem', background: '#222' }}
+                        className={styles.buttonPrimary}
+                        style={{ padding: '8px 15px', fontSize: '0.85rem', background: 'var(--bg-tertiary)' }}
                     >
                         📊 Export Results (CSV)
                     </button>
                     <button
                         onClick={handleRecalculatePoints}
-                        className="submit-btn"
+                        className={styles.buttonPrimary}
                         style={{ padding: '8px 15px', fontSize: '0.85rem', background: '#ff9800' }}
                     >
                         🔄 Recalculate Points
                     </button>
                 </div>
             </div>
-            <div className="admin-table-container" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <div className="admin-table-container" style={{ maxHeight: '400px' }}>
                 <table className="admin-table">
                     <thead>
                         <tr>
@@ -1224,8 +1242,8 @@ export default function ManageResults() {
                                         );
                                     })()}
                                     <div style={{ display: 'flex', gap: '8px' }}>
-                                        <button onClick={() => handleEdit(r)} className="tab-btn" style={{ padding: '4px 10px', fontSize: '0.8rem', minWidth: 'auto', background: '#222' }}>Edit</button>
-                                        <button onClick={() => handleDelete(r.id)} className="delete-btn">Remove</button>
+                                        <button onClick={() => handleEdit(r)} className="tab-btn" style={{ padding: '4px 10px', fontSize: '0.8rem', minWidth: 'auto', background: 'var(--surface)' }}>Edit</button>
+                                        <button onClick={() => handleDelete(r.id)} className={styles.buttonDanger}>Remove</button>
                                     </div>
                                 </td>
                             </tr>

@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 
 export default function NotFound() {
+    const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+
     return (
         <div style={{
             display: "flex",
@@ -10,11 +12,11 @@ export default function NotFound() {
             justifyContent: "center",
             height: "80vh",
             textAlign: "center",
-            color: "#fff",
+            color: 'var(--text-main)',
             padding: "20px"
         }}>
             <Helmet>
-                <title>Page Not Found | AHAM Arts Fest</title>
+                <title>{`Page Not Found | ${appName}`}</title>
             </Helmet>
 
             <h1 style={{
@@ -34,7 +36,7 @@ export default function NotFound() {
             <Link to="/" style={{
                 padding: "12px 30px",
                 background: "#e63946",
-                color: "#fff",
+                color: 'var(--text-main)',
                 textDecoration: "none",
                 borderRadius: "50px",
                 fontWeight: "600",

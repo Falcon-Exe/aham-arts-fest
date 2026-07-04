@@ -208,23 +208,23 @@ export default function ManageIndividualPoints() {
                                         </button>
 
                                         {expandedChampion === 'kala' && (
-                                            <div style={{ marginTop: '15px', background: 'rgba(255,255,255,0.9)', padding: '10px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', color: '#333' }}>
-                                                <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
+                                            <div className="admin-table-container" style={{ marginTop: '15px', background: 'var(--bg-main)', padding: '10px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                                                <table className="admin-table">
                                                     <thead>
-                                                        <tr style={{ borderBottom: '1px solid #ddd' }}>
-                                                            <th style={{ textAlign: 'left', padding: '4px' }}>Event</th>
-                                                            <th style={{ padding: '4px' }}>Prize</th>
-                                                            <th style={{ padding: '4px' }}>Grd</th>
-                                                            <th style={{ padding: '4px' }}>Pts</th>
+                                                        <tr>
+                                                            <th style={{ textAlign: 'left', padding: '10px' }}>Event</th>
+                                                            <th style={{ padding: '10px' }}>Prize</th>
+                                                            <th style={{ padding: '10px' }}>Grd</th>
+                                                            <th style={{ padding: '10px' }}>Pts</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {champions.kalaWinner.rawResults.map((r, i) => (
-                                                            <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                                                                <td style={{ padding: '4px' }}>{r.eventName}</td>
-                                                                <td style={{ padding: '4px', fontWeight: 'bold' }}>{r.place}</td>
-                                                                <td style={{ padding: '4px' }}>{r.grade}</td>
-                                                                <td style={{ padding: '4px' }}>{r.points}</td>
+                                                            <tr key={i}>
+                                                                <td style={{ padding: '10px' }}>{r.eventName}</td>
+                                                                <td style={{ padding: '10px', fontWeight: 'bold' }}>{r.place}</td>
+                                                                <td style={{ padding: '10px' }}>{r.grade}</td>
+                                                                <td style={{ padding: '10px' }}>{r.points}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -278,23 +278,23 @@ export default function ManageIndividualPoints() {
                                         </button>
 
                                         {expandedChampion === 'sarga' && (
-                                            <div style={{ marginTop: '15px', background: 'rgba(255,255,255,0.9)', padding: '10px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', color: '#333' }}>
-                                                <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
+                                            <div className="admin-table-container" style={{ marginTop: '15px', background: 'var(--bg-main)', padding: '10px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                                                <table className="admin-table">
                                                     <thead>
-                                                        <tr style={{ borderBottom: '1px solid #ddd' }}>
-                                                            <th style={{ textAlign: 'left', padding: '4px' }}>Event</th>
-                                                            <th style={{ padding: '4px' }}>Prize</th>
-                                                            <th style={{ padding: '4px' }}>Grd</th>
-                                                            <th style={{ padding: '4px' }}>Pts</th>
+                                                        <tr>
+                                                            <th style={{ textAlign: 'left', padding: '10px' }}>Event</th>
+                                                            <th style={{ padding: '10px' }}>Prize</th>
+                                                            <th style={{ padding: '10px' }}>Grd</th>
+                                                            <th style={{ padding: '10px' }}>Pts</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         {champions.sargaWinner.rawResults.map((r, i) => (
-                                                            <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                                                                <td style={{ padding: '4px' }}>{r.eventName}</td>
-                                                                <td style={{ padding: '4px', fontWeight: 'bold' }}>{r.place}</td>
-                                                                <td style={{ padding: '4px' }}>{r.grade}</td>
-                                                                <td style={{ padding: '4px' }}>{r.points}</td>
+                                                            <tr key={i}>
+                                                                <td style={{ padding: '10px' }}>{r.eventName}</td>
+                                                                <td style={{ padding: '10px', fontWeight: 'bold' }}>{r.place}</td>
+                                                                <td style={{ padding: '10px' }}>{r.grade}</td>
+                                                                <td style={{ padding: '10px' }}>{r.points}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -329,7 +329,7 @@ export default function ManageIndividualPoints() {
 
                 // Filter only duplicates (same name, different chest numbers)
                 const duplicates = Array.from(nameMap.entries())
-                    .filter(([name, entries]) => {
+                    .filter(([, entries]) => {
                         if (entries.length <= 1) return false;
                         // Check if they have different chest numbers
                         const chestNumbers = new Set(entries.map(e => e.chestNo).filter(c => c !== "-"));
@@ -348,7 +348,7 @@ export default function ManageIndividualPoints() {
                             <p style={{ color: '#ff9800', marginBottom: '15px', fontSize: '0.9rem' }}>
                                 ⚠️ The following students appear multiple times with different chest numbers in the results. This may indicate duplicate entries or data errors.
                             </p>
-                            <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                            <div className="admin-table-container" style={{ maxHeight: '400px' }}>
                                 <table className="admin-table">
                                     <thead>
                                         <tr>
@@ -367,10 +367,10 @@ export default function ManageIndividualPoints() {
                                             <React.Fragment key={name}>
                                                 {entries.map((entry, idx) => (
                                                     <tr key={entry.key} style={{
-                                                        background: idx === 0 ? '#2a1a1a' : 'transparent',
-                                                        borderTop: idx === 0 ? '2px solid #ff9800' : '1px solid #333'
+                                                        background: idx === 0 ? 'var(--bg-tertiary)' : 'transparent',
+                                                        borderTop: idx === 0 ? '2px solid var(--primary)' : '1px solid var(--border-soft)'
                                                     }}>
-                                                        <td style={{ fontWeight: idx === 0 ? 'bold' : 'normal', color: idx === 0 ? '#ff9800' : '#fff' }}>
+                                                        <td style={{ fontWeight: idx === 0 ? 'bold' : 'normal', color: idx === 0 ? 'var(--primary)' : 'var(--text-main)' }}>
                                                             {idx === 0 && '🔴 '}{name}
                                                         </td>
                                                         <td style={{ fontFamily: 'monospace', fontSize: '1.1rem' }}>{entry.chestNo}</td>
@@ -378,8 +378,8 @@ export default function ManageIndividualPoints() {
                                                         <td>{entry.first}</td>
                                                         <td>{entry.second}</td>
                                                         <td>{entry.third}</td>
-                                                        <td style={{ color: '#22c55e', fontWeight: '900' }}>{entry.total}</td>
-                                                        <td style={{ fontSize: '0.85rem', color: '#888' }}>{entry.items.length} events</td>
+                                                        <td style={{ color: 'var(--primary)', fontWeight: '900' }}>{entry.total}</td>
+                                                        <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{entry.items.length} events</td>
                                                     </tr>
                                                 ))}
                                             </React.Fragment>
@@ -485,7 +485,7 @@ export default function ManageIndividualPoints() {
                                     marginTop: '10px',
                                     padding: '6px 12px',
                                     background: color,
-                                    color: tier === 'none' ? '#fff' : '#000',
+                                    color: tier === 'none' ? 'var(--text-main)' : '#000',
                                     border: 'none',
                                     borderRadius: '4px',
                                     cursor: 'pointer',
@@ -524,7 +524,7 @@ export default function ManageIndividualPoints() {
                                         }}
                                     >
                                         <div>
-                                            <span style={{ fontWeight: '600', color: '#fff' }}>{student.name}</span>
+                                            <span style={{ fontWeight: '600', color: 'var(--text-main)' }}>{student.name}</span>
                                             <span style={{ color: '#888', marginLeft: '8px' }}>({student.chestNo})</span>
                                         </div>
                                         <span style={{ color: color, fontWeight: 'bold' }}>{student.total} pts</span>
@@ -597,7 +597,7 @@ export default function ManageIndividualPoints() {
                         </div>
                         <div style={{ marginTop: '15px', padding: '10px', background: '#2a1a1a', borderRadius: '6px', textAlign: 'center' }}>
                             <span style={{ fontSize: '0.9rem', color: '#888' }}>Total Students: </span>
-                            <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#fff' }}>{filteredScores.length}</span>
+                            <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-main)' }}>{filteredScores.length}</span>
                             <div style={{ fontSize: '0.75rem', color: '#666', marginTop: '5px' }}>💡 Click on any tier to see student names</div>
                         </div>
                     </div>
@@ -728,7 +728,7 @@ export default function ManageIndividualPoints() {
                                                 <span className={`tag ${student.team?.toLowerCase()}-tag`} style={{
                                                     padding: '2px 8px',
                                                     borderRadius: '4px',
-                                                    backgroundColor: '#333',
+                                                    backgroundColor: 'var(--bg-secondary)',
                                                     color: '#ccc',
                                                     fontSize: '0.8rem'
                                                 }}>
@@ -753,30 +753,30 @@ export default function ManageIndividualPoints() {
                                         {expandedRow === student.key && (
                                             <tr key={`${student.key}-detail`} style={{ background: 'rgba(255,255,255,0.02)' }}>
                                                 <td colSpan="9" style={{ padding: '0 0 20px 0' }}>
-                                                    <div style={{ padding: '15px', marginLeft: '50px', borderLeft: '2px solid #555' }}>
-                                                        <h4 style={{ marginTop: 0, marginBottom: '10px', color: '#aaa', fontSize: '0.9rem' }}>Detailed Results for {student.name}</h4>
-                                                        <table style={{ width: '100%', fontSize: '0.85rem', borderCollapse: 'collapse' }}>
+                                                    <div className="admin-table-container" style={{ padding: '15px', marginLeft: '50px', borderLeft: '2px solid var(--border-soft)' }}>
+                                                        <h4 style={{ marginTop: 0, marginBottom: '10px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Detailed Results for {student.name}</h4>
+                                                        <table className="admin-table">
                                                             <thead>
-                                                                <tr style={{ color: '#888', textAlign: 'left', borderBottom: '1px solid #444' }}>
-                                                                    <th style={{ padding: '5px' }}>Event</th>
-                                                                    <th style={{ padding: '5px' }}>Category</th>
-                                                                    <th style={{ padding: '5px' }}>Prize</th>
-                                                                    <th style={{ padding: '5px' }}>Grade</th>
-                                                                    <th style={{ padding: '5px' }}>Points</th>
+                                                                <tr>
+                                                                    <th>Event</th>
+                                                                    <th>Category</th>
+                                                                    <th>Prize</th>
+                                                                    <th>Grade</th>
+                                                                    <th>Points</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
                                                                 {student.rawResults && student.rawResults.map((res, idx) => (
-                                                                    <tr key={idx} style={{ borderBottom: '1px solid #333' }}>
-                                                                        <td style={{ padding: '8px 5px' }}>{res.eventName}</td>
-                                                                        <td style={{ padding: '8px 5px' }}>{res.category || "-"}</td>
-                                                                        <td style={{ padding: '8px 5px', color: res.place === 'First' ? '#ffd700' : res.place === 'Second' ? '#c0c0c0' : res.place === 'Third' ? '#cd7f32' : '#fff' }}>
+                                                                    <tr key={idx}>
+                                                                        <td>{res.eventName}</td>
+                                                                        <td>{res.category || "-"}</td>
+                                                                        <td style={{ color: res.place === 'First' ? '#ffd700' : res.place === 'Second' ? '#c0c0c0' : res.place === 'Third' ? '#cd7f32' : 'var(--text-main)' }}>
                                                                             {res.place}
                                                                         </td>
-                                                                        <td style={{ padding: '8px 5px', fontWeight: 'bold', color: res.grade?.startsWith('A') ? '#4ade80' : '#fff' }}>
+                                                                        <td style={{ fontWeight: 'bold', color: res.grade?.startsWith('A') ? 'var(--primary)' : 'var(--text-main)' }}>
                                                                             {res.grade}
                                                                         </td>
-                                                                        <td style={{ padding: '8px 5px' }}>{res.points}</td>
+                                                                        <td>{res.points}</td>
                                                                     </tr>
                                                                 ))}
                                                             </tbody>

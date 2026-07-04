@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
+import { getAnalytics, isSupported } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -23,3 +24,6 @@ export const db = initializeFirestore(app, {
   })
 });
 
+// Initialize Analytics conditionally (it might not be supported in some environments like extension sandboxes)
+export const analytics = typeof window !== 'undefined' ? 
+  isSupported().then(yes => yes ? getAnalytics(app) : null) : null;

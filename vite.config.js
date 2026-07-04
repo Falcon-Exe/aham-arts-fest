@@ -52,8 +52,8 @@ export default defineConfig({
       },
 
       manifest: {
-        name: "AHAM Arts Fest",
-        short_name: "AHAM",
+        name: "Arts Fest 2026",
+        short_name: "ArtsFest2026",
         start_url: "./",
         scope: "./",
         display: "standalone",

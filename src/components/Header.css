@@ -12,7 +12,6 @@
   z-index: 1000;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
-  /* Let clicks pass through around the capsule */
 }
 
 .island-header.hidden {
@@ -26,21 +25,24 @@
 /* CAPSULE CONTAINER */
 .island-capsule {
   pointer-events: auto;
-  background: rgba(18, 18, 18, 0.9);
-  /* Pure dark */
+  background: var(--surface);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-lg);
   padding: 10px 24px;
-  border-radius: 100px;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   gap: 20px;
-
   animation: floatIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: all var(--transition-normal);
+}
+
+.island-capsule:hover {
+  background: var(--surface-hover);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+  border-color: rgba(0, 0, 0, 0.15);
 }
 
 /* LOGO */
@@ -49,33 +51,35 @@
   height: 28px;
   border-radius: 50%;
   object-fit: cover;
-  opacity: 0.8;
+  opacity: 0.9;
+  transition: transform var(--transition-normal);
 }
 
 .island-logo:hover img {
-  transform: rotate(180deg);
+  transform: rotate(180deg) scale(1.1);
 }
 
 /* TITLE */
 .island-title {
   display: flex;
   flex-direction: column;
-  line-height: 0.9;
+  line-height: 1;
   text-align: center;
 }
 
 .island-title .bold {
   font-size: 0.85rem;
-  font-weight: 900;
-  letter-spacing: 2px;
-  color: #fff;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--text-main);
 }
 
 .island-title .thin {
   font-size: 0.65rem;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  color: var(--text-muted);
   letter-spacing: 1px;
+  margin-top: 2px;
 }
 
 /* STATUS DOT */
@@ -85,7 +89,7 @@
   gap: 6px;
   font-size: 0.7rem;
   font-weight: 700;
-  color: #e63946;
+  color: var(--primary);
   background: transparent;
   padding: 0;
 }
@@ -93,24 +97,24 @@
 .pulse-dot {
   width: 6px;
   height: 6px;
-  background: #e63946;
+  background: var(--primary);
   border-radius: 50%;
-  box-shadow: 0 0 10px #e63946;
+  box-shadow: 0 0 10px var(--primary);
   animation: pulse 1.5s infinite;
 }
 
 /* ANIMATIONS */
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.4);
+    box-shadow: 0 0 0 0 rgba(194, 65, 12, 0.4);
   }
 
   70% {
-    box-shadow: 0 0 0 6px rgba(230, 57, 70, 0);
+    box-shadow: 0 0 0 6px rgba(194, 65, 12, 0);
   }
 
   100% {
-    box-shadow: 0 0 0 0 rgba(230, 57, 70, 0);
+    box-shadow: 0 0 0 0 rgba(194, 65, 12, 0);
   }
 }
 
@@ -126,18 +130,6 @@
   }
 }
 
-/* DARK MODE */
-@media (prefers-color-scheme: dark) {
-  .island-capsule {
-    background: rgba(20, 20, 20, 0.6);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-
-  .island-title .bold {
-    color: #fff;
-  }
-
-  .island-title .thin {
-    color: #ccc;
-  }
-}
+/* DARK MODE overrides are no longer needed since it's a global dark theme, 
+   but keeping the block empty/clean just in case */
+@media (prefers-color-scheme: dark) {}

@@ -49,10 +49,6 @@ export default function Events() {
         <div className="container events-page">
             <header className="events-header">
                 <h2 className="events-title">Events & Schedule</h2>
-                <div className="live-status">
-                    <span className="live-dot"></span>
-                    Festival Schedule
-                </div>
             </header>
 
             <div className="dashboard-controls">
@@ -94,9 +90,9 @@ export default function Events() {
                     <p>No events found in this category.</p>
                 </div>
             ) : (
-                <div className="events-grid">
+                <div className="events-grid stagger-reveal-grid">
                     {filteredEvents.map((event) => (
-                        <div key={event.id} className="results-card event-card">
+                        <div key={event.id} className="results-card event-card premium-glass-hover">
                             <div className="event-card-header">
                                 <h3 className="event-name">{event.name}</h3>
                                 <div className="badge-group">
