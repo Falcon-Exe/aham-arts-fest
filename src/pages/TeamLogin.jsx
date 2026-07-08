@@ -34,13 +34,13 @@ export default function TeamLogin() {
         }
     };
 
-  const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+    const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
 
-  return (
-    <div className="team-login-container">
-      <Helmet>
-        <title>{`Team Lead Login | ${appName}`}</title>
-      </Helmet>
+    return (
+        <div className="team-login-container">
+            <Helmet>
+                <title>{`Team Lead Login | ${appName}`}</title>
+            </Helmet>
 
             <div className="login-card">
                 <div className="login-header">
@@ -53,7 +53,7 @@ export default function TeamLogin() {
                         <label>Email Address</label>
                         <input
                             type="email"
-                            placeholder="e.g. pyra@aham.com"
+                            placeholder="e.g. 123@aham.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required

@@ -162,6 +162,12 @@
   letter-spacing: -0.02em;
 }
 
+.dashboard-split-layout {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 20px;
+}
+
 /* --- Forms --- */
 .admin-form {
   background: var(--bg-tertiary);
@@ -212,6 +218,7 @@
   font-size: 0.95rem;
   font-family: var(--font-family);
   transition: all var(--transition-fast);
+  color-scheme: dark;
 }
 
 .admin-input::placeholder {
@@ -381,6 +388,10 @@
 
   .admin-form {
     padding: var(--space-3) !important;
+  }
+
+  .dashboard-split-layout {
+    grid-template-columns: 1fr !important;
   }
 
   .form-grid {

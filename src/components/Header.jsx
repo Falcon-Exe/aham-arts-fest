@@ -1,4 +1,5 @@
 import { memo, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import "./Header.css";
 
 function Header() {
@@ -26,21 +27,41 @@ function Header() {
   return (
     <header className={`island-header ${scrolled ? "hidden" : "visible"}`}>
       <div className="island-capsule">
-        {/* LOGO ICON */}
-        <div className="island-logo">
-          <img src={localStorage.getItem("branding_logoUrl") || "/pwa-512x512.png"} alt="Logo" />
+        {/* COMPACT STATE */}
+        <div className="island-compact">
+          {/* LOGO ICON */}
+          <div className="island-logo">
+            <img src={localStorage.getItem("branding_logoUrl") || "/pwa-512x512.png"} alt="Logo" />
+          </div>
+
+          {/* TITLE COMPACT */}
+          <div className="island-title">
+            <span className="bold">{mainTitle}</span>
+            <span className="thin">{lastWord || appName}</span>
+          </div>
+
+          {/* LIVE INDICATOR */}
+          <div className="island-status">
+            <div className="equalizer">
+              <span className="bar"></span>
+              <span className="bar"></span>
+              <span className="bar"></span>
+            </div>
+            LIVE
+          </div>
         </div>
 
-        {/* TITLE COMPACT */}
-        <div className="island-title">
-          <span className="bold">{mainTitle}</span>
-          <span className="thin">{lastWord || appName}</span>
-        </div>
-
-        {/* LIVE INDICATOR */}
-        <div className="island-status">
-          <span className="pulse-dot"></span>
-          LIVE
+        {/* EXPANDED MENU (Dynamic Island) */}
+        <div className="island-expanded">
+          <Link to="/" className="island-link">
+            <span>🏠</span> Home
+          </Link>
+          <Link to="/gallery" className="island-link">
+            <span>📸</span> Gallery
+          </Link>
+          <Link to="/dashboard" className="island-link">
+            <span>🏆</span> Results
+          </Link>
         </div>
       </div>
     </header>

@@ -73,7 +73,7 @@ const ProgressBar = ({ percentage, teamName }) => {
   return (
     <div ref={nodeRef} className="arena-score-bar">
       <div
-        className={`score-fill team-${teamName}`}
+        className={`score-fill team-${teamName.replace(/\s+/g, '-').toUpperCase()}`}
         style={{ width: `${width}%`, transition: 'width 2s cubic-bezier(0.16, 1, 0.3, 1)' }}
       ></div>
     </div>
@@ -97,7 +97,7 @@ const BattleArena = () => {
 
       <div className="arena-grid">
         {scores.slice(0, 3).map((team, index) => (
-          <div key={team.team} className={`arena-card rank-${index + 1} team-${team.team}`}>
+          <div key={team.team} className={`arena-card rank-${index + 1} team-${team.team.replace(/\s+/g, '-').toUpperCase()}`}>
             <div className="arena-rank">#{index + 1}</div>
             <div className="arena-info">
               <div className="arena-team-name">{team.team}</div>

@@ -1,6 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { HashRouter as Router, Routes, Route, useLocation } from "react-router-dom";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, collection } from "firebase/firestore";
 import { db } from "./firebase";
 
 import AppLayout from "./components/AppLayout";
@@ -45,7 +45,7 @@ function AppContent() {
         localStorage.setItem("branding_appName", data.appName || "Arts Fest 2026");
         localStorage.setItem("branding_appShortName", data.appShortName || "ArtsFest2026");
         localStorage.setItem("branding_logoUrl", data.logoUrl || "/pwa-512x512.png");
-        
+
         if (data.studentCategories) {
           localStorage.setItem("branding_studentCategories", JSON.stringify(data.studentCategories));
         }
@@ -61,9 +61,55 @@ function AppContent() {
       }
     });
 
+    // Dynamic Team Colors Global Injector
+    const dynamicStyleId = "dynamic-team-styles";
+    let styleEl = document.getElementById(dynamicStyleId);
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = dynamicStyleId;
+      document.head.appendChild(styleEl);
+    }
+
+    const unsubscribeTeams = onSnapshot(collection(db, "teams"), (snapshot) => {
+      let cssRules = "";
+      snapshot.docs.forEach(docSnap => {
+        const team = docSnap.data();
+        if (!team.name || !team.color) return;
+
+        const cssClass = `team-${team.name.replace(/\s+/g, '-').toUpperCase()}`;
+        const color = team.color;
+
+        const hex2rgb = (hex, alpha) => {
+          if (!hex.startsWith('#') || hex.length !== 7) return color; // fallback
+          const r = parseInt(hex.slice(1, 3), 16);
+          const g = parseInt(hex.slice(3, 5), 16);
+          const b = parseInt(hex.slice(5, 7), 16);
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+
+        const bgAlpha10 = hex2rgb(color, 0.12);
+        const bgAlpha20 = hex2rgb(color, 0.2);
+        const bgAlpha25 = hex2rgb(color, 0.25);
+        const bgAlpha60 = hex2rgb(color, 0.6);
+
+        cssRules += `
+.${cssClass} { color: ${color} !important; }
+.score-fill.${cssClass}, .chart-hbar-fill.${cssClass} { background: ${color} !important; box-shadow: 0 0 12px ${bgAlpha60} !important; }
+.hero-section.${cssClass} { background: linear-gradient(135deg, ${bgAlpha10}, var(--surface)) !important; border-color: ${bgAlpha25} !important; }
+.hero-section.${cssClass} .glow-circle { background: ${color} !important; }
+.hero-runner.${cssClass} { border-color: ${bgAlpha25} !important; }
+.hero-runner.${cssClass} .runner-team-name { color: ${color} !important; }
+.team-badge.${cssClass}, .winner-team.${cssClass}, .team-pill.${cssClass} { background: ${bgAlpha10} !important; color: ${color} !important; border: 1px solid ${bgAlpha20} !important; }
+.team-pill.active.${cssClass} { background: ${bgAlpha20} !important; border-color: ${color} !important; }
+`;
+      });
+      styleEl.textContent = cssRules;
+    });
+
     return () => {
       unscubscribe();
       unsubscribeBranding();
+      unsubscribeTeams();
     };
   }, []);
 

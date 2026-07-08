@@ -4,9 +4,9 @@
   overflow: hidden;
   background: transparent;
   color: var(--primary);
-  padding: 12px 0;
+  padding: 6px 0;
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 0.85rem;
   line-height: 1.4;
   text-transform: uppercase;
   z-index: 1001;

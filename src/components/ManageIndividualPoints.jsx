@@ -7,9 +7,20 @@ export default function ManageIndividualPoints() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [sortConfig, setSortConfig] = useState({ key: 'total', direction: 'desc' });
-    const [expandedRow, setExpandedRow] = useState(null); // Track expanded student key
+    const [expandedRow, setExpandedRow] = useState(null);
+    const [expandedChampion, setExpandedChampion] = useState(null);
+    const [activeCategoryTab, setActiveCategoryTab] = useState("Overall");
 
-    const [expandedChampion, setExpandedChampion] = useState(null); // 'kala' or 'sarga' or null
+    let dynamicCategories = [];
+    try {
+        const storedCats = localStorage.getItem("branding_studentCategories");
+        if (storedCats) dynamicCategories = JSON.parse(storedCats);
+    } catch (e) {
+        console.error(e);
+    }
+    if (dynamicCategories.length === 0) {
+        dynamicCategories = ["Junior", "Senior"];
+    } // 'kala' or 'sarga' or null
     const [expandedTier, setExpandedTier] = useState(null); // Track which trophy tier is expanded
 
     useEffect(() => {
@@ -38,12 +49,17 @@ export default function ManageIndividualPoints() {
                         name: name,
                         chestNo: chestNo || "-",
                         team: team,
+                        category: data.studentCategory || "General",
                         items: [],
                         first: 0,
                         second: 0,
                         third: 0,
                         total: 0
                     };
+                }
+
+                if (data.studentCategory && data.studentCategory !== "General" && data.studentCategory !== "Junior & Senior") {
+                    scores[key].category = data.studentCategory;
                 }
 
                 if (data.place === "First") scores[key].first += 1;
@@ -93,7 +109,12 @@ export default function ManageIndividualPoints() {
         student.chestNo && student.chestNo !== '-'
     );
 
-    const sortedScores = [...individualOnlyScores].sort((a, b) => {
+    const filteredByCategoryScores = individualOnlyScores.filter(student => {
+        if (activeCategoryTab === "Overall") return true;
+        return student.category === activeCategoryTab;
+    });
+
+    const sortedScores = [...filteredByCategoryScores].sort((a, b) => {
         if (a[sortConfig.key] < b[sortConfig.key]) {
             return sortConfig.direction === 'asc' ? -1 : 1;
         }
@@ -145,7 +166,7 @@ export default function ManageIndividualPoints() {
         return { sargaWinner, kalaWinner };
     };
 
-    const champions = calculateChampions(individualOnlyScores);
+    const champions = calculateChampions(filteredByCategoryScores);
 
     // TROPHY TIER LOGIC
     const getTrophyTier = (points) => {
@@ -166,6 +187,15 @@ export default function ManageIndividualPoints() {
 
     return (
         <div className="manage-individual">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+                <h3 className="section-title" style={{ margin: 0 }}>🎖️ Individual Points</h3>
+                <div className="tab-container" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                    <button className="tab-btn" style={{ background: activeCategoryTab === "Overall" ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 600 }} onClick={() => setActiveCategoryTab("Overall")}>🏆 Overall</button>
+                    {dynamicCategories.map(cat => (
+                        <button key={cat} className="tab-btn" style={{ background: activeCategoryTab === cat ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 600 }} onClick={() => setActiveCategoryTab(cat)}>👤 {cat}</button>
+                    ))}
+                </div>
+            </div>
             {/* CHAMPIONSHIP CARDS */}
             {!loading && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '30px' }}>
@@ -488,13 +518,13 @@ export default function ManageIndividualPoints() {
                                     color: tier === 'none' ? 'var(--text-main)' : '#000',
                                     border: 'none',
                                     borderRadius: '4px',
-                                    cursor: 'pointer',
                                     fontSize: '0.75rem',
                                     fontWeight: 'bold',
-                                    width: '100%'
+                                    width: '100%',
+                                    whiteSpace: 'nowrap'
                                 }}
                             >
-                                📥 Download List
+                                📥 Download
                             </button>
                         )}
                         {expandedTier === tier && students.length > 0 && (
@@ -543,7 +573,7 @@ export default function ManageIndividualPoints() {
                 return (
                     <div className="card" style={{ marginBottom: '30px', padding: '20px', background: '#1a1a1a' }}>
                         <h4 style={{ margin: '0 0 15px 0', color: '#ffd700', fontSize: '1.1rem' }}>🏆 Trophy Tier Distribution</h4>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
                             <TierCard
                                 tier="5star"
                                 stars="⭐⭐⭐⭐⭐"
@@ -607,14 +637,14 @@ export default function ManageIndividualPoints() {
 
             <h3 className="section-title">👤 Individual Standings</h3>
 
-            <div className="table-controls" style={{ marginBottom: '20px', display: 'flex', gap: '15px', alignItems: 'center' }}>
+            <div className="table-controls" style={{ marginBottom: '20px', display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center' }}>
                 <input
                     type="text"
                     className="admin-input"
                     placeholder="🔍 Search by Name, Chest No, or Team..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ maxWidth: '400px', flex: 1 }}
+                    style={{ flex: '1 1 200px', minWidth: '200px' }}
                 />
                 <button
                     onClick={() => {

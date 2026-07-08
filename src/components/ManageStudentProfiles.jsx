@@ -273,7 +273,7 @@ export default function ManageStudentProfiles() {
         <div className="manage-student-profiles">
             <h3 className="section-title">🎓 Student Database</h3>
 
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
                 <button 
                     onClick={() => setActiveTab('master')}
                     className={`tab-btn ${activeTab === 'master' ? 'active' : ''}`}
@@ -303,22 +303,22 @@ export default function ManageStudentProfiles() {
                         placeholder="Search Name, Chest No..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ flex: 2 }}
+                        style={{ flex: '1 1 200px' }}
                     />
-                    <select className="admin-input" value={filterTeam} onChange={(e) => setFilterTeam(e.target.value)} style={{ flex: 1 }}>
+                    <select className="admin-input" value={filterTeam} onChange={(e) => setFilterTeam(e.target.value)} style={{ flex: '1 1 120px' }}>
                         {teams.map(t => <option key={t} value={t}>{t === "All" ? "All Teams" : t}</option>)}
                     </select>
-                    <select className="admin-input" value={filterEvent} onChange={(e) => setFilterEvent(e.target.value)} style={{ flex: 1 }}>
+                    <select className="admin-input" value={filterEvent} onChange={(e) => setFilterEvent(e.target.value)} style={{ flex: '1 1 120px' }}>
                         <option value="All">All Events</option>
                         {events.filter(e => e !== "All").map(e => <option key={e} value={e}>{e}</option>)}
                     </select>
-                    <select className="admin-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ flex: 1 }}>
+                    <select className="admin-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ flex: '1 1 120px' }}>
                         <option value="All">All Status</option>
                         <option value="Winners">Winners Only</option>
                         <option value="Participants with Points">With Points</option>
                     </select>
                 </div>
-                <button className="admin-button" onClick={handleExportCSV} style={{ backgroundColor: '#22c55e' }}>
+                <button className="admin-button" onClick={handleExportCSV} style={{ backgroundColor: '#22c55e', flex: '1 1 120px', padding: '12px', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>
                     📥 Export CSV
                 </button>
             </div>
@@ -411,23 +411,32 @@ export default function ManageStudentProfiles() {
                     </div>
 
                     {/* Mobile Card View (Visible only on small screens via CSS) */}
-                    <div className="mobile-view admin-table-container" style={{ display: 'none' }}>
-                        {/* This section would be toggled by media queries in standard CSS, 
-                           but for inline-react we might need JS width detection or just rely on global CSS. 
-                           For now, I'll add a style tag to handle this responsiveness. */}
+                    <div className="mobile-view" style={{ display: 'none' }}>
                         <style>{`
                            @media (max-width: 768px) {
                                .desktop-view { display: none !important; }
-                               .mobile-view { display: block !important; }
+                               .mobile-view { 
+                                   display: grid !important; 
+                                   grid-template-columns: repeat(2, 1fr); 
+                                   gap: 12px; 
+                               }
+                               .student-mobile-card {
+                                   padding: 12px !important;
+                               }
+                               .student-mobile-card .event-list-item {
+                                   flex-direction: column;
+                                   align-items: flex-start !important;
+                                   gap: 4px;
+                               }
                            }
                        `}</style>
                         {filteredList.map(student => {
                             const rows = generateStudentRows(student);
                             return (
-                                <div key={student.id} style={{ background: 'var(--bg-secondary)', borderRadius: '8px', padding: '15px', marginBottom: '15px', border: '1px solid var(--border-soft)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                        <div>
-                                            <div style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{student.name}</div>
+                                <div key={student.id} className="student-mobile-card" style={{ background: 'var(--bg-secondary)', borderRadius: '8px', padding: '15px', border: '1px solid var(--border-soft)', display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                                        <div style={{ flex: 1, paddingRight: '10px' }}>
+                                            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', wordBreak: 'break-word', lineHeight: '1.2' }}>{student.name}</div>
                                             <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>#{student.chestNo} • <span className={`tag ${student.team?.toLowerCase()}-tag`}>{student.team}</span></div>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
@@ -447,10 +456,10 @@ export default function ManageStudentProfiles() {
                                     )}
 
                                     {/* Events List */}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
                                         {rows.map(row => (
-                                            <div key={row.uniqueId} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: 'var(--bg-tertiary)', borderRadius: '4px' }}>
-                                                <div style={{ color: 'var(--text-main)' }}>{row.eventName}</div>
+                                            <div key={row.uniqueId} className="event-list-item" style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: 'var(--bg-tertiary)', borderRadius: '4px' }}>
+                                                <div style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>{row.eventName}</div>
                                                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                                     {row.grade && row.grade !== '-' && <span style={{ fontWeight: 'bold', color: row.grade.startsWith && row.grade.startsWith('A') ? 'var(--primary)' : 'var(--text-main)' }}>{row.grade}</span>}
                                                     {row.place !== '-' && <span style={{ fontSize: '0.8rem', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>{row.place}</span>}

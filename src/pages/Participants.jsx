@@ -65,12 +65,11 @@ function Participants() {
           />
         </div>
         <div className="search-wrapper" style={{ marginTop: '10px' }}>
-          <span className="search-icon">🎭</span>
           <select
             className="participants-search"
             value={eventFilter}
             onChange={(e) => setEventFilter(e.target.value)}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: 'pointer', paddingLeft: '16px' }}
           >
             <option value="">All Events ({participants.length} students)</option>
             {sortedEvents.map(event => {
@@ -111,7 +110,7 @@ function Participants() {
                   <h3 className="p-name">{p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"]}</h3>
                   <div className="p-meta">
                     <span className="p-chest">#{p["CHEST NUMBER"] || p["CHEST NO"] || "TBA"}</span>
-                    <span className={`p-team team-badge team-${(p["TEAM"] || p["TEAM NAME"])?.toUpperCase()}`}>
+                    <span className={`p-team team-badge team-${(p["TEAM"] || p["TEAM NAME"])?.replace(/\s+/g, '-').toUpperCase()}`}>
                       {p["TEAM"] || p["TEAM NAME"]}
                     </span>
                     {p._source === "firestore" && (

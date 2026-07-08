@@ -160,60 +160,60 @@ export default function ManageResults() {
     const checkRegistration = (studentName, eventName, chestNo = null, studentId = null) => {
         if (masterParticipants.length === 0) return { status: 'loading', msg: '' };
 
-        let student;
+        let candidates = [];
 
         // 0. Try finding by ID (most precise, used in Submit)
         if (studentId && studentId !== "Manual Entry") {
-            student = masterParticipants.find(p => p._id === studentId);
+            candidates = masterParticipants.filter(p => p._id === studentId);
         }
 
         // 1. Try finding by Chest Number (if provided) - precise match
-        if (!student && chestNo) {
-            student = masterParticipants.find(p =>
+        if (candidates.length === 0 && chestNo) {
+            candidates = masterParticipants.filter(p =>
                 String(p["CHEST NUMBER"] || p["CHEST NO"] || "").trim() === String(chestNo).trim()
             );
         }
 
         // 2. Fallback to Name (Smart Lookup: Prioritize valid registration)
-        if (!student) {
-            const candidates = masterParticipants.filter(p =>
+        if (candidates.length === 0) {
+            candidates = masterParticipants.filter(p =>
                 (p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"])?.trim().toLowerCase() === studentName.trim().toLowerCase()
             );
-
-            if (candidates.length > 0) {
-                // Try to find one that has the event
-                student = candidates.find(p => {
-                    const onStage = p["ON STAGE ITEMS"] || p["ON STAGE EVENTS"] || "";
-                    const offStage = p["OFF STAGE ITEMES"] || p["OFF STAGE ITEMS"] || p["OFF STAGE EVENTS"] || "";
-                    const general = p["GENERAL EVENTS"] || p["OFF STAGE - GENERAL"] || p["ON STAGE - GENERAL"] || "";
-                    const allEventsList = (onStage + "," + offStage + "," + general).split(',').map(s => s.trim().toUpperCase());
-                    return allEventsList.includes(eventName.toUpperCase().trim());
-                });
-
-                // If none registered, just take the first candidate
-                if (!student) student = candidates[0];
-            }
         }
 
-        if (!student) {
-            return { status: 'error', msg: `Student "${studentName}" not found in master list!` };
+        if (candidates.length === 0) {
+            return { status: 'error', msg: `Student "${studentName}" not found in master list!`, studentObj: null };
         }
 
-        // Check if event name exists in On Stage or Off Stage columns
-        const onStage = student["ON STAGE ITEMS"] || student["ON STAGE EVENTS"] || "";
-        const offStage = student["OFF STAGE ITEMES"] || student["OFF STAGE ITEMS"] || student["OFF STAGE EVENTS"] || "";
-        const general = student["GENERAL EVENTS"] || student["OFF STAGE - GENERAL"] || student["ON STAGE - GENERAL"] || "";
+        // Aggregate events across ALL matched rows (in case a student's registration is split across multiple rows)
+        let combinedOnStage = [];
+        let combinedOffStage = [];
+        let combinedGeneral = [];
 
-        const allEventsList = (onStage + "," + offStage + "," + general).split(',').map(s => s.trim().toUpperCase());
+        candidates.forEach(student => {
+            if (student["ON STAGE ITEMS"]) combinedOnStage.push(student["ON STAGE ITEMS"]);
+            if (student["ON STAGE EVENTS"]) combinedOnStage.push(student["ON STAGE EVENTS"]);
+            if (student["OFF STAGE ITEMES"]) combinedOffStage.push(student["OFF STAGE ITEMES"]);
+            if (student["OFF STAGE ITEMS"]) combinedOffStage.push(student["OFF STAGE ITEMS"]);
+            if (student["OFF STAGE EVENTS"]) combinedOffStage.push(student["OFF STAGE EVENTS"]);
+            if (student["GENERAL EVENTS"]) combinedGeneral.push(student["GENERAL EVENTS"]);
+            if (student["OFF STAGE - GENERAL"]) combinedGeneral.push(student["OFF STAGE - GENERAL"]);
+            if (student["ON STAGE - GENERAL"]) combinedGeneral.push(student["ON STAGE - GENERAL"]);
+        });
+
+        const allEventsList = [...combinedOnStage, ...combinedOffStage, ...combinedGeneral]
+            .join(",")
+            .split(',')
+            .map(s => s.trim().toUpperCase());
+
+        const baseStudent = candidates[0]; // Use the first row for metadata (category, chest no, etc)
 
         // Exact Check
         if (!allEventsList.includes(eventName.toUpperCase().trim())) {
-            // If name matched but event didn't, and we didn't use chest number, maybe there's ANOTHER student with same name?
-            // This is a "weak match" scenario. But for now, we assume name collision needs unique ID or ChestNo.
-            return { status: 'warning', msg: `Student is found, but NOT registered for "${eventName}".` };
+            return { status: 'warning', msg: `Student is found, but NOT registered for "${eventName}".`, studentObj: baseStudent };
         }
 
-        return { status: 'success', msg: 'Verified Registration ✓' };
+        return { status: 'success', msg: 'Verified Registration ✓', studentObj: baseStudent };
     };
 
     const handleSubmit = async (e) => {
@@ -238,12 +238,17 @@ export default function ManageResults() {
             }
         }
 
-        // Validation: Prevent duplicate place for same event (excluding current edit)
+        let actualStudentCategory = eventObj?.studentCategory || "General";
+        if (actualStudentCategory === "Junior & Senior" && regCheck.studentObj) {
+            actualStudentCategory = regCheck.studentObj["CATEGORY"] || regCheck.studentObj["STUDENT CATEGORY"] || "General";
+        }
+
+        // Validation: Prevent duplicate place for same event AND same category (excluding current edit)
         const isDuplicatePlace = results.some(r =>
-            r.id !== editId && r.eventId === formData.eventId && r.place === formData.place
+            r.id !== editId && r.eventId === formData.eventId && r.place === formData.place && r.studentCategory === actualStudentCategory
         );
         if (isDuplicatePlace) {
-            const confirmed = await confirm(`A ${formData.place} Place winner already exists for this event. Do you want to add another one (Tie)?`);
+            const confirmed = await confirm(`A ${formData.place} Place winner already exists for this event in the ${actualStudentCategory} category. Do you want to add another one (Tie)?`);
             if (!confirmed) return;
         }
 
@@ -290,7 +295,7 @@ export default function ManageResults() {
                 ...formData,
                 eventName: ev?.name || "Unknown",
                 category: isGeneral ? "General" : category, 
-                studentCategory: ev?.studentCategory || "General",
+                studentCategory: actualStudentCategory,
                 points: totalPoints,
                 timestamp: serverTimestamp() // Better than static string for ranking integrity
             };
@@ -459,6 +464,11 @@ export default function ManageResults() {
                                 isGeneral 
                             }, scoringConfig);
 
+                            let actualStudentCategory = matchedEvent.studentCategory || "General";
+                            if (actualStudentCategory === "Junior & Senior" && regCheck.studentObj) {
+                                actualStudentCategory = regCheck.studentObj["CATEGORY"] || regCheck.studentObj["STUDENT CATEGORY"] || "General";
+                            }
+
                             await addDoc(collection(db, "results"), {
                                 eventId: matchedEvent.id,
                                 eventName: matchedEvent.name,
@@ -469,7 +479,7 @@ export default function ManageResults() {
                                 chestNo: chestNo,
                                 points: calculatedPts,
                                 category: isGeneral ? "General" : category,
-                                studentCategory: matchedEvent.studentCategory || "General",
+                                studentCategory: actualStudentCategory,
                                 timestamp: serverTimestamp()
                             });
                             addedCount++;
@@ -558,7 +568,13 @@ export default function ManageResults() {
                 isGeneral 
             }, scoringConfig);
 
-            const expectedStudentCategory = ev.studentCategory || "General";
+            let expectedStudentCategory = ev.studentCategory || "General";
+            // If the event supports both, we shouldn't overwrite the result's specific student category (Junior or Senior)
+            // with the generic "Junior & Senior" string.
+            if (expectedStudentCategory === "Junior & Senior") {
+                expectedStudentCategory = r.studentCategory || "General";
+            }
+
             if (r.points !== totalPoints || r.studentCategory !== expectedStudentCategory) {
                 await updateDoc(doc(db, "results", r.id), {
                     points: totalPoints,
@@ -841,11 +857,11 @@ export default function ManageResults() {
                 return (
                     <>
                         <h3 className={styles.sectionTitle} style={{ color: '#ff9800', marginTop: '30px' }}>
-                            ⚠️ Duplicate Students Detected ({duplicates.length} names, {duplicates.reduce((sum, d) => sum + d.entries.length, 0)} total entries)
+                            ⚠️ Multiple Registrations Detected ({duplicates.length} names, {duplicates.reduce((sum, d) => sum + d.entries.length, 0)} total entries)
                         </h3>
                         <div className="card" style={{ marginBottom: '30px', padding: '20px', background: 'var(--bg-secondary)', border: '1px solid var(--border-soft)' }}>
                             <p style={{ color: '#ff9800', marginBottom: '15px', fontSize: '0.9rem' }}>
-                                ⚠️ The following students have multiple registrations with different chest numbers. Please review and correct.
+                                ⚠️ The following names appear multiple times in the master registration list. If these are accidental duplicate submissions (same chest number), please delete the extra ones in the Registrations tab. If they are different students who share the same name, you can safely ignore this.
                             </p>
                             <div className="admin-table-container" style={{ maxHeight: '400px' }}>
                                 <table className="admin-table">
@@ -973,9 +989,9 @@ export default function ManageResults() {
                         </div>
                     </div>
 
-                    <div className="full-width" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         <select
-                            className="admin-select full-width"
+                            className="admin-select"
                             value={formData.place}
                             onChange={e => setFormData({ ...formData, place: e.target.value })}
                         >
@@ -1080,9 +1096,9 @@ export default function ManageResults() {
                         />
                     )}
 
-                    <input className="admin-input full-width" placeholder="Team" value={formData.team} onChange={e => setFormData({ ...formData, team: e.target.value })} required />
+                    <input className="admin-input" placeholder="Team" value={formData.team} onChange={e => setFormData({ ...formData, team: e.target.value })} required />
                     <select
-                        className="admin-select full-width"
+                        className="admin-select"
                         value={formData.grade}
                         onChange={e => setFormData({ ...formData, grade: e.target.value })}
                     >
@@ -1092,7 +1108,7 @@ export default function ManageResults() {
                         <option value="B">B</option>
                         <option value="C">C</option>
                     </select>
-                    <input className="admin-input full-width" placeholder="Chest No" value={formData.chestNo} onChange={e => setFormData({ ...formData, chestNo: e.target.value })} />
+                    <input className="admin-input" placeholder="Chest No" value={formData.chestNo} onChange={e => setFormData({ ...formData, chestNo: e.target.value })} />
                 </div>
                 <div className="admin-form-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginTop: '20px' }}>
                     <button

@@ -43,26 +43,7 @@ service cloud.firestore {
     // Registration Data Contract Verification
     match /registrations/{registration} {
       allow read: if true;
-      
-      // Strict Schema Validation
-      allow create: if 
-        // 1. Only allow specific keys
-        request.resource.data.keys().hasOnly([
-          "fullName", "chestNumber", "team", "class", "section", 
-          "cicNumber", "phone", "email", "events", "createdAt"
-        ])
-        // 2. Required fields exist
-        && request.resource.data.keys().hasAll([
-          "fullName", "chestNumber", "team", "class", "createdAt"
-        ])
-        // 3. Field Types and Constraints
-        && isValidString(request.resource.data.fullName, 3)
-        && request.resource.data.team in ["PYRA", "IGNIS", "ATASH"]
-        && request.resource.data.chestNumber.matches("^[A-Z0-9]{3,10}$")
-        && request.resource.data.class is string
-        && request.resource.data.events is list;
-        
-      allow update, delete: if isAdmin();
+      allow write: if isAdmin();
     }
 
     match /teams/{team} {

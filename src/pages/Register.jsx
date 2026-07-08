@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase";
 import { Helmet } from "react-helmet-async";
 import "./Register.css";
-import { getEventType, isGeneralEvent } from "../constants/events";
+import { getEventType, isGeneralEvent, getEventScope } from "../constants/events";
 import { logAppEvent } from "../utils/analytics";
 
 
@@ -29,12 +29,13 @@ export default function Register() {
     const [events, setEvents] = useState([]);
     const [liveTeams, setLiveTeams] = useState([]);
     const [masterStudents, setMasterStudents] = useState([]);
+    const [existingRegistrations, setExistingRegistrations] = useState([]);
     const [formData, setFormData] = useState({
         fullName: "",
         cicNumber: "",
         chestNumber: "",
         team: "",
-
+        category: "",
         events: []
     });
 
@@ -70,9 +71,9 @@ export default function Register() {
 
                         // Fallback simple heuristic
                         if (!teamName) {
-                            if (email.includes("pyra")) teamName = "PYRA";
-                            else if (email.includes("ignis")) teamName = "IGNIS";
-                            else if (email.includes("atash")) teamName = "ATASH";
+                            if (email.includes("y4y4")) teamName = "TEAM A";
+                            else if (email.includes("w2w2")) teamName = "TEAM B";
+                            else if (email.includes("t3t3")) teamName = "TEAM C";
                         }
 
                         if (teamName) {
@@ -112,6 +113,19 @@ export default function Register() {
             }
         };
         fetchMasterStudents();
+
+        // Fetch Existing Registrations (for limit enforcement)
+        const fetchRegistrations = async () => {
+            try {
+                const q = query(collection(db, "registrations"));
+                const snapshot = await getDocs(q);
+                const regList = snapshot.docs.map(doc => doc.data());
+                setExistingRegistrations(regList);
+            } catch (err) {
+                console.error("Error fetching registrations:", err);
+            }
+        };
+        fetchRegistrations();
 
         // Registration Lock Listener
         const unsubSettings = onSnapshot(doc(db, "settings", "config"), (docSnap) => {
@@ -164,10 +178,24 @@ export default function Register() {
     const handleEventToggle = (eventName, type) => {
         setFormData(prev => {
             const currentList = prev.events;
-
             if (currentList.includes(eventName)) {
                 return { ...prev, events: currentList.filter(e => e !== eventName) };
             } else {
+                // Check if already registered in past submissions
+                if (formData.chestNumber) {
+                    const pastRegs = existingRegistrations.filter(r => String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase());
+                    const allPastEvents = [];
+                    pastRegs.forEach(r => {
+                        if (r.events) allPastEvents.push(...r.events);
+                        if (r.onStageEvents) allPastEvents.push(...r.onStageEvents);
+                        if (r.offStageEvents) allPastEvents.push(...r.offStageEvents);
+                        if (r.generalEvents) allPastEvents.push(...r.generalEvents);
+                    });
+                    if (allPastEvents.includes(eventName)) {
+                        showToast(`You are already registered for ${eventName}.`);
+                        return prev;
+                    }
+                }
                 // Limit Check for On Stage events
                 if (type === "On Stage") {
                     const onStageCount = currentList.filter(e => {
@@ -175,8 +203,47 @@ export default function Register() {
                         const t = found?.type || getEventType(e);
                         return t === "On Stage" && !resolveIsGeneral(e);
                     }).length;
-                    if (onStageCount >= 3) {
-                        showToast("You can only select up to 3 On Stage events.");
+
+                    let pastOnStageCount = 0;
+                    if (formData.chestNumber) {
+                        const pastRegs = existingRegistrations.filter(r => String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase());
+                        pastRegs.forEach(r => {
+                            if (r.onStageEvents) pastOnStageCount += r.onStageEvents.length;
+                        });
+                    }
+
+                    if (onStageCount + pastOnStageCount >= 3) {
+                        if (pastOnStageCount > 0) {
+                            showToast(`You already registered for ${pastOnStageCount} On Stage event(s) previously. You can only select a total of 3.`);
+                        } else {
+                            showToast("You can only select up to 3 On Stage events.");
+                        }
+                        return prev;
+                    }
+                }
+                
+                // Limit Check for Off Stage events
+                if (type === "Off Stage") {
+                    const offStageCount = currentList.filter(e => {
+                        const found = events.find(ev => ev.name === e);
+                        const t = found?.type || getEventType(e);
+                        return t === "Off Stage" && !resolveIsGeneral(e);
+                    }).length;
+
+                    let pastOffStageCount = 0;
+                    if (formData.chestNumber) {
+                        const pastRegs = existingRegistrations.filter(r => String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase());
+                        pastRegs.forEach(r => {
+                            if (r.offStageEvents) pastOffStageCount += r.offStageEvents.length;
+                        });
+                    }
+
+                    if (offStageCount + pastOffStageCount >= 4) {
+                        if (pastOffStageCount > 0) {
+                            showToast(`You already registered for ${pastOffStageCount} Off Stage event(s) previously. You can only select a total of 4.`);
+                        } else {
+                            showToast("You can only select up to 4 Off Stage events.");
+                        }
                         return prev;
                     }
                 }
@@ -206,10 +273,53 @@ export default function Register() {
             return;
         }
 
+        if (formData.events.length === 0) {
+            showToast("Please select at least one event before submitting.");
+            setSubmitting(false);
+            return;
+        }
+
         try {
             const onStageEvents = formData.events.filter(e => resolveEventType(e) === "On Stage" && !resolveIsGeneral(e));
             const offStageEvents = formData.events.filter(e => resolveEventType(e) === "Off Stage" && !resolveIsGeneral(e));
             const generalEvents = formData.events.filter(e => resolveIsGeneral(e));
+
+            // Enforce limit across multiple submissions and block duplicates
+            let pastOnStageCount = 0;
+            let pastOffStageCount = 0;
+            const allPastEvents = [];
+            
+            if (formData.chestNumber) {
+                const pastRegs = existingRegistrations.filter(r => String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase());
+                pastRegs.forEach(r => {
+                    if (r.onStageEvents) pastOnStageCount += r.onStageEvents.length;
+                    if (r.offStageEvents) pastOffStageCount += r.offStageEvents.length;
+                    
+                    if (r.events) allPastEvents.push(...r.events);
+                    if (r.onStageEvents) allPastEvents.push(...r.onStageEvents);
+                    if (r.offStageEvents) allPastEvents.push(...r.offStageEvents);
+                    if (r.generalEvents) allPastEvents.push(...r.generalEvents);
+                });
+            }
+
+            const duplicateEvents = formData.events.filter(e => allPastEvents.includes(e));
+            if (duplicateEvents.length > 0) {
+                showToast(`Submission blocked: You have already registered for ${duplicateEvents.join(", ")}`);
+                setSubmitting(false);
+                return;
+            }
+
+            if (onStageEvents.length + pastOnStageCount > 3) {
+                showToast(`Submission blocked: You already registered for ${pastOnStageCount} On Stage event(s) previously. You can only select up to 3 total.`);
+                setSubmitting(false);
+                return;
+            }
+
+            if (offStageEvents.length + pastOffStageCount > 4) {
+                showToast(`Submission blocked: You already registered for ${pastOffStageCount} Off Stage event(s) previously. You can only select up to 4 total.`);
+                setSubmitting(false);
+                return;
+            }
 
             await addDoc(collection(db, "registrations"), {
                 fullName: formData.fullName,
@@ -236,9 +346,19 @@ export default function Register() {
     };
 
     // Filter events for display
-    const onStageList = events.filter(e => resolveEventType(e) === "On Stage" && !resolveIsGeneral(e));
-    const offStageList = events.filter(e => resolveEventType(e) === "Off Stage" && !resolveIsGeneral(e));
-    const generalList = events.filter(e => resolveIsGeneral(e));
+    const filterByScope = (e) => {
+        if (!formData.category) return true;
+        const scope = typeof e === 'object' && e.scope ? e.scope : getEventScope(typeof e === 'object' ? e.name : e);
+        if (scope.includes("Junior") && scope.includes("Senior")) return true;
+        if (scope === "General") return true;
+        if (formData.category.toLowerCase() === "junior" && scope.toLowerCase() === "senior") return false;
+        if (formData.category.toLowerCase() === "senior" && scope.toLowerCase() === "junior") return false;
+        return true;
+    };
+
+    const onStageList = events.filter(e => resolveEventType(e) === "On Stage" && !resolveIsGeneral(e) && filterByScope(e));
+    const offStageList = events.filter(e => resolveEventType(e) === "Off Stage" && !resolveIsGeneral(e) && filterByScope(e));
+    const generalList = events.filter(e => resolveIsGeneral(e) && filterByScope(e));
 
     if (success) {
         return (
@@ -395,7 +515,7 @@ export default function Register() {
                                         zIndex: 999, boxShadow: '0 10px 25px rgba(0,0,0,0.8)'
                                     }}>
                                         {masterStudents
-                                            .filter(s => !formData.team || s.team === formData.team || !s.team)
+                                            .filter(s => formData.team ? s.team === formData.team : true)
                                             .filter(s => s.chestNumber.includes(formData.chestNumber.toUpperCase()) || s.fullName.toLowerCase().includes(formData.chestNumber.toLowerCase()))
                                             .sort((a, b) => a.chestNumber.localeCompare(b.chestNumber))
                                             .map(s => (
@@ -407,7 +527,8 @@ export default function Register() {
                                                         chestNumber: s.chestNumber,
                                                         fullName: s.fullName,
                                                         cicNumber: s.cicNumber || "",
-                                                        team: s.team || formData.team
+                                                        team: s.team || formData.team,
+                                                        category: s.category || ""
                                                     });
                                                     setShowDropdown(false);
                                                 }}

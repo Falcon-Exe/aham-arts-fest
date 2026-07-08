@@ -239,7 +239,7 @@ function Results() {
 
       {/* HERO SECTION: CHAMPIONSHIP PROGRESS */}
       {showResultsPoints && champion && (
-        <section className={`hero-section team-${champion[0]} stagger-reveal-badge`}>
+        <section className={`hero-section team-${champion[0].replace(/\s+/g, '-').toUpperCase()} stagger-reveal-badge`}>
           <div className="hero-grid">
             <div className="hero-main">
               <div className="hero-label">Festival Leader</div>
@@ -255,7 +255,7 @@ function Results() {
             </div>
 
             {runnerUp && (
-              <div className={`hero-runner team-${runnerUp[0]}`}>
+              <div className={`hero-runner team-${runnerUp[0].replace(/\s+/g, '-').toUpperCase()}`}>
                 <div className="runner-label">Festival Runner</div>
                 <h2 className="runner-team-name">{runnerUp[0]}</h2>
                 <div className="runner-stats">
@@ -291,7 +291,7 @@ function Results() {
             {sortedTeams.map(([team, pts]) => (
               <button
                 key={team}
-                className={`team-pill team-${team} ${activeTeam === team ? "active" : ""}`}
+                className={`team-pill team-${team.replace(/\s+/g, '-').toUpperCase()} ${activeTeam === team ? "active" : ""}`}
                 onClick={() => setActiveTeam(activeTeam === team ? null : team)}
               >
                 <span className="pill-name">{team}</span>
@@ -337,12 +337,12 @@ function Results() {
                       </strong>
                     </div>
                     {winners.map((w, i) => (
-                      <div key={i} className={`winner-box prize-${prize.toLowerCase()} team-${w.team}`}>
+                      <div key={i} className={`winner-box prize-${prize.toLowerCase()} team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>
                         <div style={{ flex: 1 }}>
                           <div className="winner-name">{formatName(w.name)}</div>
                           <div className="winner-meta">
                             {w.chestNo && <span className="winner-chest">{w.chestNo}</span>}
-                            <span className={`winner-team team-${w.team}`}>{w.team}</span>
+                            <span className={`winner-team team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>{w.team}</span>
                             {w.grade && <span className={`winner-grade ${gradeClass(w.grade)}`}>{w.grade}</span>}
                           </div>
                         </div>

@@ -1,12 +1,11 @@
 import { useState, useEffect } from "react";
-import { collection, addDoc, deleteDoc, doc, query, orderBy, updateDoc } from "firebase/firestore";
-import { getDocs } from "firebase/firestore";
+import { collection, addDoc, deleteDoc, doc, query, orderBy, updateDoc, writeBatch, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
 
-import { getEventType, ALL_EVENTS, ON_STAGE_EVENTS } from "../constants/events";
+import { getEventType, getEventScope, ALL_EVENTS, ON_STAGE_EVENTS } from "../constants/events";
 
 export default function ManageEvents() {
     const [events, setEvents] = useState([]);
@@ -182,6 +181,30 @@ export default function ManageEvents() {
         setLoading(false);
     };
 
+    // CLEAR ALL EVENTS
+    const handleClearAllEvents = async () => {
+        if (!await confirm("🧨 WARNING: This will permanently DELETE ALL EVENTS from the database. Are you absolutely sure?")) return;
+        if (!await confirm("🧨 DOUBLE CHECK: Type 'YES' to confirm you want to delete EVERYTHING.")) return; // Extra safety if we had a prompt, but confirm is true/false. Let's just do one confirm for now.
+        
+        setLoading(true);
+        try {
+            const snapshot = await getDocs(query(collection(db, "events")));
+            const batch = writeBatch(db);
+            
+            snapshot.docs.forEach((document) => {
+                batch.delete(doc(db, "events", document.id));
+            });
+            
+            await batch.commit();
+            alert(`✅ Successfully deleted ${snapshot.size} events!`);
+            fetchEvents();
+        } catch (err) {
+            console.error("Failed to clear events:", err);
+            showToast("Failed to clear events.", "error");
+        }
+        setLoading(false);
+    };
+
     const handleSeedDatabase = async () => {
         if (!await confirm(`This will verify all ${ALL_EVENTS.length} events from the master list are in the database. Continue?`)) return;
         setLoading(true);
@@ -203,7 +226,8 @@ export default function ManageEvents() {
                         date: "",
                         time: "",
                         stage: "",
-                        type: getEventType(eventName)
+                        type: getEventType(eventName),
+                        studentCategory: getEventScope(eventName)
                     });
                     addedCount++;
                     addedNames.push(eventName);
@@ -226,7 +250,7 @@ export default function ManageEvents() {
 
     // TEMP FIX: ONE-TIME RUN TO CLASSIFY EVENTS
     const fixEventTypes = async () => {
-        if (!await confirm("This will RECLASSIFY all events based on the hardcoded list (On Stage vs Off Stage). Continue?")) return;
+        if (!await confirm("This will RECLASSIFY all events' Stage Type and Category Scope based on the hardcoded list. Continue?")) return;
         setLoading(true);
 
         let updatedCount = 0;
@@ -235,17 +259,16 @@ export default function ManageEvents() {
         try {
             for (const ev of events) {
                 const upperName = ev.name.trim().toUpperCase();
-                let newType = "Off Stage"; // Default
+                const newType = getEventType(upperName);
+                const newScope = getEventScope(upperName);
 
-                // Check if it's in the On Stage list
-                if (ON_STAGE_EVENTS.includes(upperName)) {
-                    newType = "On Stage";
-                }
-
-                if (ev.type !== newType) {
-                    await updateDoc(doc(db, "events", ev.id), { type: newType });
+                if (ev.type !== newType || ev.studentCategory !== newScope) {
+                    await updateDoc(doc(db, "events", ev.id), { 
+                        type: newType,
+                        studentCategory: newScope 
+                    });
                     updatedCount++;
-                    updatedDetails.push(`${ev.name}: ${ev.type || "None"} -> ${newType}`);
+                    updatedDetails.push(`${ev.name}: [${ev.type || "None"} -> ${newType}] | [${ev.studentCategory || "None"} -> ${newScope}]`);
                 }
             }
 
@@ -319,6 +342,7 @@ export default function ManageEvents() {
                         {dynamicCategories.map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
                         ))}
+                        <option value="Junior & Senior">Junior & Senior</option>
                     </select>
                 </div>
                 <div className="admin-form-actions" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
@@ -343,7 +367,9 @@ export default function ManageEvents() {
                             <button type="button" onClick={fixEventTypes} className="submit-btn" style={{ background: 'var(--secondary)', fontSize: '0.85rem' }}>
                                 🔧 Fix Types
                             </button>
-
+                            <button type="button" onClick={handleClearAllEvents} className="submit-btn" style={{ background: '#ef4444', fontSize: '0.85rem' }}>
+                                🧨 Clear All
+                            </button>
                         </div>
                     )}
                 </div>

@@ -30,19 +30,76 @@
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--border-soft);
   box-shadow: var(--shadow-lg);
-  padding: 10px 24px;
-  border-radius: var(--radius-full);
+  border-radius: 30px;
   display: flex;
-  align-items: center;
-  gap: 20px;
+  flex-direction: column;
+  overflow: hidden;
   animation: floatIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  transition: all var(--transition-normal);
+  transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.4s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
+  max-height: 48px;
+  max-width: 250px;
 }
 
 .island-capsule:hover {
   background: var(--surface-hover);
   box-shadow: var(--shadow-lg), var(--shadow-glow);
-  border-color: rgba(0, 0, 0, 0.15);
+  border-color: rgba(255, 255, 255, 0.15);
+  max-height: 120px;
+  max-width: 320px;
+}
+
+/* COMPACT STATE */
+.island-compact {
+  display: flex;
+  align-items: center;
+  padding: 10px 24px;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+}
+
+/* EXPANDED MENU */
+.island-expanded {
+  display: flex;
+  justify-content: space-around;
+  padding: 0 20px 15px 20px;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s ease 0.1s, transform 0.3s ease 0.1s;
+  pointer-events: none;
+  width: 320px;
+}
+
+.island-capsule:hover .island-expanded {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.island-link {
+  text-decoration: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.island-link span {
+  font-size: 1.1rem;
+  transition: transform 0.2s ease;
+}
+
+.island-link:hover {
+  color: var(--primary);
+  transform: scale(1.05);
+}
+
+.island-link:hover span {
+  transform: translateY(-3px);
 }
 
 /* LOGO */
@@ -61,10 +118,14 @@
 
 /* TITLE */
 .island-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   line-height: 1;
   text-align: center;
+  white-space: nowrap;
 }
 
 .island-title .bold {
@@ -82,7 +143,7 @@
   margin-top: 2px;
 }
 
-/* STATUS DOT */
+/* STATUS DOT / EQUALIZER */
 .island-status {
   display: flex;
   align-items: center;
@@ -92,30 +153,31 @@
   color: var(--primary);
   background: transparent;
   padding: 0;
+  margin-left: auto;
 }
 
-.pulse-dot {
-  width: 6px;
-  height: 6px;
-  background: var(--primary);
-  border-radius: 50%;
-  box-shadow: 0 0 10px var(--primary);
-  animation: pulse 1.5s infinite;
+.equalizer {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 10px;
 }
+
+.equalizer .bar {
+  width: 3px;
+  background-color: var(--primary);
+  border-radius: 1px;
+  animation: equalize 1s infinite alternate ease-in-out;
+}
+
+.equalizer .bar:nth-child(1) { height: 4px; animation-duration: 0.6s; }
+.equalizer .bar:nth-child(2) { height: 10px; animation-duration: 0.9s; }
+.equalizer .bar:nth-child(3) { height: 6px; animation-duration: 0.7s; }
 
 /* ANIMATIONS */
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(194, 65, 12, 0.4);
-  }
-
-  70% {
-    box-shadow: 0 0 0 6px rgba(194, 65, 12, 0);
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 rgba(194, 65, 12, 0);
-  }
+@keyframes equalize {
+  0% { height: 3px; }
+  100% { height: 10px; }
 }
 
 @keyframes floatIn {
@@ -129,7 +191,3 @@
     opacity: 1;
   }
 }
-
-/* DARK MODE overrides are no longer needed since it's a global dark theme, 
-   but keeping the block empty/clean just in case */
-@media (prefers-color-scheme: dark) {}

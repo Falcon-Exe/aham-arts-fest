@@ -146,8 +146,8 @@ export default function ManageTeamAccounts() {
                 <div className="admin-card">
                     <h4>{editId ? "Edit Team" : "Create New Team"}</h4>
                     <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '15px' }}>
-                        {editId 
-                            ? "Editing display details. Warning: This does not change their actual login password." 
+                        {editId
+                            ? "Editing display details. Warning: This does not change their actual login password."
                             : "This will generate a login for the team leader to register their candidates."}
                     </p>
                     <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -181,7 +181,7 @@ export default function ManageTeamAccounts() {
                                 className="admin-input"
                                 value={email}
                                 onChange={e => setEmail(e.target.value)}
-                                // placeholder="e.g. pyra@aham.com"
+                                // placeholder="e.g. 123@aham.com"
                                 required
                             />
                         </div>

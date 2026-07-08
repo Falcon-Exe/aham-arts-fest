@@ -17,11 +17,11 @@ export default function ManageSettings() {
         logoUrl: "",
         studentCategories: ["Junior", "Senior"],
         studentClasses: [
-            "1 THAMHEEDIYYA ULA",
-            "2 THAMHEEDIYYA SANIYA",
-            "3 ALIYA ULA",
-            "4 ALIYA SANIYA",
-            "5 ALIYA SALISA"
+            "THAMHEEDIYYA ULA",
+            "THAMHEEDIYYA SANIYA",
+            "ALIYA ULA",
+            "ALIYA SANIYA",
+            "ALIYA SALISA"
         ]
     });
 
@@ -80,7 +80,7 @@ export default function ManageSettings() {
         try {
             await setDoc(doc(db, "settings", "branding"), branding);
             showToast("Branding settings saved! Reload the page to apply theme fully.", "success");
-            
+
             // Dynamic theme application
             const root = document.documentElement;
             root.style.setProperty('--primary', branding.primaryColor);
@@ -167,7 +167,7 @@ export default function ManageSettings() {
             <h3 className="section-title" style={{ margin: 0 }}>⚙️ Platform Settings Panel</h3>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-                
+
                 {/* BRANDING CARD */}
                 <div style={{
                     background: 'var(--surface)',
@@ -179,7 +179,7 @@ export default function ManageSettings() {
                     gap: '15px'
                 }}>
                     <h4 style={{ margin: 0, color: 'var(--text-main)', borderBottom: '1px solid var(--border-soft)', paddingBottom: '10px' }}>🎨 Custom Branding</h4>
-                    
+
                     <div>
                         <label style={{ display: 'block', color: 'var(--text-secondary)', marginBottom: '5px', fontSize: '0.85rem' }}>Application Name</label>
                         <input

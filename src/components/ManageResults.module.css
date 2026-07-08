@@ -226,12 +226,24 @@
 }
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Table to Card Conversion removed to allow horizontal scroll */
 @media (max-width: 768px) {
+  .formGrid {
+    grid-template-columns: repeat(1, 1fr);
+    gap: 12px;
+  }
+
   .buttonDanger {
     width: 100%;
     text-align: center;

@@ -9,6 +9,7 @@ export default function GalleryPage() {
     const [metaItems, setMetaItems] = useState({});
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
+    const [apiFailed, setApiFailed] = useState(false);
     const [nextCursor, setNextCursor] = useState(null);
     const [selectedImg, setSelectedImg] = useState(null);
     const [colCount, setColCount] = useState(3);
@@ -42,6 +43,7 @@ export default function GalleryPage() {
         try {
             const url = `https://api-insta-ebon.vercel.app/api/instagram/posts?limit=24${after ? `&after=${after}` : ''}`;
             const response = await fetch(url);
+            if (!response.ok) throw new Error("API Proxy returned an error");
             const data = await response.json();
             
             if (data.posts && data.posts.length > 0) {
@@ -57,7 +59,6 @@ export default function GalleryPage() {
                 
                 if (after) {
                     setItems(prev => {
-                        // Prevent duplicates just in case API returns overlapping data
                         const existingIds = new Set(prev.map(p => p.id));
                         const uniqueNew = formattedPosts.filter(p => !existingIds.has(p.id));
                         return [...prev, ...uniqueNew];
@@ -72,7 +73,12 @@ export default function GalleryPage() {
                 setNextCursor(null);
             }
         } catch (err) {
-            console.error("Error fetching Instagram gallery:", err);
+            console.error("Error fetching Instagram gallery, falling back to cache:", err);
+            // Mark API as failed so the useEffect takes over syncing from metaItems
+            if (!after) {
+                setApiFailed(true);
+                setItems(Object.values(metaItems));
+            }
         } finally {
             setLoading(false);
             setLoadingMore(false);
@@ -82,6 +88,13 @@ export default function GalleryPage() {
     useEffect(() => {
         fetchPosts();
     }, []);
+
+    // Sync items from metaItems if the API has failed and metaItems finishes loading later
+    useEffect(() => {
+        if (apiFailed) {
+            setItems(Object.values(metaItems));
+        }
+    }, [metaItems, apiFailed]);
 
     const lastElementRef = useCallback(node => {
         if (loading || loadingMore) return;
@@ -167,7 +180,12 @@ export default function GalleryPage() {
                                         {item.mediaType === "VIDEO" && item.videoUrl ? (
                                             <video src={item.videoUrl} muted loop playsInline autoPlay />
                                         ) : (
-                                            <img src={item.src} alt={item.title} loading="lazy" />
+                                            <img 
+                                                src={item.src} 
+                                                alt={item.title} 
+                                                loading="lazy" 
+                                                onError={(e) => { e.target.style.display = 'none'; }} 
+                                            />
                                         )}
                                         
                                         {renderMediaIcon(item.mediaType)}
