@@ -42,7 +42,7 @@ Your app uses PWA with service workers that cache data.
 The script showed 0 results, but let me verify manually.
 
 **Solution:**
-1. Go to [Firebase Console](https://console.firebase.google.com/project/aham-arts-fest/firestore)
+1. Go to [Firebase Console](https://console.firebase.google.com/project/artsfestapp/firestore)
 2. Navigate to `results` collection
 3. Check if there are any documents
 4. If yes, delete duplicate entries manually

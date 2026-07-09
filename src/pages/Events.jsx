@@ -36,8 +36,8 @@ export default function Events() {
         const matchesSearch = event.name?.toLowerCase().includes(search.toLowerCase()) ||
             event.category?.toLowerCase().includes(search.toLowerCase());
 
-        const eventMainType = getEventType(event.name);
-        const isGeneral = isGeneralEvent(event.name);
+        const eventMainType = event.type || getEventType(event.name) || "On Stage";
+        const isGeneral = event.type === "General" || isGeneralEvent(event.name);
 
         const matchesTab = activeTab === "All" ||
             (activeTab === "General" ? isGeneral : (eventMainType === activeTab && !isGeneral));
@@ -62,6 +62,15 @@ export default function Events() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
+                    {search && (
+                        <button 
+                            className="search-clear-btn"
+                            onClick={() => setSearch("")}
+                            aria-label="Clear search"
+                        >
+                            ✕
+                        </button>
+                    )}
                 </div>
 
                 {/* TAB NAVIGATION */}
@@ -86,8 +95,19 @@ export default function Events() {
                     <p>Fetching Events...</p>
                 </div>
             ) : filteredEvents.length === 0 ? (
-                <div className="empty-state">
-                    <p>No events found in this category.</p>
+                <div className="premium-empty-card stagger-reveal-grid">
+                    <div className="empty-icon">🔍</div>
+                    <h3 className="empty-title">No Events Found</h3>
+                    <p className="empty-subtitle">We couldn't find any events matching your search or filters.</p>
+                    <button 
+                        className="empty-action-btn"
+                        onClick={() => {
+                            setSearch("");
+                            setActiveTab("All");
+                        }}
+                    >
+                        Reset All Filters
+                    </button>
                 </div>
             ) : (
                 <div className="events-grid stagger-reveal-grid">
@@ -96,12 +116,23 @@ export default function Events() {
                             <div className="event-card-header">
                                 <h3 className="event-name">{event.name}</h3>
                                 <div className="badge-group">
-                                    <span className={`type-badge badge-${getEventType(event.name).toLowerCase().replace(' ', '-')}`}>
-                                        {getEventType(event.name)}
-                                    </span>
-                                    {isGeneralEvent(event.name) && (
-                                        <span className="type-badge badge-general">General</span>
+                                    {event.type === "General" || isGeneralEvent(event.name) ? (
+                                        <>
+                                            <span className="type-badge badge-general">General</span>
+                                            {(event.generalSubtype || (getEventType(event.name) !== "Unknown" ? getEventType(event.name) : "On Stage")) && (
+                                                <span className={`type-badge badge-${(event.generalSubtype || (getEventType(event.name) !== "Unknown" ? getEventType(event.name) : "On Stage")).toLowerCase().replace(' ', '-')}`}>
+                                                    {event.generalSubtype || (getEventType(event.name) !== "Unknown" ? getEventType(event.name) : "On Stage")}
+                                                </span>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <span className={`type-badge badge-${(event.type || getEventType(event.name) || "On Stage").toLowerCase().replace(' ', '-')}`}>
+                                            {event.type || getEventType(event.name) || "On Stage"}
+                                        </span>
                                     )}
+                                    <span className="type-badge badge-scope">
+                                        {event.studentCategory === "General" ? "Common/General" : (event.studentCategory || "Common/General")}
+                                    </span>
                                 </div>
                             </div>
 
@@ -109,8 +140,8 @@ export default function Events() {
                                 {event.category}
                             </div>
 
-                            <div className="event-details">
-                                <div className="detail-item">
+                            <div className="event-details-row">
+                                <div className="detail-pill">
                                     <span className="detail-icon">📅</span>
                                     <div className="detail-content">
                                         <label>Date</label>
@@ -118,17 +149,18 @@ export default function Events() {
                                     </div>
                                 </div>
 
-                                <div className="detail-item">
+                                <div className="detail-pill">
                                     <span className="detail-icon">⏰</span>
                                     <div className="detail-content">
                                         <label>Time</label>
                                         <p>{event.time || "TBA"}</p>
                                     </div>
                                 </div>
-                                <div className="detail-item">
-                                    <span className="detail-icon">🎭</span>
+
+                                <div className="detail-pill">
+                                    <span className="detail-icon">📍</span>
                                     <div className="detail-content">
-                                        <label>Stage</label>
+                                        <label>Venue</label>
                                         <p>{event.stage || "Main Stage"}</p>
                                     </div>
                                 </div>

@@ -1,5 +1,5 @@
 {
-  "name": "aham-arts-fest",
+  "name": "majlis-wafy-arts-fest",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -15,6 +15,7 @@
     "@vercel/speed-insights": "^1.3.1",
     "clsx": "^2.1.1",
     "firebase": "^12.8.0",
+    "html2canvas": "^1.4.1",
     "lucide-react": "^1.23.0",
     "papaparse": "^5.5.3",
     "react": "^18.3.1",

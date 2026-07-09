@@ -53,7 +53,7 @@ export default function TeamLogin() {
                         <label>Email Address</label>
                         <input
                             type="email"
-                            placeholder="e.g. 123@aham.com"
+                            placeholder="e.g. 123@123.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required

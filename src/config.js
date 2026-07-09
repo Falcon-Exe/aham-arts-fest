@@ -5,4 +5,4 @@
 
 // Cloudinary Constants
 export const CLOUD_NAME = "dncz0c7vu";
-export const UPLOAD_PRESET = "aham-arts-fest";
+export const UPLOAD_PRESET = "majlis-wafy-arts-fest";

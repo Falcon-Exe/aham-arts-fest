@@ -41,7 +41,8 @@ export default function ManageEvents() {
         time: "",
         stage: "",
         type: "On Stage",
-        studentCategory: "General",
+        studentCategory: "Common/General",
+        generalSubtype: "On Stage",
     });
 
 
@@ -101,7 +102,7 @@ export default function ManageEvents() {
                 await addDoc(collection(db, "events"), { ...formData, name: eventName });
                 showToast("Event added successfully!", "success");
             }
-            setFormData({ name: "", category: "", date: "", time: "", stage: "", type: "On Stage", studentCategory: "General" });
+            setFormData({ name: "", category: "", date: "", time: "", stage: "", type: "On Stage", studentCategory: "Common/General", generalSubtype: "On Stage" });
             setEditId(null);
             fetchEvents(); // Refresh list
         } catch (err) {
@@ -118,14 +119,15 @@ export default function ManageEvents() {
             time: event.time || "",
             stage: event.stage || "",
             type: event.type || "On Stage",
-            studentCategory: event.studentCategory || "General",
+            studentCategory: event.studentCategory === "General" ? "Common/General" : (event.studentCategory || "Common/General"),
+            generalSubtype: event.generalSubtype || "On Stage",
         });
         setEditId(event.id);
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
     const handleCancelEdit = () => {
-        setFormData({ name: "", category: "", date: "", time: "", stage: "", type: "On Stage", studentCategory: "General" });
+        setFormData({ name: "", category: "", date: "", time: "", stage: "", type: "On Stage", studentCategory: "Common/General", generalSubtype: "On Stage" });
         setEditId(null);
     };
 
@@ -220,14 +222,16 @@ export default function ManageEvents() {
             // 2. Check and Add missing
             for (const eventName of ALL_EVENTS) {
                 if (!existingNames.has(eventName.trim().toUpperCase())) {
+                    const eventType = getEventType(eventName);
                     await addDoc(collection(db, "events"), {
                         name: eventName,
                         category: "",
                         date: "",
                         time: "",
                         stage: "",
-                        type: getEventType(eventName),
-                        studentCategory: getEventScope(eventName)
+                        type: eventType,
+                        studentCategory: getEventScope(eventName),
+                        ...(eventType === "General" ? { generalSubtype: "Off Stage" } : {})
                     });
                     addedCount++;
                     addedNames.push(eventName);
@@ -337,12 +341,18 @@ export default function ManageEvents() {
                         <option value="Off Stage">Off Stage 📝</option>
                         <option value="General">General 🌐</option>
                     </select>
-                    <select className="admin-select" name="studentCategory" value={formData.studentCategory} onChange={handleChange}>
-                        <option value="General">Common / General</option>
+                    {formData.type === "General" && (
+                        <select className="admin-select" name="generalSubtype" value={formData.generalSubtype || "On Stage"} onChange={handleChange}>
+                            <option value="On Stage">General - On Stage 🎭</option>
+                            <option value="Off Stage">General - Off Stage 📝</option>
+                        </select>
+                    )}
+                    <select className="admin-select" name="studentCategory" value={formData.studentCategory === "General" ? "Common/General" : formData.studentCategory} onChange={handleChange}>
+                        <option value="Common/General">Common / General — No Jr/Sr split, separate points pool</option>
                         {dynamicCategories.map(cat => (
-                            <option key={cat} value={cat}>{cat}</option>
+                            <option key={cat} value={cat}>{cat} Only</option>
                         ))}
-                        <option value="Junior & Senior">Junior & Senior</option>
+                        <option value="Junior & Senior">Junior &amp; Senior — Both compete, tracked per category</option>
                     </select>
                 </div>
                 <div className="admin-form-actions" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
@@ -410,7 +420,7 @@ export default function ManageEvents() {
                                             {ev.type || 'On Stage'}
                                         </span>
                                     </td>
-                                    <td style={{ fontWeight: '600', color: 'var(--primary-light)' }}>{ev.studentCategory || 'General'}</td>
+                                    <td style={{ fontWeight: '600', color: 'var(--primary-light)' }}>{ev.studentCategory === "General" ? "Common/General" : (ev.studentCategory || "Common/General")}</td>
                                     <td>{ev.time}</td>
                                     <td>{ev.date}</td>
                                     <td>{ev.stage}</td>

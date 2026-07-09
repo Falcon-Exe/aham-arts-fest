@@ -43,13 +43,18 @@ export default function ManageIndividualPoints() {
                 // Unique Key: ChestNo is best. If missing, use Name+Team.
                 const key = chestNo || `${name}_${team}`;
 
+                let studentCategory = data.studentCategory || "General";
+                if (studentCategory === "Common/General" || studentCategory === "Common / General") {
+                    studentCategory = "General";
+                }
+
                 if (!scores[key]) {
                     scores[key] = {
                         key,
                         name: name,
                         chestNo: chestNo || "-",
                         team: team,
-                        category: data.studentCategory || "General",
+                        category: studentCategory,
                         items: [],
                         first: 0,
                         second: 0,
@@ -58,8 +63,8 @@ export default function ManageIndividualPoints() {
                     };
                 }
 
-                if (data.studentCategory && data.studentCategory !== "General" && data.studentCategory !== "Junior & Senior") {
-                    scores[key].category = data.studentCategory;
+                if (studentCategory && studentCategory !== "General" && studentCategory !== "Junior & Senior") {
+                    scores[key].category = studentCategory;
                 }
 
                 if (data.place === "First") scores[key].first += 1;

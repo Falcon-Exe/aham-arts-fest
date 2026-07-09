@@ -1,21 +1,29 @@
 import { useState, useEffect } from "react";
 import { useTeamScores } from "../hooks/useTeamScores";
 import { collection, getDocs, onSnapshot } from "firebase/firestore";
-import { db } from "../firebase"; // Still needed for raw rows if we want detailed list, 
-// BUT the current implementation fetches raw rows separately.
-// Let's keep the raw rows fetch for the details, but use the hook for the headers.
-// ACTUALLY, the hook returns aggregated scores. 
-// Results page needs raw rows for the detailed list. 
-// So we keep `rows` state but we can use `scores` for the leaderboard part.
-
-// To avoid double fetching, we can leave Results.jsx as is for now OR 
-// We can assume the hook defines the "Official" score.
-
-// Let's just import the hook for the Champion/Scoreboard part to ensure consistency.
+import { db } from "../firebase";
+import { getEventType } from "../constants/events";
+import AnimatedCounter from "../components/AnimatedCounter";
 
 import Toast from '../components/Toast';
-import StandingsChart from "../components/StandingsChart";
 import "./Results.css";
+
+const hexToRgba = (hex, alpha) => {
+  if (!hex) return `rgba(255, 255, 255, ${alpha})`;
+  const cleanHex = hex.replace('#', '');
+  if (cleanHex.length === 3) {
+    const r = parseInt(cleanHex[0] + cleanHex[0], 16);
+    const g = parseInt(cleanHex[1] + cleanHex[1], 16);
+    const b = parseInt(cleanHex[2] + cleanHex[2], 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  } else if (cleanHex.length === 6) {
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return hex;
+};
 
 function Results() {
   const [rows, setRows] = useState([]); // Raw results from DB
@@ -31,8 +39,9 @@ function Results() {
   // Use Hook for official scores
   const { scores: sortedTeamsData, champion: hookChampion, runnerUp: hookRunnerUp, showResultsPoints, teamColors } = useTeamScores();
 
-  // Map Event Name -> Result Image URL
   const [eventPosters, setEventPosters] = useState({});
+  const [eventTypes, setEventTypes] = useState({});
+  const [eventGeneralSubtypes, setEventGeneralSubtypes] = useState({});
 
   // Request notification permissions
   useEffect(() => {
@@ -78,18 +87,30 @@ function Results() {
       setLoading(false);
     });
 
-    // Also fetch events to get poster images
+    // Also fetch events to get poster images and dynamic types
     const fetchEvents = async () => {
       try {
         const eventsSnap = await getDocs(collection(db, "events"));
         const posterMap = {};
+        const typeMap = {};
+        const subtypeMap = {};
         eventsSnap.docs.forEach(doc => {
           const ev = doc.data();
-          if (ev.name && ev.resultImage) {
-            posterMap[ev.name] = ev.resultImage;
+          if (ev.name) {
+            if (ev.resultImage) {
+              posterMap[ev.name] = ev.resultImage;
+            }
+            if (ev.type) {
+              typeMap[ev.name.trim().toUpperCase()] = ev.type;
+            }
+            if (ev.type === "General" && ev.generalSubtype) {
+              subtypeMap[ev.name.trim().toUpperCase()] = ev.generalSubtype;
+            }
           }
         });
         setEventPosters(posterMap);
+        setEventTypes(typeMap);
+        setEventGeneralSubtypes(subtypeMap);
       } catch (error) {
         console.error("Error loading events:", error);
       }
@@ -116,7 +137,7 @@ function Results() {
   const [activeSubTab, setActiveSubTab] = useState("All"); // All | On Stage | Off Stage
 
   const activeScoresData = sortedTeamsData.map(s => {
-    let total;
+    let total = 0;
     if (activeCategoryTab === "Overall") {
       if (activeSubTab === "All") total = s.total;
       else if (activeSubTab === "On Stage") total = s.onStage || 0;
@@ -133,6 +154,13 @@ function Results() {
 
   const champion = activeScoresData.length > 0 && activeScoresData[0].total > 0 ? [activeScoresData[0].team, activeScoresData[0].total] : null;
   const runnerUp = activeScoresData.length > 1 && activeScoresData[1].total > 0 ? [activeScoresData[1].team, activeScoresData[1].total] : null;
+  
+  const firstPlace = activeScoresData.length > 0 && activeScoresData[0].total > 0 ? activeScoresData[0] : null;
+  const secondPlace = activeScoresData.length > 1 && activeScoresData[1].total > 0 ? activeScoresData[1] : null;
+  const thirdPlace = activeScoresData.length > 2 && activeScoresData[2].total > 0 ? activeScoresData[2] : null;
+
+  const isDev = import.meta.env.DEV;
+  const shouldShowPoints = showResultsPoints || isDev;
 
   /* ===============================
      GROUP BY EVENT
@@ -142,13 +170,20 @@ function Results() {
     if (!r.eventName) return;
     // Category filter
     if (activeCategoryTab !== "Overall") {
-      const rowCat = r.studentCategory || "General";
+      let rowCat = r.studentCategory || "General";
+      if (rowCat === "Common/General" || rowCat === "Common / General") {
+        rowCat = "General";
+      }
       if (rowCat !== activeCategoryTab) return;
     }
     // Sub-tab (stage type) filter
     if (activeSubTab !== "All") {
-      const evType = r.type || "On Stage";
-      if (evType !== activeSubTab) return;
+      const normalizedName = (r.eventName || "").trim().toUpperCase();
+      const rawType = eventTypes[normalizedName] || getEventType(r.eventName) || "Off Stage";
+      // General events use their generalSubtype (e.g. "Off Stage") for sub-tab filtering
+      const generalSubtype = eventGeneralSubtypes?.[normalizedName];
+      const resolvedType = (rawType === "General" && generalSubtype) ? generalSubtype : rawType;
+      if (resolvedType !== activeSubTab) return;
     }
     if (!grouped[r.eventName]) grouped[r.eventName] = [];
     grouped[r.eventName].push(r);
@@ -228,45 +263,78 @@ function Results() {
           ))}
       </div>
 
-      {showResultsPoints && (
-        <StandingsChart
-            scores={activeScoresData.map(s => ({ name: s.team, total: s.total }))}
-            activeCategory={activeCategoryTab}
-            subCategory={activeSubTab}
-            teamColors={teamColors}
-        />
-      )}
-
-      {/* HERO SECTION: CHAMPIONSHIP PROGRESS */}
-      {showResultsPoints && champion && (
-        <section className={`hero-section team-${champion[0].replace(/\s+/g, '-').toUpperCase()} stagger-reveal-badge`}>
-          <div className="hero-grid">
-            <div className="hero-main">
-              <div className="hero-label">Festival Leader</div>
-              <h1 className="hero-team-name">{champion[0]}</h1>
-              <div className="hero-stats">
-                <span className="hero-points">{champion[1]}</span>
-                <span className="hero-unit">Total Points</span>
-              </div>
-              <div className="hero-badges">
-                <span className="premium-badge">🎨 Leading the Fest</span>
-                <span className="premium-badge">✨ Shining Bright</span>
-              </div>
-            </div>
-
-            {runnerUp && (
-              <div className={`hero-runner team-${runnerUp[0].replace(/\s+/g, '-').toUpperCase()}`}>
-                <div className="runner-label">Festival Runner</div>
-                <h2 className="runner-team-name">{runnerUp[0]}</h2>
-                <div className="runner-stats">
-                  <span className="runner-points">{runnerUp[1]}</span>
-                  <span className="runner-unit">Total Points</span>
+      {/* 3D STANDINGS PODIUM */}
+      {shouldShowPoints && firstPlace && (
+        <section className="podium-section stagger-reveal-badge">
+          <h3 style={{ textAlign: 'center', marginBottom: '25px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.9rem' }}>🏆 Championship Podium</h3>
+          <div className="podium-container">
+            {/* 2nd Place */}
+            {secondPlace && (
+              <div 
+                className={`podium-step podium-second interactive-step ${activeTeam === secondPlace.team ? 'active-step' : ''}`}
+                onClick={() => setActiveTeam(activeTeam === secondPlace.team ? null : secondPlace.team)}
+                title={activeTeam === secondPlace.team ? "Clear filter" : `Filter results by ${secondPlace.team}`}
+                style={{ '--team-color': teamColors[secondPlace.team] || '#a78bfa' }}
+              >
+                <div className="podium-team-color-glow"></div>
+                <div className="podium-avatar">🥈</div>
+                <div className="podium-team-name">{secondPlace.team}</div>
+                <div className="podium-pts"><AnimatedCounter value={secondPlace.total} /> pts</div>
+                <div className="podium-block" style={{ 
+                  height: '80px', 
+                  background: `linear-gradient(180deg, ${hexToRgba(teamColors[secondPlace.team] || '#a78bfa', 0.25)}, ${hexToRgba(teamColors[secondPlace.team] || '#a78bfa', 0.03)})`,
+                  borderColor: hexToRgba(teamColors[secondPlace.team] || '#a78bfa', 0.3),
+                  boxShadow: `0 8px 24px ${hexToRgba(teamColors[secondPlace.team] || '#a78bfa', 0.15)}, inset 0 1px 0 rgba(255,255,255,0.1)`
+                }}>
+                  <span className="podium-number" style={{ color: hexToRgba(teamColors[secondPlace.team] || '#a78bfa', 0.15) }}>2</span>
                 </div>
               </div>
             )}
-          </div>
-          <div className="hero-visual">
-            <div className="glow-circle"></div>
+
+            {/* 1st Place */}
+            <div 
+              className={`podium-step podium-first interactive-step ${activeTeam === firstPlace.team ? 'active-step' : ''}`}
+              onClick={() => setActiveTeam(activeTeam === firstPlace.team ? null : firstPlace.team)}
+              title={activeTeam === firstPlace.team ? "Clear filter" : `Filter results by ${firstPlace.team}`}
+              style={{ '--team-color': teamColors[firstPlace.team] || '#e63946' }}
+            >
+              <div className="podium-team-color-glow"></div>
+              <div className="podium-crown">👑</div>
+              <div className="podium-avatar">🥇</div>
+              <div className="podium-team-name">{firstPlace.team}</div>
+              <div className="podium-pts"><AnimatedCounter value={firstPlace.total} /> pts</div>
+              <div className="podium-block" style={{ 
+                height: '120px', 
+                background: `linear-gradient(180deg, ${hexToRgba(teamColors[firstPlace.team] || '#e63946', 0.35)}, ${hexToRgba(teamColors[firstPlace.team] || '#e63946', 0.05)})`,
+                borderColor: hexToRgba(teamColors[firstPlace.team] || '#e63946', 0.4),
+                boxShadow: `0 12px 32px ${hexToRgba(teamColors[firstPlace.team] || '#e63946', 0.25)}, inset 0 1px 0 rgba(255,255,255,0.2)`
+              }}>
+                <span className="podium-number" style={{ color: hexToRgba(teamColors[firstPlace.team] || '#e63946', 0.2) }}>1</span>
+              </div>
+            </div>
+
+            {/* 3rd Place */}
+            {thirdPlace && (
+              <div 
+                className={`podium-step podium-third interactive-step ${activeTeam === thirdPlace.team ? 'active-step' : ''}`}
+                onClick={() => setActiveTeam(activeTeam === thirdPlace.team ? null : thirdPlace.team)}
+                title={activeTeam === thirdPlace.team ? "Clear filter" : `Filter results by ${thirdPlace.team}`}
+                style={{ '--team-color': teamColors[thirdPlace.team] || '#34d399' }}
+              >
+                <div className="podium-team-color-glow"></div>
+                <div className="podium-avatar">🥉</div>
+                <div className="podium-team-name">{thirdPlace.team}</div>
+                <div className="podium-pts"><AnimatedCounter value={thirdPlace.total} /> pts</div>
+                <div className="podium-block" style={{ 
+                  height: '60px', 
+                  background: `linear-gradient(180deg, ${hexToRgba(teamColors[thirdPlace.team] || '#34d399', 0.2)}, ${hexToRgba(teamColors[thirdPlace.team] || '#34d399', 0.02)})`,
+                  borderColor: hexToRgba(teamColors[thirdPlace.team] || '#34d399', 0.25),
+                  boxShadow: `0 6px 20px ${hexToRgba(teamColors[thirdPlace.team] || '#34d399', 0.1)}, inset 0 1px 0 rgba(255,255,255,0.08)`
+                }}>
+                  <span className="podium-number" style={{ color: hexToRgba(teamColors[thirdPlace.team] || '#34d399', 0.12) }}>3</span>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -286,7 +354,7 @@ function Results() {
         </div>
 
         {/* TEAM QUICK-FILTER (Visible only if Points are enabled) */}
-        {showResultsPoints && (
+        {shouldShowPoints && (
           <div className="team-filter-bar">
             {sortedTeams.map(([team, pts]) => (
               <button
@@ -304,7 +372,14 @@ function Results() {
 
       {/* RESULTS GRID */}
       {filteredEvents.length === 0 ? (
-        <p style={{ textAlign: "center", color: "var(--muted)", marginTop: "20px" }}>No results found.</p>
+        <div className="empty-results-card">
+          <div className="empty-icon">🔍</div>
+          <h4>No Results Found</h4>
+          <p>We couldn't find any results matching your search query or filters.</p>
+          <button className="reset-filters-btn" onClick={() => { setSearch(""); setActiveTeam(null); setActiveCategoryTab("Overall"); setActiveSubTab("All"); }}>
+            Reset All Filters
+          </button>
+        </div>
       ) : (
         <div className="results-grid stagger-reveal-grid">
           {filteredEvents.map(([event, list]) => (

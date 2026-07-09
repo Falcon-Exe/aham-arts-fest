@@ -1,9 +1,25 @@
 import { memo, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "../firebase";
 import "./Header.css";
 
 function Header() {
   const [scrolled, setScrolled] = useState(false);
+  const [hasTicker, setHasTicker] = useState(false);
+
+  /* TICKER STATUS DETECTION */
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "announcements", "ticker"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setHasTicker(!!(data && data.active && data.message));
+      } else {
+        setHasTicker(false);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   /* SCROLL DIRECTION DETECTION */
   useEffect(() => {
@@ -25,7 +41,7 @@ function Header() {
   const mainTitle = words.join(" ");
 
   return (
-    <header className={`island-header ${scrolled ? "hidden" : "visible"}`}>
+    <header className={`island-header ${scrolled ? "hidden" : "visible"} ${hasTicker ? "has-ticker" : ""}`}>
       <div className="island-capsule">
         {/* COMPACT STATE */}
         <div className="island-compact">
@@ -59,8 +75,11 @@ function Header() {
           <Link to="/gallery" className="island-link">
             <span>📸</span> Gallery
           </Link>
-          <Link to="/dashboard" className="island-link">
+          <Link to="/results" className="island-link">
             <span>🏆</span> Results
+          </Link>
+          <Link to="/profile" className="island-link">
+            <span>🎓</span> Profile
           </Link>
         </div>
       </div>

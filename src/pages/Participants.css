@@ -1,6 +1,5 @@
-/* Participants.css - SaaS Premium */
 .participants-page {
-  background: var(--bg-main);
+  background: transparent;
   min-height: 100vh;
   padding-bottom: var(--space-6);
   color: var(--text-main);

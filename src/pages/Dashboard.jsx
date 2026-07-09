@@ -17,7 +17,7 @@ import ManageStudents from "../components/ManageStudents";
 import ManageRegistrations from "../components/ManageRegistrations";
 import ManageAuditLogs from "../components/ManageAuditLogs";
 import ManageSettings from "../components/ManageSettings";
-import { collection, onSnapshot, doc, setDoc, getDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, setDoc, getDoc, query, orderBy, limit } from "firebase/firestore";
 import { db } from "../firebase";
 import { useConfirm } from "../hooks/useConfirm";
 import { ADMIN_EMAILS } from "../constants/auth";
@@ -333,20 +333,21 @@ function Dashboard() {
             </div >
 
             {/* CONTENT */}
-            < div className="dashboard-content" >
-                {activeTab === "events" && <ManageEvents />}
-                {activeTab === "registrations" && <ManageRegistrations />}
-
-                {activeTab === "results" && <ManageResults />}
-                {activeTab === "teams" && <ManageTeams />}
-                {activeTab === "individual" && <ManageIndividualPoints />}
-                {activeTab === "profiles" && <ManageStudentProfiles />}
-                {activeTab === "team_accounts" && <ManageTeamAccounts />}
-                {activeTab === "announcements" && <ManageAnnouncements />}
-                {activeTab === "gallery" && <ManageGallery />}
-                {activeTab === "audit" && <ManageAuditLogs />}
-                {activeTab === "settings" && <ManageSettings />}
-            </div >
+            <div className="dashboard-content-split">
+                <main className="dashboard-main fade-in">
+                    {activeTab === "events" && <ManageEvents />}
+                    {activeTab === "registrations" && <ManageRegistrations />}
+                    {activeTab === "results" && <ManageResults />}
+                    {activeTab === "teams" && <ManageTeams />}
+                    {activeTab === "individual" && <ManageIndividualPoints />}
+                    {activeTab === "profiles" && <ManageStudentProfiles />}
+                    {activeTab === "team_accounts" && <ManageTeamAccounts />}
+                    {activeTab === "announcements" && <ManageAnnouncements />}
+                    {activeTab === "gallery" && <ManageGallery />}
+                    {activeTab === "audit" && <ManageAuditLogs />}
+                    {activeTab === "settings" && <ManageSettings />}
+                </main>
+            </div>
         </div >
     );
 }

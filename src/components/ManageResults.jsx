@@ -260,12 +260,12 @@ export default function ManageResults() {
             const place = formData.place;
             const grade = formData.grade;
 
-            const isGeneral = isGeneralEvent(ev?.name);
-            const totalPoints = calculatePoints({ 
-                category, 
-                place, 
-                grade, 
-                isGeneral 
+            const isGeneral = ev?.type === "General" || isGeneralEvent(ev?.name);
+            const totalPoints = calculatePoints({
+                category,
+                place,
+                grade,
+                isGeneral
             }, scoringConfig);
 
             const batch = writeBatch(db);
@@ -273,8 +273,8 @@ export default function ManageResults() {
             if (autoRegister && selectedStudentId && selectedStudentId !== "Manual Entry") {
                 const regRef = doc(db, "registrations", selectedStudentId);
                 const evName = ev?.name;
-                const isGeneral = isGeneralEvent(evName);
-                const evType = getEventType(evName);
+                const isGeneral = ev?.type === "General" || isGeneralEvent(evName);
+                const evType = ev?.type || getEventType(evName);
 
                 if (isGeneral) {
                     batch.update(regRef, {
@@ -294,14 +294,14 @@ export default function ManageResults() {
             const payload = {
                 ...formData,
                 eventName: ev?.name || "Unknown",
-                category: isGeneral ? "General" : category, 
+                category: isGeneral ? "General" : category,
                 studentCategory: actualStudentCategory,
                 points: totalPoints,
                 timestamp: serverTimestamp() // Better than static string for ranking integrity
             };
 
             const resultRef = editId ? doc(db, "results", editId) : doc(collection(db, "results"));
-            
+
             if (editId) {
                 batch.update(resultRef, payload);
             } else {
@@ -310,13 +310,15 @@ export default function ManageResults() {
 
             // Client-Side Leaderboard Update
             if (payload.team && totalPoints > 0) {
-                // Determine point delta if updating (needs to remove old points first)
-                // For a simple fix without reading old result, if it's an edit, we assume points might change. 
-                // Note: True bullet-proof logic requires a cloud function to diff old/new points.
-                // Assuming mostly fresh publishes for now.
+                // Note: True bullet-proof edit logic requires a cloud function to diff old/new points.
                 const teamScoreRef = doc(db, "teamScores", payload.team.toUpperCase());
                 batch.set(teamScoreRef, {
                     totalPoints: increment(totalPoints),
+                    // Track General vs Regular points separately for category-based display
+                    ...(isGeneral
+                        ? { generalPoints: increment(totalPoints) }
+                        : { regularPoints: increment(totalPoints) }
+                    ),
                     lastUpdated: serverTimestamp()
                 }, { merge: true });
             }
@@ -455,13 +457,13 @@ export default function ManageResults() {
                                 console.warn(`Bulk warning for ${studentName}: ${regCheck.msg}`);
                             }
 
-                            const isGeneral = isGeneralEvent(matchedEvent.name);
+                            const isGeneral = matchedEvent.type === "General" || isGeneralEvent(matchedEvent.name);
                             const category = matchedEvent.category || "A";
-                            const calculatedPts = calculatePoints({ 
-                                category, 
-                                place: prize, 
-                                grade, 
-                                isGeneral 
+                            const calculatedPts = calculatePoints({
+                                category,
+                                place: prize,
+                                grade,
+                                isGeneral
                             }, scoringConfig);
 
                             let actualStudentCategory = matchedEvent.studentCategory || "General";
@@ -560,18 +562,18 @@ export default function ManageResults() {
             const place = r.place;
             const grade = r.grade;
 
-            const isGeneral = isGeneralEvent(ev.name);
-            const totalPoints = calculatePoints({ 
-                category, 
-                place, 
-                grade, 
-                isGeneral 
+            const isGeneral = ev.type === "General" || isGeneralEvent(ev.name);
+            const totalPoints = calculatePoints({
+                category,
+                place,
+                grade,
+                isGeneral
             }, scoringConfig);
 
             let expectedStudentCategory = ev.studentCategory || "General";
             // If the event supports both, we shouldn't overwrite the result's specific student category (Junior or Senior)
             // with the generic "Junior & Senior" string.
-            if (expectedStudentCategory === "Junior & Senior") {
+            if (expectedStudentCategory === "Junior & Senior" || expectedStudentCategory === "General" || expectedStudentCategory === "Common/General" || expectedStudentCategory === "Common / General") {
                 expectedStudentCategory = r.studentCategory || "General";
             }
 
@@ -605,9 +607,41 @@ export default function ManageResults() {
     const [filterPrize, setFilterPrize] = useState("");
     const [filterGrade, setFilterGrade] = useState("");
 
+    const exportToCSV = () => {
+        if (results.length === 0) {
+            showToast("No results to export.", "warning");
+            return;
+        }
+        
+        const headers = ["Event Name", "Category", "Student Category", "Place", "Grade", "Points", "Name", "Chest No", "Team"];
+        const rows = results.map(r => [
+            `"${r.eventName || ""}"`,
+            `"${r.category || ""}"`,
+            `"${r.studentCategory || ""}"`,
+            `"${r.place || ""}"`,
+            `"${r.grade || ""}"`,
+            r.points || 0,
+            `"${r.name || ""}"`,
+            `"${r.chestNo || ""}"`,
+            `"${r.team || ""}"`
+        ]);
+        
+        const csvContent = "data:text/csv;charset=utf-8," 
+            + headers.join(",") + "\n" 
+            + rows.map(e => e.join(",")).join("\n");
+            
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Arts_Fest_Results_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     // Cloudinary Config (Reused)
     const CLOUD_NAME = "dncz0c7vu";
-    const UPLOAD_PRESET = "aham-arts-fest";
+    const UPLOAD_PRESET = "majlis-wafy-arts-fest";
 
     const handlePosterUpload = async (e) => {
         const file = e.target.files[0];
@@ -688,7 +722,7 @@ export default function ManageResults() {
             (r.name || "").toLowerCase().includes(q) ||
             (r.chestNo || "").toString().toLowerCase().includes(q)
         );
-        
+
         const matchesTeam = filterTeam ? r.team === filterTeam : true;
         const matchesPrize = filterPrize ? r.place === filterPrize : true;
         const matchesGrade = filterGrade ? r.grade === filterGrade : true;
@@ -936,7 +970,7 @@ export default function ManageResults() {
                                 const hasSecond = eventResults.some(r => r.place === "Second");
                                 const hasThird = eventResults.some(r => r.place === "Third");
                                 const isCompleted = hasFirst && hasSecond && hasThird;
-                                
+
                                 let statusIndicator = "";
                                 if (isCompleted) {
                                     statusIndicator = "🟢 (Completed)";
@@ -1001,9 +1035,9 @@ export default function ManageResults() {
                             <option value="None">None (Grade Only)</option>
                         </select>
                         {(() => {
-                            const existingWinner = results.find(r => 
-                                r.eventId === formData.eventId && 
-                                r.place === formData.place && 
+                            const existingWinner = results.find(r =>
+                                r.eventId === formData.eventId &&
+                                r.place === formData.place &&
                                 r.id !== editId &&
                                 r.place !== "None"
                             );
@@ -1135,7 +1169,12 @@ export default function ManageResults() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: '1 1 100%', flexWrap: 'wrap', marginBottom: '10px' }}>
-                    <h4 style={{ margin: 0, color: 'var(--primary)', whiteSpace: 'nowrap' }}>Published Results History</h4>
+                    <h4 style={{ margin: 0, color: 'var(--primary)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        Published Results History
+                        <button onClick={exportToCSV} title="Export to CSV" style={{ background: 'transparent', border: '1px solid var(--border-soft)', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            ⬇️ CSV
+                        </button>
+                    </h4>
                     <input
                         type="text"
                         placeholder="🔍 Search name, event, chest no..."

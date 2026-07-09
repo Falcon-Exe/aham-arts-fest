@@ -8,7 +8,7 @@
   [![Vite](https://img.shields.io/badge/Vite-Bundler-B73BFE?style=for-the-badge&logo=vite&logoColor=FFD62E)](https://vitejs.dev/)
   [![PWA](https://img.shields.io/badge/PWA-Ready-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
   <br />
-  <a href="https://aham-arts-fest.vercel.app"><strong>View Live Demo »</strong></a>
+  <a href="https://artsfestapp.web.app"><strong>View Live Demo »</strong></a>
 </div>
 
 <br />

@@ -23,6 +23,12 @@ export default function AppLayout() {
 
   return (
     <div className="app-layout">
+      {/* Aurora Background Blobs */}
+      <div className="aurora-bg">
+        <div className="blob blob-1"></div>
+        <div className="blob blob-2"></div>
+        <div className="blob blob-3"></div>
+      </div>
       <Helmet>
         <title>{appName}</title>
         <meta name="description" content={`Official standings and live updates for ${appName}.`} />

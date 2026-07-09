@@ -6,7 +6,7 @@
   width: 100%;
   min-height: 100vh;
   position: relative;
-  background-color: var(--bg-main);
+  background-color: transparent;
   color: var(--text-main);
   overflow-x: hidden;
 }
@@ -73,8 +73,9 @@
 .hero-typography-centered {
   z-index: 2;
   text-align: center;
-  margin-bottom: var(--space-4);
+  margin-bottom: 12px;
   position: relative;
+  animation: textGlow 3s ease-in-out infinite alternate;
 }
 
 .hero-typography-centered h1 {
@@ -82,24 +83,49 @@
   font-size: clamp(4rem, 12vw, 10rem);
   line-height: 0.9;
   font-weight: 800;
-  background: linear-gradient(180deg, #FFFFFF 0%, rgba(255, 255, 255, 0.5) 100%);
+  background: linear-gradient(120deg,
+      #ffffff 20%,
+      rgba(255, 255, 255, 0.85) 30%,
+      #e52222 40%,
+      #ffffff 50%,
+      rgba(255, 255, 255, 0.7) 70%,
+      #ffffff 80%);
+  background-size: 200% auto;
   -webkit-background-clip: text;
   background-clip: text;
+  -webkit-text-fill-color: transparent;
   color: transparent;
   letter-spacing: -0.04em;
   margin: 0;
   white-space: nowrap;
+  animation: shine 6s linear infinite;
 }
 
-/* CENTER BADGE - MOVED LOWER */
+@keyframes shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+@keyframes textGlow {
+  0% {
+    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.05)) drop-shadow(0 0 20px rgba(255, 204, 0, 0.02));
+  }
+
+  100% {
+    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.15)) drop-shadow(0 0 35px rgba(255, 204, 0, 0.08));
+  }
+}
+
+/* CENTER BADGE - ADAPTIVE POSITIONING */
 .hero-center-badge {
-  position: absolute;
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  position: relative;
+  margin: 12px auto var(--space-2) auto;
   z-index: 10;
   pointer-events: none;
   mix-blend-mode: exclusion;
+  display: flex;
+  justify-content: center;
 }
 
 /* FOOTER FULL-WIDTH SECTION */
@@ -315,7 +341,7 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-3);
-  margin-top: var(--space-6);
+  margin-top: var(--space-2);
   padding: 0 20px;
   z-index: 5;
 }
@@ -378,6 +404,18 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.card-profile {
+  grid-column: 1 / -1;
+  height: auto;
+  flex-direction: row;
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+}
+
+.card-profile:hover .card-icon {
+  transform: translateX(10px) scale(1.1) rotate(5deg);
 }
 
 .live-badge {
@@ -508,34 +546,42 @@
     font-size: 16vw;
   }
 
+  .hero-typography-centered {
+    margin-bottom: 8px;
+  }
+
   .circle-frame {
     width: 140px;
     height: 140px;
   }
 
   .hero-center-badge {
-    top: 50%;
+    margin: 6px auto -12px auto;
   }
 
   .bento-nav-grid {
     gap: 16px;
-    margin-top: 80px;
+    margin-top: 0px;
   }
 }
 
 @media (max-width: 600px) {
+  .hero-typography-centered {
+    margin-bottom: 4px;
+  }
+
   .hero-typography-centered h1 {
     font-size: 18vw;
   }
 
   .hero-center-badge {
-    top: 40%;
+    margin: 0px auto -24px auto;
   }
 
   .bento-nav-grid {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: var(--space-2);
-    margin-top: 100px;
+    margin-top: 0px;
   }
 
   .bento-card {
@@ -564,6 +610,19 @@
     flex-direction: column;
     gap: 5px;
     align-items: flex-start;
+  }
+
+  .card-profile {
+    padding: var(--space-3);
+  }
+
+  .card-profile .card-label {
+    font-size: 1.1rem !important;
+  }
+
+  .card-profile .card-icon {
+    font-size: 1.5rem !important;
+    position: static;
   }
 
   .stacked-pill-nav {
@@ -796,5 +855,116 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* ===============================
+   BENTO GRID CUSTOM GLOWS (Suggestion 3)
+   =============================== */
+.card-events:hover {
+  border-color: rgba(167, 139, 250, 0.45) !important;
+  /* Purple */
+  box-shadow: 0 12px 40px rgba(167, 139, 250, 0.2) !important;
+}
+
+.card-register:hover {
+  border-color: rgba(52, 211, 153, 0.45) !important;
+  /* Emerald */
+  box-shadow: 0 12px 40px rgba(52, 211, 153, 0.2) !important;
+}
+
+.card-players:hover {
+  border-color: rgba(56, 189, 248, 0.45) !important;
+  /* Sky */
+  box-shadow: 0 12px 40px rgba(56, 189, 248, 0.2) !important;
+}
+
+.card-results:hover {
+  border-color: rgba(230, 57, 70, 0.45) !important;
+  /* Ruby red */
+  box-shadow: 0 12px 40px rgba(230, 57, 70, 0.2) !important;
+}
+
+/* ===============================
+   FLOATING AMBIENT BOKEH ORBS (Suggestion 4)
+   =============================== */
+.ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(130px);
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.14;
+  mix-blend-mode: screen;
+}
+
+.orb-1 {
+  width: 320px;
+  height: 320px;
+  background: var(--primary, #e63946);
+  top: 8%;
+  left: 10%;
+  animation: floatOrb1 26s infinite alternate ease-in-out;
+}
+
+.orb-2 {
+  width: 420px;
+  height: 420px;
+  background: rgba(79, 70, 229, 0.85);
+  /* Indigo */
+  bottom: 8%;
+  right: 8%;
+  animation: floatOrb2 32s infinite alternate ease-in-out;
+}
+
+.orb-3 {
+  width: 260px;
+  height: 260px;
+  background: rgba(255, 204, 0, 0.65);
+  /* Gold */
+  top: 35%;
+  left: 45%;
+  animation: floatOrb3 22s infinite alternate ease-in-out;
+}
+
+@keyframes floatOrb1 {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(80px, 40px) scale(1.1);
+  }
+
+  100% {
+    transform: translate(-40px, 80px) scale(0.9);
+  }
+}
+
+@keyframes floatOrb2 {
+  0% {
+    transform: translate(0, 0) scale(1.1);
+  }
+
+  50% {
+    transform: translate(-100px, -60px) scale(0.9);
+  }
+
+  100% {
+    transform: translate(50px, 40px) scale(1.05);
+  }
+}
+
+@keyframes floatOrb3 {
+  0% {
+    transform: translate(-50%, -50%) translate(0, 0);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) translate(-60px, 80px);
+  }
+
+  100% {
+    transform: translate(-50%, -50%) translate(80px, -40px);
   }
 }

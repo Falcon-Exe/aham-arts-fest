@@ -20,6 +20,7 @@ const Participants = lazy(() => import("./pages/Participants"));
 const TeamLogin = lazy(() => import("./pages/TeamLogin"));
 const Register = lazy(() => import("./pages/Register"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 import CustomCursor from "./components/CustomCursor";
@@ -100,7 +101,10 @@ function AppContent() {
 .hero-runner.${cssClass} { border-color: ${bgAlpha25} !important; }
 .hero-runner.${cssClass} .runner-team-name { color: ${color} !important; }
 .team-badge.${cssClass}, .winner-team.${cssClass}, .team-pill.${cssClass} { background: ${bgAlpha10} !important; color: ${color} !important; border: 1px solid ${bgAlpha20} !important; }
-.team-pill.active.${cssClass} { background: ${bgAlpha20} !important; border-color: ${color} !important; }
+.team-pill.active.${cssClass} { background: ${bgAlpha20} !important; border-color: ${color} !important; box-shadow: 0 0 12px ${bgAlpha20} !important; }
+.team-pill.${cssClass}:hover { border-color: ${bgAlpha60} !important; box-shadow: 0 0 8px ${bgAlpha10} !important; }
+.winner-box.${cssClass} { border-color: ${bgAlpha20} !important; }
+.winner-box.${cssClass}:hover { border-color: ${color} !important; box-shadow: 0 0 15px ${bgAlpha20} !important; }
 `;
       });
       styleEl.textContent = cssRules;
@@ -145,6 +149,8 @@ function AppContent() {
             <Route path="/events" element={<Events />} />
             <Route path="/team-login" element={<TeamLogin />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/results" element={<Results />} />
             <Route path="/participants" element={<Participants />} />
             <Route path="*" element={<NotFound />} />

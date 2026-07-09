@@ -1,59 +1,75 @@
 export const EVENT_MAP = {
-    // ON STAGE (Add your on-stage events here)
-    
-    // OFF STAGE - JUNIOR & SENIOR (Common)
+    // Junior ONLY (Off Stage)
+    "URDU READING": "Off Stage",
+    "PROBLEM SOLVING": "Off Stage",
+    "PHOTOGRAPHY": "Off Stage",
+    "MINI STORY MALAYALAM": "Off Stage",
+
+    // Senior ONLY (Off Stage)
+    "ESSAY URDU": "Off Stage",
+    "STORY URDU": "Off Stage",
+    "REPORT WRITING ARABIC": "Off Stage",
+    "TRANSLATION ENGLISH-MALAYALAM": "Off Stage",
+    "TRANSLATION ARABIC-MALAYALAM": "Off Stage",
+    "TRANSLATION URDU-MALAYALAM": "Off Stage",
+    "MINI STORY": "Off Stage",
+    "EPIC STUDY": "Off Stage",
+
+    // Common Junior & Senior (Off Stage)
     "ESSAY MALAYALAM": "Off Stage",
     "ESSAY ARABIC": "Off Stage",
     "ESSAY ENGLISH": "Off Stage",
     "POEM MALAYALAM": "Off Stage",
-    "POEM ENGLISH": "Off Stage",
     "POEM ARABIC": "Off Stage",
+    "POEM ENGLISH": "Off Stage",
     "STORY MALAYALAM": "Off Stage",
     "STORY ARABIC": "Off Stage",
     "STORY ENGLISH": "Off Stage",
-    "MINI STORY MALAYALAM": "Off Stage",
-    "MINI STORY ENGLISH": "Off Stage",
-    "REPORT MALAYALAM": "Off Stage",
-    "REPORT ENGLISH": "Off Stage",
-    "REPORT ARABIC": "Off Stage",
-    "CARTOON": "Off Stage",
-    "Q AND H PAINTING": "Off Stage",
+    "CALLIGRAPHY": "Off Stage",
+    "REPORT WRITING MALAYALAM": "Off Stage",
+    "REPORT WRITING ENGLISH": "Off Stage",
+    "CARTOON DRAWING": "Off Stage",
+    "Q & H PAINTING": "Off Stage",
     "SHORT VLOGGING": "Off Stage",
     "DIGITAL DESIGNING": "Off Stage",
-    "CALLIGRAPHY": "Off Stage",
 
-    // OFF STAGE - JUNIOR ONLY
-    "PHOTOGRAPHY": "Off Stage",
-    "BOOK REVIEW MALAYALAM": "Off Stage",
-    "URDU READING": "Off Stage",
-
-    // OFF STAGE - SENIOR ONLY
-    "ESSAY URDU": "Off Stage",
-    "STORY URDU": "Off Stage",
-    "DEFENSE & OFFENSE": "Off Stage",
-    "TRANSLATION (A-M)": "Off Stage",
-    "TRANSLATION (E-M)": "Off Stage",
-    "TRANSLATION (U-M)": "Off Stage",
-    "EPIC STUDY": "Off Stage"
+    // General (Off Stage)
+    "PHOTO FEATURE": "General",
+    "COLLAGE": "General",
+    "ESCAPE ROOM": "General",
+    "AMBIENCE SETTING": "General",
+    "AI VIDEO CREATION": "General",
+    "MORAL VIDEO CREATION": "General",
+    "DIGITAL MAGAZINE": "General",
+    "PROJECT SUBMISSION": "General"
 };
 
 export const GENERAL_LIST = [
-    // Add any events that do NOT have Junior/Senior distinction here
+    "PHOTO FEATURE",
+    "COLLAGE",
+    "ESCAPE ROOM",
+    "AMBIENCE SETTING",
+    "AI VIDEO CREATION",
+    "MORAL VIDEO CREATION",
+    "DIGITAL MAGAZINE",
+    "PROJECT SUBMISSION"
 ];
 
 export const EVENT_SCOPE_MAP = {
-    // JUNIOR ONLY
-    "PHOTOGRAPHY": "Junior",
-    "BOOK REVIEW MALAYALAM": "Junior",
+    // Junior ONLY
     "URDU READING": "Junior",
-    
-    // SENIOR ONLY
+    "PROBLEM SOLVING": "Junior",
+    "PHOTOGRAPHY": "Junior",
+    "MINI STORY MALAYALAM": "Junior",
+
+    // Senior ONLY
     "ESSAY URDU": "Senior",
     "STORY URDU": "Senior",
-    "DEFENSE & OFFENSE": "Senior",
-    "TRANSLATION (A-M)": "Senior",
-    "TRANSLATION (E-M)": "Senior",
-    "TRANSLATION (U-M)": "Senior",
+    "REPORT WRITING ARABIC": "Senior",
+    "TRANSLATION ENGLISH-MALAYALAM": "Senior",
+    "TRANSLATION ARABIC-MALAYALAM": "Senior",
+    "TRANSLATION URDU-MALAYALAM": "Senior",
+    "MINI STORY": "Senior",
     "EPIC STUDY": "Senior"
 };
 
@@ -65,7 +81,10 @@ export const GENERAL_EVENTS = ALL_EVENTS.filter(evt => GENERAL_LIST.includes(evt
 
 export const getEventType = (eventName) => {
     if (!eventName) return "Unknown";
-    return EVENT_MAP[eventName.trim().toUpperCase()] || "Unknown";
+    const name = eventName.trim().toUpperCase();
+    if (EVENT_MAP[name]) return EVENT_MAP[name];
+    if (GENERAL_LIST.includes(name)) return "General";
+    return "Unknown";
 };
 
 export const isGeneralEvent = (eventName) => {
@@ -74,9 +93,9 @@ export const isGeneralEvent = (eventName) => {
 };
 
 export const getEventScope = (eventName) => {
-    if (!eventName) return "General";
+    if (!eventName) return "Common/General";
     const name = eventName.trim().toUpperCase();
-    if (GENERAL_LIST.includes(name)) return "General";
+    if (GENERAL_LIST.includes(name)) return "Common/General";
     return EVENT_SCOPE_MAP[name] || "Junior & Senior";
 };
 

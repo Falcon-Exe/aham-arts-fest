@@ -159,9 +159,14 @@ function Home() {
       <section className="cinematic-hero" aria-label={`Welcome to ${appName}`}>
         <div className="noise-overlay"></div>
 
+        {/* Cinematic Background Ambient Orbs */}
+        <div className="ambient-orb orb-1"></div>
+        <div className="ambient-orb orb-2"></div>
+        <div className="ambient-orb orb-3"></div>
+
         {/* CENTERED TYPOGRAPHY with Parallax */}
-        <div className="hero-typography-centered" ref={heroTextRef}>
-          <h1 className="stagger-reveal-text">{appShortName.toUpperCase()}</h1>
+        <div className="hero-typography-centered stagger-reveal-text" ref={heroTextRef}>
+          <h1>{appShortName.toUpperCase()}</h1>
         </div>
 
         {/* FLOATING RED CIRCLE BADGE */}
@@ -197,11 +202,17 @@ function Home() {
           </Link>
 
           <Link to="/results" className="bento-card card-results premium-glass-hover">
-            <div className="card-header">
-              <span className="card-num">04</span>
-            </div>
+            <span className="card-num">04</span>
             <span className="card-label">RESULTS</span>
             <span className="card-icon">🏆</span>
+          </Link>
+          
+          <Link to="/profile" className="bento-card card-profile premium-glass-hover">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <span className="card-num" style={{ margin: 0 }}>05</span>
+              <span className="card-label" style={{ margin: 0, fontSize: '1.2rem' }}>STUDENT DASHBOARD</span>
+            </div>
+            <span className="card-icon" style={{ position: 'relative', top: 'auto', right: 'auto', marginLeft: 'auto', fontSize: '2rem' }}>🎓</span>
           </Link>
         </div>
       </section>

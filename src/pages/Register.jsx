@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, getDocs, addDoc, query, orderBy, doc, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, addDoc, query, orderBy, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase";
@@ -43,6 +43,8 @@ export default function Register() {
     const [activeCategory, setActiveCategory] = useState("onstage");
     const [categoryStatus, setCategoryStatus] = useState({ onStage: true, offStage: true, general: true });
     const [showDropdown, setShowDropdown] = useState(false);
+    const [eventSearchTerm, setEventSearchTerm] = useState("");
+
 
     // Auth & Data Fetch
     useEffect(() => {
@@ -119,7 +121,7 @@ export default function Register() {
             try {
                 const q = query(collection(db, "registrations"));
                 const snapshot = await getDocs(q);
-                const regList = snapshot.docs.map(doc => doc.data());
+                const regList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 setExistingRegistrations(regList);
             } catch (err) {
                 console.error("Error fetching registrations:", err);
@@ -321,17 +323,37 @@ export default function Register() {
                 return;
             }
 
-            await addDoc(collection(db, "registrations"), {
-                fullName: formData.fullName,
-                cicNumber: formData.cicNumber,
-                chestNumber: formData.chestNumber,
-                team: formData.team,
-                events: formData.events,
-                onStageEvents,
-                offStageEvents,
-                generalEvents,
-                submittedAt: new Date().toISOString()
-            });
+            // Find existing registration document for this student to merge rather than create duplicate documents
+            const existingReg = existingRegistrations.find(r => 
+                String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase()
+            );
+
+            if (existingReg) {
+                const mergedEvents = Array.from(new Set([...(existingReg.events || []), ...formData.events]));
+                const mergedOnStage = Array.from(new Set([...(existingReg.onStageEvents || []), ...onStageEvents]));
+                const mergedOffStage = Array.from(new Set([...(existingReg.offStageEvents || []), ...offStageEvents]));
+                const mergedGeneral = Array.from(new Set([...(existingReg.generalEvents || []), ...generalEvents]));
+
+                await updateDoc(doc(db, "registrations", existingReg.id), {
+                    events: mergedEvents,
+                    onStageEvents: mergedOnStage,
+                    offStageEvents: mergedOffStage,
+                    generalEvents: mergedGeneral,
+                    submittedAt: new Date().toISOString()
+                });
+            } else {
+                await addDoc(collection(db, "registrations"), {
+                    fullName: formData.fullName,
+                    cicNumber: formData.cicNumber,
+                    chestNumber: formData.chestNumber,
+                    team: formData.team,
+                    events: formData.events,
+                    onStageEvents,
+                    offStageEvents,
+                    generalEvents,
+                    submittedAt: new Date().toISOString()
+                });
+            }
 
             // Log Analytics
             logAppEvent('registration_submitted', { team: formData.team, hasEvents: formData.events.length > 0 });
@@ -348,35 +370,98 @@ export default function Register() {
     // Filter events for display
     const filterByScope = (e) => {
         if (!formData.category) return true;
-        const scope = typeof e === 'object' && e.scope ? e.scope : getEventScope(typeof e === 'object' ? e.name : e);
+        const scope = typeof e === 'object' 
+            ? (e.studentCategory || e.scope || getEventScope(e.name)) 
+            : getEventScope(e);
         if (scope.includes("Junior") && scope.includes("Senior")) return true;
-        if (scope === "General") return true;
+        if (scope === "General" || scope === "Common/General" || scope === "Common / General") return true;
         if (formData.category.toLowerCase() === "junior" && scope.toLowerCase() === "senior") return false;
         if (formData.category.toLowerCase() === "senior" && scope.toLowerCase() === "junior") return false;
         return true;
     };
 
-    const onStageList = events.filter(e => resolveEventType(e) === "On Stage" && !resolveIsGeneral(e) && filterByScope(e));
-    const offStageList = events.filter(e => resolveEventType(e) === "Off Stage" && !resolveIsGeneral(e) && filterByScope(e));
-    const generalList = events.filter(e => resolveIsGeneral(e) && filterByScope(e));
+    const searchFilter = (e) => {
+        if (!eventSearchTerm) return true;
+        const name = (typeof e === 'string' ? e : e.name).toLowerCase();
+        return name.includes(eventSearchTerm.toLowerCase());
+    };
+
+    const onStageList = events.filter(e => resolveEventType(e) === "On Stage" && !resolveIsGeneral(e) && filterByScope(e) && searchFilter(e));
+    const offStageList = events.filter(e => resolveEventType(e) === "Off Stage" && !resolveIsGeneral(e) && filterByScope(e) && searchFilter(e));
+    const generalList = events.filter(e => resolveIsGeneral(e) && filterByScope(e) && searchFilter(e));
 
     if (success) {
         return (
             <div className="register-container">
+                <Helmet>
+                    <title>{`Registration Summary | ${appName}`}</title>
+                </Helmet>
+                <div className="register-form success-message" style={{ maxWidth: '600px', padding: '40px 30px' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+                        <div style={{ fontSize: '60px', marginBottom: '10px' }}>✨</div>
+                        <h2 style={{ fontSize: '28px', color: 'var(--text-main)', marginBottom: '10px' }}>Registration Confirmed!</h2>
+                        <p style={{ color: 'var(--text-secondary)' }}>Successfully registered for <strong>{appName}</strong>.</p>
+                    </div>
 
-                <div className="register-form success-message">
-                    <span className="success-icon">🎉</span>
-                    <h3>Registration Successful!</h3>
-                    <p>Thank you, <strong>{formData.fullName}</strong>.</p>
-                    <p>Your registration for <strong>{appName}</strong> has been recorded.</p>
+                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '16px', padding: '24px', border: '1px solid var(--border-soft)', marginBottom: '30px', textAlign: 'left' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Name</label>
+                                <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--text-main)' }}>{formData.fullName}</div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Chest No</label>
+                                <div style={{ fontSize: '18px', fontWeight: '600', color: 'var(--primary)' }}>#{formData.chestNumber}</div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Team</label>
+                                <div style={{ fontSize: '16px', fontWeight: '500', color: 'var(--text-main)' }}>{formData.team}</div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>Category</label>
+                                <div style={{ fontSize: '16px', fontWeight: '500', color: 'var(--text-main)' }}>{formData.category || 'N/A'}</div>
+                            </div>
+                        </div>
 
-                    <div style={{ marginTop: '30px' }}>
+                        <div style={{ borderTop: '1px solid var(--border-soft)', paddingTop: '20px' }}>
+                            <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>Registered Events ({formData.events.length})</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {formData.events.map(ev => {
+                                    const type = resolveEventType(ev);
+                                    const badgeColor = type === "On Stage" ? "rgba(230, 57, 70, 0.2)" : (type === "Off Stage" ? "rgba(52, 211, 153, 0.2)" : "rgba(139, 92, 246, 0.2)");
+                                    const badgeText = type === "On Stage" ? "#e63946" : (type === "Off Stage" ? "#34d399" : "#8b5cf6");
+                                    return (
+                                        <div key={ev} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-soft)' }}>
+                                            <span style={{ fontWeight: '500' }}>{ev}</span>
+                                            <span style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '4px', background: badgeColor, color: badgeText, fontWeight: '700' }}>{type}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
                         <button
                             className="register-btn"
                             onClick={() => window.location.reload()}
-                            style={{ background: 'var(--bg-secondary)' }}
+                            style={{ background: 'var(--primary)', flex: 1 }}
                         >
-                            Register Another Student
+                            ➕ New Registration
+                        </button>
+                        <button
+                            className="register-btn"
+                            onClick={() => {
+                                const printContent = document.querySelector('.success-message').innerHTML;
+                                const originalContent = document.body.innerHTML;
+                                document.body.innerHTML = printContent;
+                                window.print();
+                                document.body.innerHTML = originalContent;
+                                window.location.reload();
+                            }}
+                            style={{ background: 'var(--surface)', flex: 1, border: '1px solid var(--border-soft)' }}
+                        >
+                            🖨️ Print
                         </button>
                     </div>
                 </div>
@@ -594,8 +679,21 @@ export default function Register() {
 
                     {/* EVENT CATEGORY TABS */}
                     <div className="form-section">
-                        <div className="section-label">Select Event Category</div>
-                        <div className="category-tabs">
+                        <div className="section-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                            <span>Select Event Category</span>
+                            <div className="search-bar-container" style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
+                                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>🔍</span>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="Search events..."
+                                    value={eventSearchTerm}
+                                    onChange={(e) => setEventSearchTerm(e.target.value)}
+                                    style={{ paddingLeft: '35px', background: 'var(--bg-main)', border: '1px solid var(--border-soft)' }}
+                                />
+                            </div>
+                        </div>
+                        <div className="category-tabs" style={{ marginTop: '15px' }}>
                             <button
                                 type="button"
                                 className={`category-tab ${activeCategory === 'onstage' ? 'active' : ''}`}
@@ -668,7 +766,7 @@ export default function Register() {
                                     categoryStatus.general ? (
                                         <div className="events-selection-grid stagger-reveal-grid">
                                             {generalList.length > 0 ? generalList.map(ev => {
-                                                const subtype = getEventType(ev.name);
+                                                const subtype = ev.generalSubtype || (getEventType(ev.name) !== "Unknown" ? getEventType(ev.name) : "On Stage");
                                                 return (
                                                     <label key={ev.id} className="event-checkbox-label premium-glass-hover">
                                                         <input
@@ -678,7 +776,7 @@ export default function Register() {
                                                         />
                                                         <div className="event-info-wrapper">
                                                             <span className="event-name">{ev.name}</span>
-                                                            {subtype && (
+                                                            {subtype && subtype !== "General" && subtype !== "Unknown" && (
                                                                 <span className={`event-subtype-tag ${subtype.toLowerCase().replace(' ', '-')}`}>
                                                                     {subtype}
                                                                 </span>

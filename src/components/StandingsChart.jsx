@@ -1,4 +1,5 @@
 import React from 'react';
+import AnimatedCounter from './AnimatedCounter';
 import './StandingsChart.css';
 
 /**
@@ -57,7 +58,7 @@ export default function StandingsChart({ scores, activeCategory, subCategory, te
                                 />
                             </div>
                             <div className="chart-hbar-pts" style={{ color }}>
-                                {s.total} <span className="chart-pts-label">pts</span>
+                                <AnimatedCounter value={s.total} /> <span className="chart-pts-label">pts</span>
                             </div>
                         </div>
                     );

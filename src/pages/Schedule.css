@@ -1,6 +1,5 @@
-/* Schedule.css - SaaS Premium */
 .schedule-page {
-  background: var(--bg-main); min-height: 100vh; padding-bottom: var(--space-6); color: var(--text-main);
+  background: transparent; min-height: 100vh; padding-bottom: var(--space-6); color: var(--text-main);
 }
 .schedule-header {
   display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4); padding-top: var(--space-2);

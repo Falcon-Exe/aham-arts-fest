@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "../firebase";
 import StandingsChart from "./StandingsChart";
 import { getEventType } from "../constants/events";
 
 export default function ManageTeams() {
-    const [teamScores, setTeamScores] = useState([]);
+    const [rawResults, setRawResults] = useState([]);
+    const [eventsList, setEventsList] = useState([]);
     const [teamColors, setTeamColors] = useState({});
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -26,61 +27,14 @@ export default function ManageTeams() {
 
     useEffect(() => {
         // Real-time listener for results
-        const q = query(collection(db, "results"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const scores = {};
-
-            snapshot.docs.forEach((doc) => {
-                const data = doc.data();
-                const team = data.team?.trim();
-                const place = data.place;
-                const studentCategory = data.studentCategory || "General";
-                const evType = getEventType(data.eventName) || "On Stage";
-
-                if (!team) return;
-
-                if (!scores[team]) {
-                    scores[team] = { 
-                        name: team, 
-                        first: 0, 
-                        second: 0, 
-                        third: 0, 
-                        total: 0,
-                        onStage: 0,
-                        offStage: 0,
-                        categories: {}
-                    };
-                }
-
-                if (!scores[team].categories[studentCategory]) {
-                    scores[team].categories[studentCategory] = { first: 0, second: 0, third: 0, total: 0, onStage: 0, offStage: 0 };
-                }
-
-                if (place === "First") {
-                    scores[team].first += 1;
-                    scores[team].categories[studentCategory].first += 1;
-                } else if (place === "Second") {
-                    scores[team].second += 1;
-                    scores[team].categories[studentCategory].second += 1;
-                } else if (place === "Third") {
-                    scores[team].third += 1;
-                    scores[team].categories[studentCategory].third += 1;
-                }
-
-                const pts = (Number(data.points) || 0);
-                scores[team].total += pts;
-                scores[team].categories[studentCategory].total += pts;
-                if (evType === "On Stage") {
-                    scores[team].onStage += pts;
-                    scores[team].categories[studentCategory].onStage = (scores[team].categories[studentCategory].onStage || 0) + pts;
-                } else {
-                    scores[team].offStage += pts;
-                    scores[team].categories[studentCategory].offStage = (scores[team].categories[studentCategory].offStage || 0) + pts;
-                }
-            });
-
-            setTeamScores(Object.values(scores));
+        const unsubscribe = onSnapshot(collection(db, "results"), (snapshot) => {
+            setRawResults(snapshot.docs.map(doc => doc.data()));
             setLoading(false);
+        });
+
+        // Real-time listener for events to resolve dynamic types
+        const unsubscribeEvents = onSnapshot(collection(db, "events"), (snapshot) => {
+            setEventsList(snapshot.docs.map(doc => doc.data()));
         });
 
         // Real-time listener for team colors
@@ -93,8 +47,77 @@ export default function ManageTeams() {
             setTeamColors(colors);
         });
 
-        return () => { unsubscribe(); unsubscribeTeams(); };
+        return () => { 
+            unsubscribe(); 
+            unsubscribeEvents();
+            unsubscribeTeams(); 
+        };
     }, []);
+
+    const teamScores = useMemo(() => {
+        // Build map of event name -> type
+        const eventTypeMap = {};
+        eventsList.forEach(ev => {
+            if (ev.name) {
+                eventTypeMap[ev.name.trim().toUpperCase()] = ev.type;
+            }
+        });
+
+        const scores = {};
+
+        rawResults.forEach((data) => {
+            const team = data.team?.trim();
+            const place = data.place;
+            let studentCategory = data.studentCategory || "General";
+            if (studentCategory === "Common/General" || studentCategory === "Common / General") {
+                studentCategory = "General";
+            }
+            const evType = eventTypeMap[(data.eventName || "").trim().toUpperCase()] || getEventType(data.eventName) || "On Stage";
+
+            if (!team) return;
+
+            if (!scores[team]) {
+                scores[team] = { 
+                    name: team, 
+                    first: 0, 
+                    second: 0, 
+                    third: 0, 
+                    total: 0,
+                    onStage: 0,
+                    offStage: 0,
+                    categories: {}
+                };
+            }
+
+            if (!scores[team].categories[studentCategory]) {
+                scores[team].categories[studentCategory] = { first: 0, second: 0, third: 0, total: 0, onStage: 0, offStage: 0 };
+            }
+
+            if (place === "First") {
+                scores[team].first += 1;
+                scores[team].categories[studentCategory].first += 1;
+            } else if (place === "Second") {
+                scores[team].second += 1;
+                scores[team].categories[studentCategory].second += 1;
+            } else if (place === "Third") {
+                scores[team].third += 1;
+                scores[team].categories[studentCategory].third += 1;
+            }
+
+            const pts = (Number(data.points) || 0);
+            scores[team].total += pts;
+            scores[team].categories[studentCategory].total += pts;
+            if (evType === "On Stage") {
+                scores[team].onStage += pts;
+                scores[team].categories[studentCategory].onStage = (scores[team].categories[studentCategory].onStage || 0) + pts;
+            } else {
+                scores[team].offStage += pts;
+                scores[team].categories[studentCategory].offStage = (scores[team].categories[studentCategory].offStage || 0) + pts;
+            }
+        });
+
+        return Object.values(scores);
+    }, [rawResults, eventsList]);
 
     const activeScores = teamScores.map(team => {
         let first, second, third, total;

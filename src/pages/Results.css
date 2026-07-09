@@ -3,7 +3,7 @@
    =============================== */
 
 .results-page {
-  background: var(--bg-main);
+  background: transparent;
   min-height: 100vh;
   padding-bottom: var(--space-6);
   color: var(--text-main);
@@ -260,3 +260,246 @@
   .points-table td::before { content: attr(data-label); font-weight: 600; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; }
   .points-table .text-right { text-align: right; }
 }
+
+/* ===============================
+   3D STANDINGS PODIUM
+   =============================== */
+.podium-section {
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  padding: 30px 20px;
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-lg);
+  margin-bottom: var(--space-5);
+  position: relative;
+  overflow: hidden;
+}
+
+.podium-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 24px;
+  margin: 20px auto 10px auto;
+  max-width: 550px;
+  position: relative;
+  border-bottom: 2px solid var(--border-soft);
+  padding-bottom: 0px;
+}
+
+.podium-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  width: 120px;
+  flex: 0 0 120px;
+  text-align: center;
+  animation: floatInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.podium-second { animation-delay: 0.15s; }
+.podium-first { animation-delay: 0s; z-index: 2; }
+.podium-third { animation-delay: 0.3s; }
+
+.podium-crown {
+  font-size: 2.2rem;
+  margin-bottom: -4px;
+  animation: bounce-crown 2.5s infinite ease-in-out;
+}
+
+.podium-avatar {
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+}
+
+.podium-team-name {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  margin-bottom: 2px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.podium-pts {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.podium-block {
+  width: 100%;
+  border-radius: 12px 12px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+.podium-number {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.12);
+  user-select: none;
+}
+
+.podium-team-color-glow {
+  position: absolute;
+  top: 55%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 130px;
+  height: 130px;
+  background: var(--team-color);
+  filter: blur(30px);
+  opacity: 0.45;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: pulse-glow 3s infinite alternate ease-in-out;
+}
+
+@keyframes bounce-crown {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-6px) rotate(3deg); }
+}
+
+@keyframes pulse-glow {
+  0% { opacity: 0.35; filter: blur(28px); }
+  100% { opacity: 0.6; filter: blur(38px); }
+}
+
+@keyframes floatInUp {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Mobile responsive fixes for podium */
+@media (max-width: 480px) {
+  .podium-container {
+    gap: 8px;
+  }
+  .podium-step {
+    width: 90px;
+    flex: 0 0 90px;
+  }
+  .podium-team-name {
+    font-size: 0.8rem;
+    max-width: 80px;
+  }
+  .podium-pts {
+    font-size: 0.75rem;
+  }
+  .podium-avatar {
+    font-size: 1.4rem;
+  }
+  .podium-crown {
+    font-size: 1.8rem;
+  }
+}
+
+/* ===============================
+   INTERACTIVE STEPS & GLOWS
+   =============================== */
+.interactive-step {
+  cursor: pointer;
+  transition: all var(--transition-normal, 0.3s) cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.interactive-step:hover {
+  transform: translateY(-8px);
+}
+
+.interactive-step:hover .podium-team-color-glow {
+  opacity: 0.6;
+  filter: blur(50px);
+}
+
+.interactive-step:hover .podium-block {
+  filter: brightness(1.15);
+}
+
+/* Active filtered state styling */
+.interactive-step.active-step .podium-block {
+  border-width: 2px;
+  animation: pulse-border 1.5s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-border {
+  0% { border-color: rgba(255, 255, 255, 0.3); }
+  100% { border-color: var(--team-color, #ef4444); }
+}
+
+/* ===============================
+   PREMIUM EMPTY STATE
+   =============================== */
+.empty-results-card {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  padding: 40px var(--space-4);
+  text-align: center;
+  max-width: 480px;
+  margin: var(--space-5) auto;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+  animation: fadeIn 0.4s ease-out;
+}
+
+.empty-results-card h4 {
+  font-size: 1.25rem;
+  color: var(--text-main);
+  margin-bottom: var(--space-2);
+  font-weight: 700;
+}
+
+.empty-results-card p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-4);
+  line-height: 1.5;
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: var(--space-3);
+  opacity: 0.7;
+}
+
+.reset-filters-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.reset-filters-btn:hover {
+  background: var(--primary-hover, #ef4444);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+

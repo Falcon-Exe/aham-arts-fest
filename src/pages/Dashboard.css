@@ -22,6 +22,9 @@
   border: 1px solid var(--border-soft);
   box-shadow: var(--shadow-md);
   transition: all var(--transition-normal);
+  position: relative;
+  z-index: 200;
+  overflow: visible;
 }
 
 .dashboard-header:hover {
@@ -152,6 +155,9 @@
   padding: var(--space-5);
   border: 1px solid var(--border-soft);
   box-shadow: var(--shadow-md);
+  position: relative;
+  z-index: 0;
+  overflow: visible;
 }
 
 .section-title {
@@ -166,6 +172,8 @@
   display: grid;
   grid-template-columns: 1fr 2fr;
   gap: 20px;
+  align-items: start;
+  overflow: visible;
 }
 
 /* --- Forms --- */
@@ -174,6 +182,9 @@
   padding: var(--space-4);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-soft);
+  position: relative;
+  z-index: 10;
+  overflow: visible;
 }
 
 .form-grid {
@@ -267,6 +278,8 @@
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 1;
 }
 
 .admin-table-container::-webkit-scrollbar {
@@ -336,6 +349,139 @@
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===============================
+   DASHBOARD SPLIT LAYOUT (Activity Feed)
+   =============================== */
+.dashboard-content-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.dashboard-main {
+  min-width: 0; /* Prevents overflow in CSS Grid */
+}
+
+.dashboard-sidebar {
+  position: sticky;
+  top: 100px;
+}
+
+.activity-feed-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-md);
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.feed-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: var(--space-2);
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--success);
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 rgba(16, 185, 129, 0.4);
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.feed-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: var(--space-4) 0;
+}
+
+.feed-item {
+  position: relative;
+  padding-left: 20px;
+}
+
+.feed-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 2px solid var(--bg-secondary);
+  z-index: 2;
+}
+
+.feed-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 15px;
+  width: 2px;
+  height: calc(100% + var(--space-3) - 10px);
+  background: var(--border-soft);
+  z-index: 1;
+}
+
+.feed-time {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.feed-desc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.feed-desc strong {
+  display: block;
+  color: var(--text-main);
+  margin-bottom: 2px;
+}
+
+.feed-desc p {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+/* ===============================
+   MOBILE RESPONSIVENESS
+   =============================== */
+@media (max-width: 1024px) {
+  .dashboard-content-split {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-sidebar {
+    position: static;
+  }
 }
 
 /* RESPONSIVE FIXES */
