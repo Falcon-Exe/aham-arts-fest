@@ -16,7 +16,6 @@ export const EVENT_MAP = {
     "SATIRICAL TALK MALAYALAM": "On Stage",
     "ENCOUNTER": "On Stage",
     "PRESS CONFERENCE": "On Stage",
-    "PRESS CONFRENCE": "On Stage",
     "INSPIRING TALK ENGLISH": "On Stage",
     "SPOT TRANSLATION (A-E)": "On Stage",
     "BOOK DEFENCE": "On Stage",
@@ -31,7 +30,6 @@ export const EVENT_MAP = {
     // Common Junior & Senior (On Stage)
     "QIRATH": "On Stage",
     "SPEECH MALAYALAM": "On Stage",
-    "SPEECH MALAYALM": "On Stage",
     "SPEECH ARABIC": "On Stage",
     "SPEECH ENGLISH": "On Stage",
     "DEBATE": "On Stage",
@@ -162,7 +160,6 @@ export const EVENT_SCOPE_MAP = {
     "SATIRICAL TALK MALAYALAM": "Senior",
     "ENCOUNTER": "Senior",
     "PRESS CONFERENCE": "Senior",
-    "PRESS CONFRENCE": "Senior",
     "INSPIRING TALK ENGLISH": "Senior",
     "SPOT TRANSLATION (A-E)": "Senior",
     "BOOK DEFENCE": "Senior",

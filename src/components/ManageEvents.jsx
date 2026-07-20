@@ -296,6 +296,47 @@ export default function ManageEvents() {
     };
 
 
+    // CLEANUP DUPLICATES & TYPOS
+    const handleCleanupDuplicates = async () => {
+        if (!await confirm("This will remove duplicate event entries and typo names (e.g. SPEECH MALAYALM) from the database. Continue?")) return;
+        setLoading(true);
+        let removedCount = 0;
+        const removedDetails = [];
+        const seenNames = new Set();
+        const batch = writeBatch(db);
+
+        try {
+            const snapshot = await getDocs(query(collection(db, "events")));
+            snapshot.docs.forEach((d) => {
+                const data = d.data();
+                const rawName = data.name || "Unnamed";
+                const normName = rawName.trim().toUpperCase();
+                
+                const isTypo = normName === "SPEECH MALAYALM" || normName === "PRESS CONFRENCE";
+                const isDuplicate = seenNames.has(normName);
+                if (isDuplicate || isTypo) {
+                    batch.delete(doc(db, "events", d.id));
+                    removedCount++;
+                    removedDetails.push(`${rawName} [${isTypo ? 'Typo' : 'Duplicate ID: ' + d.id}]`);
+                } else if (normName) {
+                    seenNames.add(normName);
+                }
+            });
+
+            if (removedCount > 0) {
+                await batch.commit();
+                alert(`✅ Cleaned up ${removedCount} event(s) from database:\n\n- ${removedDetails.join("\n- ")}`);
+                fetchEvents();
+            } else {
+                alert("✅ No duplicate or typo events found in database.");
+            }
+        } catch (err) {
+            console.error("Cleanup failed:", err);
+            showToast("Failed to clean up duplicates.", "error");
+        }
+        setLoading(false);
+    };
+
     const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'ascending' });
 
     const sortedEvents = [...events].sort((a, b) => {
@@ -381,6 +422,9 @@ export default function ManageEvents() {
                             </button>
                             <button type="button" onClick={fixEventTypes} className="submit-btn" style={{ background: 'var(--secondary)', fontSize: '0.85rem' }}>
                                 🔧 Fix Types
+                            </button>
+                            <button type="button" onClick={handleCleanupDuplicates} className="submit-btn" style={{ background: '#eab308', color: '#000', fontSize: '0.85rem' }}>
+                                🧹 Deduplicate
                             </button>
                             <button type="button" onClick={handleClearAllEvents} className="submit-btn" style={{ background: '#ef4444', fontSize: '0.85rem' }}>
                                 🧨 Clear All
