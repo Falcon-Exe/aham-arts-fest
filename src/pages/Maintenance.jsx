@@ -2,7 +2,7 @@ import React from "react";
 import "./Maintenance.css"; // We'll create a basic CSS for it
 
 export default function Maintenance() {
-    const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+    const appName = localStorage.getItem("branding_appName") || "HAMARTIA";
 
     return (
         <div className="maintenance-container">

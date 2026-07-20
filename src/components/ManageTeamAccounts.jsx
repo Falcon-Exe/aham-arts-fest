@@ -181,7 +181,7 @@ export default function ManageTeamAccounts() {
                                 className="admin-input"
                                 value={email}
                                 onChange={e => setEmail(e.target.value)}
-                                // placeholder="e.g. 123@aham.com"
+                                // placeholder="e.g. 123@hamartia.com"
                                 required
                             />
                         </div>

@@ -1,6 +1,6 @@
 {
   "name": "functions",
-  "description": "Cloud Functions for Majlis Wafy Arts Fest",
+  "description": "Cloud Functions for HAMARTIA Arts Fest",
   "scripts": {
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",

@@ -52,8 +52,8 @@ export default defineConfig({
       },
 
       manifest: {
-        name: "Arts Fest 2026",
-        short_name: "ArtsFest2026",
+        name: "HAMARTIA",
+        short_name: "HAMARTIA",
         start_url: "./",
         scope: "./",
         display: "standalone",

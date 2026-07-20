@@ -43,8 +43,8 @@ function AppContent() {
     const unsubscribeBranding = onSnapshot(doc(db, "settings", "branding"), (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
-        localStorage.setItem("branding_appName", data.appName || "Arts Fest 2026");
-        localStorage.setItem("branding_appShortName", data.appShortName || "ArtsFest2026");
+        localStorage.setItem("branding_appName", data.appName || "HAMARTIA");
+        localStorage.setItem("branding_appShortName", data.appShortName || "HAMARTIA");
         localStorage.setItem("branding_logoUrl", data.logoUrl || "/pwa-512x512.png");
 
         if (data.studentCategories) {

@@ -23,7 +23,7 @@ export default function Register() {
     const [warning, setWarning] = useState(null); // Toast state
     const [user, setUser] = useState(null);
     const navigate = useNavigate();
-    const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+    const appName = localStorage.getItem("branding_appName") || "HAMARTIA";
 
     // Data States
     const [events, setEvents] = useState([]);

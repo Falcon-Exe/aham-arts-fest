@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 
 export default function NotFound() {
-    const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+    const appName = localStorage.getItem("branding_appName") || "HAMARTIA";
 
     return (
         <div style={{

@@ -1,4 +1,4 @@
-# AHAM Arts Fest - Project Features
+# HAMARTIA Arts Fest - Project Features
 
 ## 📱 Public Features (User Facing)
 

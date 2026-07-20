@@ -16,7 +16,7 @@ export default function Profile() {
     const [completedEvents, setCompletedEvents] = useState(new Set());
     const profileRef = useRef(null);
     
-    const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+    const appName = localStorage.getItem("branding_appName") || "HAMARTIA";
 
     useEffect(() => {
         // Fetch all results to know which events are completed

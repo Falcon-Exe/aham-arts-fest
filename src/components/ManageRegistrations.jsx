@@ -238,7 +238,7 @@ export default function ManageRegistrations() {
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", `registrations_2026_${new Date().toISOString().slice(0, 10)}.csv`);
+        link.setAttribute("download", `hamartia_registrations_${new Date().toISOString().slice(0, 10)}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();

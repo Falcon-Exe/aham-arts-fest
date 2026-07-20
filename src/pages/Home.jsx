@@ -134,8 +134,8 @@ function Home() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
-  const appShortName = localStorage.getItem("branding_appShortName") || "ArtsFest2026";
+  const appName = localStorage.getItem("branding_appName") || "HAMARTIA";
+  const appShortName = localStorage.getItem("branding_appShortName") || "HAMARTIA";
 
   return (
     <div className="avant-garde-container">

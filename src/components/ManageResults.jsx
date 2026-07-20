@@ -523,7 +523,7 @@ export default function ManageResults() {
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", "arts_fest_2026_results.csv");
+        link.setAttribute("download", "hamartia_results.csv");
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();

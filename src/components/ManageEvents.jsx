@@ -5,7 +5,7 @@ import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
 
-import { getEventType, getEventScope, ALL_EVENTS, ON_STAGE_EVENTS } from "../constants/events";
+import { getEventType, getEventScope, getGeneralSubtype, ALL_EVENTS, ON_STAGE_EVENTS } from "../constants/events";
 
 export default function ManageEvents() {
     const [events, setEvents] = useState([]);
@@ -231,7 +231,7 @@ export default function ManageEvents() {
                         stage: "",
                         type: eventType,
                         studentCategory: getEventScope(eventName),
-                        ...(eventType === "General" ? { generalSubtype: "Off Stage" } : {})
+                        ...(eventType === "General" ? { generalSubtype: getGeneralSubtype(eventName) } : {})
                     });
                     addedCount++;
                     addedNames.push(eventName);
@@ -265,14 +265,19 @@ export default function ManageEvents() {
                 const upperName = ev.name.trim().toUpperCase();
                 const newType = getEventType(upperName);
                 const newScope = getEventScope(upperName);
+                const newGenSubtype = getGeneralSubtype(upperName);
 
-                if (ev.type !== newType || ev.studentCategory !== newScope) {
-                    await updateDoc(doc(db, "events", ev.id), { 
-                        type: newType,
-                        studentCategory: newScope 
-                    });
+                const updates = {};
+                if (ev.type !== newType) updates.type = newType;
+                if (ev.studentCategory !== newScope) updates.studentCategory = newScope;
+                if (newType === "General" && ev.generalSubtype !== newGenSubtype) {
+                    updates.generalSubtype = newGenSubtype;
+                }
+
+                if (Object.keys(updates).length > 0) {
+                    await updateDoc(doc(db, "events", ev.id), updates);
                     updatedCount++;
-                    updatedDetails.push(`${ev.name}: [${ev.type || "None"} -> ${newType}] | [${ev.studentCategory || "None"} -> ${newScope}]`);
+                    updatedDetails.push(`${ev.name}: ${JSON.stringify(updates)}`);
                 }
             }
 

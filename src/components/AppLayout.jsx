@@ -19,7 +19,7 @@ export default function AppLayout() {
   const isHome = location.pathname === "/";
   const currentItem = NAV_ITEMS.find(item => item.path === location.pathname);
 
-  const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+  const appName = localStorage.getItem("branding_appName") || "HAMARTIA";
 
   return (
     <div className="app-layout">

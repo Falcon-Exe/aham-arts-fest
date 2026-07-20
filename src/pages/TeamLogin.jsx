@@ -34,7 +34,7 @@ export default function TeamLogin() {
         }
     };
 
-    const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+    const appName = localStorage.getItem("branding_appName") || "HAMARTIA";
 
     return (
         <div className="team-login-container">

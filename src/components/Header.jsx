@@ -35,7 +35,7 @@ function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const appName = localStorage.getItem("branding_appName") || "Arts Fest 2026";
+  const appName = localStorage.getItem("branding_appName") || "HAMARTIA";
   const words = appName.split(" ");
   const lastWord = words.length > 1 ? words.pop() : "";
   const mainTitle = words.join(" ");

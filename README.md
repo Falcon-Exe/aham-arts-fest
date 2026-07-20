@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="public/pwa-512x512.png" alt="AHAM Logo" width="120" />
-  <h1>AHAM Arts Fest Management System</h1>
+  <img src="public/pwa-512x512.png" alt="HAMARTIA Logo" width="120" />
+  <h1>HAMARTIA Arts Fest Management System</h1>
   <p><strong>A Real-Time, Serverless Arts Festival Command Center</strong></p>
 
   [![React](https://img.shields.io/badge/React-18-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
@@ -14,7 +14,7 @@
 <br />
 
 ## 1. Project Overview
-AHAM Arts Fest is a high-performance web application designed to digitize and automate the logistics of a large-scale student arts festival. It serves as a unified hub for real-time event updates, participant tracking, and automated championship scoring, effectively replacing legacy manual spreadsheet workflows and enhancing user engagement.
+HAMARTIA Arts Fest is a high-performance web application designed to digitize and automate the logistics of a large-scale student arts festival. It serves as a unified hub for real-time event updates, participant tracking, and automated championship scoring, effectively replacing legacy manual spreadsheet workflows and enhancing user engagement.
 
 ## 2. Core Technical Features
 

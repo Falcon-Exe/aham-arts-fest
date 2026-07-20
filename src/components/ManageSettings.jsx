@@ -8,8 +8,8 @@ export default function ManageSettings() {
     const [loading, setLoading] = useState(true);
 
     const [branding, setBranding] = useState({
-        appName: "Arts Fest 2026",
-        appShortName: "ArtsFest2026",
+        appName: "HAMARTIA",
+        appShortName: "HAMARTIA",
         primaryColor: "#913831",
         secondaryColor: "#e63946",
         backgroundColor: "#050505",
@@ -88,8 +88,8 @@ export default function ManageSettings() {
             root.style.setProperty('--bg-main', branding.backgroundColor);
             root.style.setProperty('--surface', branding.surfaceColor);
 
-            localStorage.setItem("branding_appName", branding.appName || "Arts Fest 2026");
-            localStorage.setItem("branding_appShortName", branding.appShortName || "ArtsFest2026");
+            localStorage.setItem("branding_appName", branding.appName || "HAMARTIA");
+            localStorage.setItem("branding_appShortName", branding.appShortName || "HAMARTIA");
             localStorage.setItem("branding_logoUrl", branding.logoUrl || "/pwa-512x512.png");
             if (branding.studentCategories) {
                 localStorage.setItem("branding_studentCategories", JSON.stringify(branding.studentCategories));
