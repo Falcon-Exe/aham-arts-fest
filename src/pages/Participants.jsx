@@ -5,7 +5,16 @@ import "./Participants.css";
 function Participants() {
   const { participants, loading } = useMasterParticipants();
   const [search, setSearch] = useState("");
+  const [teamFilter, setTeamFilter] = useState("");
   const [eventFilter, setEventFilter] = useState("");
+
+  // Get unique teams from all participants
+  const allTeams = new Set();
+  participants.forEach(p => {
+    const t = (p["TEAM"] || p["TEAM NAME"] || "").trim();
+    if (t) allTeams.add(t);
+  });
+  const sortedTeams = Array.from(allTeams).sort();
 
   // Get unique events from all participants
   const allEvents = new Set();
@@ -29,6 +38,13 @@ function Participants() {
       (p["GENERAL EVENTS"] || "").toLowerCase().includes(q)
     );
 
+    // Team filter
+    let teamMatch = true;
+    if (teamFilter) {
+      const studentTeam = (p["TEAM"] || p["TEAM NAME"] || "").trim().toUpperCase();
+      teamMatch = studentTeam === teamFilter.toUpperCase();
+    }
+
     // Event filter
     let eventMatch = true;
     if (eventFilter) {
@@ -40,8 +56,14 @@ function Participants() {
       eventMatch = allStudentEvents.some(e => e.toUpperCase() === eventFilter.toUpperCase());
     }
 
-    return textMatch && eventMatch;
+    return textMatch && teamMatch && eventMatch;
   });
+
+  const clearFilters = () => {
+    setSearch("");
+    setTeamFilter("");
+    setEventFilter("");
+  };
 
   return (
     <div className="container participants-page">
@@ -53,25 +75,45 @@ function Participants() {
         </div>
       </header>
 
-      <div className="dashboard-controls">
-        <div className="search-wrapper">
+      <div className="dashboard-controls" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+        <div className="search-wrapper" style={{ maxWidth: '100%' }}>
           <span className="search-icon">🔍</span>
           <input
             type="text"
             className="participants-search"
-            placeholder="Search by name, chest no, team..."
+            placeholder="Search by name or chest no..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="search-wrapper" style={{ marginTop: '10px' }}>
+
+        <div className="search-wrapper" style={{ maxWidth: '100%' }}>
+          <select
+            className="participants-search"
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
+            style={{ cursor: 'pointer', paddingLeft: '16px' }}
+          >
+            <option value="">🚩 All Teams ({participants.length})</option>
+            {sortedTeams.map(team => {
+              const count = participants.filter(p => (p["TEAM"] || p["TEAM NAME"] || "").trim().toUpperCase() === team.toUpperCase()).length;
+              return (
+                <option key={team} value={team}>
+                  {team} ({count})
+                </option>
+              );
+            })}
+          </select>
+        </div>
+
+        <div className="search-wrapper" style={{ maxWidth: '100%' }}>
           <select
             className="participants-search"
             value={eventFilter}
             onChange={(e) => setEventFilter(e.target.value)}
             style={{ cursor: 'pointer', paddingLeft: '16px' }}
           >
-            <option value="">All Events ({participants.length} students)</option>
+            <option value="">🎭 All Events</option>
             {sortedEvents.map(event => {
               const count = participants.filter(p => {
                 const allStudentEvents = [
@@ -89,6 +131,16 @@ function Participants() {
             })}
           </select>
         </div>
+
+        {(search || teamFilter || eventFilter) && (
+          <button
+            onClick={clearFilters}
+            className="admin-btn"
+            style={{ height: '45px', background: 'var(--surface)', border: '1px solid var(--border-soft)', cursor: 'pointer', borderRadius: 'var(--radius-md)', color: 'var(--text-secondary)' }}
+          >
+            ❌ Clear Filters
+          </button>
+        )}
       </div>
 
       {loading ? (

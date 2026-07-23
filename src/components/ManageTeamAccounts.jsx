@@ -45,6 +45,43 @@ export default function ManageTeamAccounts() {
         setToast({ message, type });
     };
 
+    const [detectedDbTeams, setDetectedDbTeams] = useState([]);
+    const [loadingDetectedTeams, setLoadingDetectedTeams] = useState(false);
+
+    // Fetch detected team names across existing database records
+    const scanDatabaseTeamNames = async () => {
+        setLoadingDetectedTeams(true);
+        try {
+            const { collection, getDocs } = await import("firebase/firestore");
+            const teamCounts = {};
+
+            const collectionsToScan = ["students", "registrations", "results"];
+            for (const colName of collectionsToScan) {
+                const snap = await getDocs(collection(db, colName));
+                snap.docs.forEach(d => {
+                    const t = d.data().team;
+                    if (t && typeof t === "string") {
+                        const normalized = t.trim().toUpperCase();
+                        if (normalized) {
+                            teamCounts[normalized] = (teamCounts[normalized] || 0) + 1;
+                        }
+                    }
+                });
+            }
+
+            const list = Object.keys(teamCounts).map(name => ({
+                name,
+                count: teamCounts[name]
+            })).sort((a, b) => b.count - a.count);
+
+            setDetectedDbTeams(list);
+        } catch (err) {
+            console.error("Error scanning DB team names:", err);
+        } finally {
+            setLoadingDetectedTeams(false);
+        }
+    };
+
     useEffect(() => {
         const unsubscribe = onSnapshot(collection(db, "teams"), (snapshot) => {
             const teamData = snapshot.docs.map(doc => ({
@@ -54,8 +91,15 @@ export default function ManageTeamAccounts() {
             setTeams(teamData);
             setLoading(false);
         });
+
+        scanDatabaseTeamNames();
+
         return () => unsubscribe();
     }, []);
+
+    const [syncOldName, setSyncOldName] = useState("");
+    const [syncNewName, setSyncNewName] = useState("");
+    const [isSyncing, setIsSyncing] = useState(false);
 
     const handleCreateTeam = async (e) => {
         e.preventDefault();
@@ -69,13 +113,44 @@ export default function ManageTeamAccounts() {
         try {
             if (editId) {
                 // UPDATE EXISTING TEAM
-                const { updateDoc } = await import("firebase/firestore");
+                const oldTeamObj = teams.find(t => t.id === editId);
+                const oldName = oldTeamObj?.name;
+                const newName = teamName.toUpperCase().trim();
+
+                const { updateDoc, collection, getDocs, writeBatch } = await import("firebase/firestore");
                 await updateDoc(doc(db, "teams", editId), {
-                    name: teamName.toUpperCase(),
+                    name: newName,
                     email: email.toLowerCase(),
                     color: teamColor,
                 });
-                showToast("Team updated successfully!", "success");
+
+                if (oldName && oldName.trim().toUpperCase() !== newName) {
+                    let totalSynced = 0;
+                    const collectionsToSync = ["students", "registrations", "results"];
+
+                    for (const colName of collectionsToSync) {
+                        const snap = await getDocs(collection(db, colName));
+                        const batch = writeBatch(db);
+                        let countInCol = 0;
+
+                        snap.docs.forEach(d => {
+                            const data = d.data();
+                            if (data.team && data.team.trim().toUpperCase() === oldName.trim().toUpperCase()) {
+                                batch.update(d.ref, { team: newName });
+                                countInCol++;
+                            }
+                        });
+
+                        if (countInCol > 0) {
+                            await batch.commit();
+                            totalSynced += countInCol;
+                        }
+                    }
+                    showToast(`Team updated & synced across ${totalSynced} records!`, "success");
+                    scanDatabaseTeamNames();
+                } else {
+                    showToast("Team updated successfully!", "success");
+                }
             } else {
                 // CREATE NEW TEAM
                 if (secondaryAuth) {
@@ -84,7 +159,7 @@ export default function ManageTeamAccounts() {
                 }
 
                 await addDoc(collection(db, "teams"), {
-                    name: teamName.toUpperCase(),
+                    name: teamName.toUpperCase().trim(),
                     email: email.toLowerCase(),
                     color: teamColor,
                     createdAt: new Date().toISOString()
@@ -103,6 +178,64 @@ export default function ManageTeamAccounts() {
             showToast("Error creating team account: " + error.message, "error");
         } finally {
             setIsCreating(false);
+        }
+    };
+
+    const handleSyncOldTeamData = async (e) => {
+        e.preventDefault();
+        const fromName = syncOldName.trim().toUpperCase();
+        const toName = syncNewName.trim().toUpperCase();
+
+        if (!fromName || !toName) {
+            showToast("Please specify both old and target team names.", "error");
+            return;
+        }
+
+        if (fromName === toName) {
+            showToast("Old and target team names are identical.", "error");
+            return;
+        }
+
+        if (!await confirm(`Are you sure you want to replace all records for team "${fromName}" with "${toName}" across Students, Registrations, and Published Results?`)) return;
+
+        setIsSyncing(true);
+        try {
+            const { collection, getDocs, writeBatch } = await import("firebase/firestore");
+            let totalSynced = 0;
+            const collectionsToSync = ["students", "registrations", "results"];
+
+            for (const colName of collectionsToSync) {
+                const snap = await getDocs(collection(db, colName));
+                const batch = writeBatch(db);
+                let countInCol = 0;
+
+                snap.docs.forEach(d => {
+                    const data = d.data();
+                    if (data.team && data.team.trim().toUpperCase() === fromName) {
+                        batch.update(d.ref, { team: toName });
+                        countInCol++;
+                    }
+                });
+
+                if (countInCol > 0) {
+                    await batch.commit();
+                    totalSynced += countInCol;
+                }
+            }
+
+            if (totalSynced > 0) {
+                showToast(`Successfully updated ${totalSynced} records from "${fromName}" to "${toName}"!`, "success");
+                setSyncOldName("");
+                setSyncNewName("");
+                scanDatabaseTeamNames();
+            } else {
+                showToast(`No records found with team name "${fromName}".`, "error");
+            }
+        } catch (err) {
+            console.error("Error syncing team names:", err);
+            showToast("Failed to sync team records: " + err.message, "error");
+        } finally {
+            setIsSyncing(false);
         }
     };
 
@@ -143,73 +276,130 @@ export default function ManageTeamAccounts() {
 
             <div className="admin-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
                 {/* Form Section */}
-                <div className="admin-card">
-                    <h4>{editId ? "Edit Team" : "Create New Team"}</h4>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '15px' }}>
-                        {editId
-                            ? "Editing display details. Warning: This does not change their actual login password."
-                            : "This will generate a login for the team leader to register their candidates."}
-                    </p>
-                    <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Team Name</label>
-                            <input
-                                type="text"
-                                className="admin-input"
-                                value={teamName}
-                                onChange={e => setTeamName(e.target.value)}
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Team Color</label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <input
-                                    type="color"
-                                    value={teamColor}
-                                    onChange={e => setTeamColor(e.target.value)}
-                                    style={{ width: '48px', height: '40px', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-soft)', cursor: 'pointer', background: 'none' }}
-                                />
-                                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{teamColor}</span>
-                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: teamColor, boxShadow: `0 0 10px ${teamColor}66` }} />
-                            </div>
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Login Email</label>
-                            <input
-                                type="email"
-                                className="admin-input"
-                                value={email}
-                                onChange={e => setEmail(e.target.value)}
-                                // placeholder="e.g. 123@hamartia.com"
-                                required
-                            />
-                        </div>
-                        {!editId && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="admin-card">
+                        <h4>{editId ? "Edit Team" : "Create New Team"}</h4>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '15px' }}>
+                            {editId
+                                ? "Editing display details. Changing the name here automatically updates all students, participants, and results!"
+                                : "This will generate a login for the team leader to register their candidates."}
+                        </p>
+                        <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                             <div>
-                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Password</label>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Team Name</label>
                                 <input
-                                    type="password"
+                                    type="text"
                                     className="admin-input"
-                                    value={password}
-                                    onChange={e => setPassword(e.target.value)}
-                                    placeholder="Min 6 characters"
-                                    minLength={6}
-                                    required={!editId}
+                                    value={teamName}
+                                    onChange={e => setTeamName(e.target.value)}
+                                    required
                                 />
                             </div>
-                        )}
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button type="submit" className="admin-btn primary" disabled={isCreating} style={{ flex: 1 }}>
-                                {isCreating ? (editId ? "Updating..." : "Creating...") : (editId ? "Update Team" : "Create Team Account")}
-                            </button>
-                            {editId && (
-                                <button type="button" className="admin-btn" onClick={handleCancelEdit} style={{ background: 'var(--surface)' }}>
-                                    Cancel
-                                </button>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Team Color</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <input
+                                        type="color"
+                                        value={teamColor}
+                                        onChange={e => setTeamColor(e.target.value)}
+                                        style={{ width: '48px', height: '40px', padding: '2px', borderRadius: '8px', border: '1px solid var(--border-soft)', cursor: 'pointer', background: 'none' }}
+                                    />
+                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{teamColor}</span>
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: teamColor, boxShadow: `0 0 10px ${teamColor}66` }} />
+                                </div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Login Email</label>
+                                <input
+                                    type="email"
+                                    className="admin-input"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    required
+                                />
+                            </div>
+                            {!editId && (
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Password</label>
+                                    <input
+                                        type="password"
+                                        className="admin-input"
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        placeholder="Min 6 characters"
+                                        minLength={6}
+                                        required={!editId}
+                                    />
+                                </div>
                             )}
-                        </div>
-                    </form>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                                <button type="submit" className="admin-btn primary" disabled={isCreating} style={{ flex: 1 }}>
+                                    {isCreating ? (editId ? "Updating..." : "Creating...") : (editId ? "Update Team & Sync" : "Create Team Account")}
+                                </button>
+                                {editId && (
+                                    <button type="button" className="admin-btn" onClick={handleCancelEdit} style={{ background: 'var(--surface)' }}>
+                                        Cancel
+                                    </button>
+                                )}
+                            </div>
+                        </form>
+                    </div>
+
+                    {/* Migration / Sync Card */}
+                    <div className="admin-card" style={{ border: '1px solid rgba(234, 179, 8, 0.3)', background: 'rgba(234, 179, 8, 0.05)' }}>
+                        <h4 style={{ color: '#eab308', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>🔄</span> Sync Previously Renamed Team
+                        </h4>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>
+                            If you changed a team's name earlier and existing students or results still show the old name, enter them below to migrate all records in 1 click.
+                        </p>
+                        <form onSubmit={handleSyncOldTeamData} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: 'bold' }}>Old Team Name (Detected in Database)</label>
+                                {detectedDbTeams.length > 0 ? (
+                                    <select
+                                        className="admin-input"
+                                        value={syncOldName}
+                                        onChange={e => setSyncOldName(e.target.value)}
+                                        required
+                                    >
+                                        <option value="">-- Select Old Team Name Found in Database --</option>
+                                        {detectedDbTeams.map(item => (
+                                            <option key={item.name} value={item.name}>
+                                                {item.name} ({item.count} records)
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        className="admin-input"
+                                        value={syncOldName}
+                                        onChange={e => setSyncOldName(e.target.value)}
+                                        placeholder="e.g. OLD NAME"
+                                        required
+                                    />
+                                )}
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: 'bold' }}>Target New Team Name</label>
+                                <select
+                                    className="admin-input"
+                                    value={syncNewName}
+                                    onChange={e => setSyncNewName(e.target.value)}
+                                    required
+                                >
+                                    <option value="">-- Select Target Team --</option>
+                                    {teams.map(t => (
+                                        <option key={t.id} value={t.name}>{t.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <button type="submit" className="admin-btn" disabled={isSyncing} style={{ background: '#eab308', color: '#000', fontWeight: 'bold' }}>
+                                {isSyncing ? "Syncing..." : "Sync All Team Records Now"}
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
                 {/* List Section */}

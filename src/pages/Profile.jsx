@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../firebase";
 import { Helmet } from "react-helmet-async";
+import { useSearchParams } from "react-router-dom";
+import { QRCodeSVG } from "qrcode.react";
 import "./Register.css"; // Reuse styling where possible
 import { getEventType } from "../constants/events";
+import { generateCertificate } from "../utils/certificate";
 import html2canvas from "html2canvas";
-import { useRef, useEffect } from "react";
 
 export default function Profile() {
     const [chestNumber, setChestNumber] = useState("");
@@ -66,9 +68,10 @@ export default function Profile() {
         }
     };
 
-    const handleSearch = async (e) => {
-        e.preventDefault();
-        if (!chestNumber.trim()) return;
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    const performSearch = useCallback(async (targetChestNo) => {
+        if (!targetChestNo.trim()) return;
 
         setLoading(true);
         setSearched(true);
@@ -76,18 +79,20 @@ export default function Profile() {
         setResultsData([]);
 
         try {
+            const upChestNo = targetChestNo.toUpperCase();
+            setChestNumber(upChestNo);
+
             // 1. Fetch Registration
-            const regQuery = query(collection(db, "registrations"), where("chestNumber", "==", chestNumber.toUpperCase()));
+            const regQuery = query(collection(db, "registrations"), where("chestNumber", "==", upChestNo));
             const regSnap = await getDocs(regQuery);
             
             if (!regSnap.empty) {
-                // If there are multiple, combine events
                 let data = null;
                 const events = new Set();
                 
                 regSnap.docs.forEach(doc => {
                     const d = doc.data();
-                    if (!data) data = d; // take first doc for basic info
+                    if (!data) data = d;
                     if (d.events) d.events.forEach(ev => events.add(ev));
                 });
                 
@@ -98,7 +103,7 @@ export default function Profile() {
             }
 
             // 2. Fetch Results
-            const resQuery = query(collection(db, "results"), where("chestNo", "==", chestNumber.toUpperCase()));
+            const resQuery = query(collection(db, "results"), where("chestNo", "==", upChestNo));
             const resSnap = await getDocs(resQuery);
             
             if (!resSnap.empty) {
@@ -111,6 +116,20 @@ export default function Profile() {
         } finally {
             setLoading(false);
         }
+    }, []);
+
+    // 2. Handle Initial Search from Query Param
+    useEffect(() => {
+        const chest = searchParams.get("chest");
+        if (chest && !searched) {
+            performSearch(chest);
+        }
+    }, [searchParams, searched, performSearch]);
+
+    const handleSearch = async (e) => {
+        e.preventDefault();
+        setSearchParams({ chest: chestNumber.toUpperCase() });
+        performSearch(chestNumber);
     };
 
     return (
@@ -195,6 +214,30 @@ export default function Profile() {
                                 </div>
                                 {/* Barcode Aesthetic */}
                                 <div style={{ height: '30px', width: '100%', opacity: 0.3, backgroundImage: 'repeating-linear-gradient(90deg, #fff 0, #fff 2px, transparent 2px, transparent 5px, #fff 5px, #fff 6px, transparent 6px, transparent 10px)', marginTop: '10px', zIndex: 1 }}></div>
+
+                                {/* QR CODE INTEGRATION */}
+                                <div style={{
+                                    position: 'absolute',
+                                    right: '20px',
+                                    bottom: '20px',
+                                    background: 'white',
+                                    padding: '6px',
+                                    borderRadius: '8px',
+                                    zIndex: 2,
+                                    boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                }}>
+                                    <QRCodeSVG
+                                        value={`${window.location.origin}${window.location.pathname}#/profile?chest=${chestNumber.toUpperCase()}`}
+                                        size={64}
+                                        level="M"
+                                        includeMargin={false}
+                                    />
+                                    <span style={{ fontSize: '8px', color: '#333', fontWeight: 'bold' }}>SCAN TO VERIFY</span>
+                                </div>
                             </div>
 
                             {/* 2. ACHIEVEMENTS */}
@@ -210,8 +253,37 @@ export default function Profile() {
                                                     <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '1.1rem' }}>{res.eventName}</div>
                                                     <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Score: {res.points || 0} pts | Grade: {res.grade || 'N/A'}</div>
                                                 </div>
-                                                <div style={{ fontSize: '28px', fontWeight: '800', color: res.place === '1st' ? '#F59E0B' : res.place === '2nd' ? '#94A3B8' : res.place === '3rd' ? '#B45309' : 'var(--text-main)', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
-                                                    {res.place}
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                                                    <div style={{ fontSize: '28px', fontWeight: '800', color: res.place === '1st' ? '#F59E0B' : res.place === '2nd' ? '#94A3B8' : res.place === '3rd' ? '#B45309' : 'var(--text-main)', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
+                                                        {res.place}
+                                                    </div>
+                                                    {res.place !== "None" && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                generateCertificate({
+                                                                    studentName: studentData?.fullName || res.name,
+                                                                    chestNo: chestNumber.toUpperCase(),
+                                                                    eventName: res.eventName,
+                                                                    place: res.place,
+                                                                    team: res.team,
+                                                                    appName: appName,
+                                                                    date: res.timestamp?.toDate().toLocaleDateString()
+                                                                });
+                                                            }}
+                                                            style={{
+                                                                background: 'rgba(255,255,255,0.05)',
+                                                                border: '1px solid var(--border-soft)',
+                                                                color: 'var(--text-secondary)',
+                                                                fontSize: '10px',
+                                                                padding: '4px 8px',
+                                                                borderRadius: '4px',
+                                                                cursor: 'pointer'
+                                                            }}
+                                                        >
+                                                            📜 Certificate
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}

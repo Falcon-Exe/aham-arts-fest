@@ -17,6 +17,9 @@ import ManageStudents from "../components/ManageStudents";
 import ManageRegistrations from "../components/ManageRegistrations";
 import ManageAuditLogs from "../components/ManageAuditLogs";
 import ManageSettings from "../components/ManageSettings";
+import ManageReplacements from "../components/ManageReplacements";
+import ManageAnalytics from "../components/ManageAnalytics";
+import ManageScanner from "../components/ManageScanner";
 import { collection, onSnapshot, doc, setDoc, getDoc, query, orderBy, limit } from "firebase/firestore";
 import { db } from "../firebase";
 import { useConfirm } from "../hooks/useConfirm";
@@ -36,6 +39,9 @@ function Dashboard() {
     const [generalOpen, setGeneralOpen] = useState(true);
     const [maintenanceMode, setMaintenanceMode] = useState(false);
     const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+    
+    // Replacement Requests Notification State
+    const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -99,12 +105,19 @@ function Dashboard() {
             }
         });
 
+        // Swap Requests Pending Count Listener
+        const unsubRequests = onSnapshot(collection(db, "replacementRequests"), (snap) => {
+            const pending = snap.docs.filter(d => d.data().status === "pending" || !d.data().status);
+            setPendingRequestsCount(pending.length);
+        });
+
         return () => {
             unsubscribe();
             unsubEvents();
             unsubResults();
             unsubSettings();
             unsubPublic();
+            unsubRequests();
         };
     }, [navigate]);
 
@@ -276,6 +289,29 @@ function Dashboard() {
                     📝 Registrations
                 </button>
                 <button
+                    className={`tab-btn ${activeTab === "replacements" ? "active" : ""}`}
+                    onClick={() => setActiveTab("replacements")}
+                    style={{ position: 'relative' }}
+                >
+                    🔄 Swap Requests
+                    {pendingRequestsCount > 0 && (
+                        <span style={{
+                            position: 'absolute',
+                            top: '-5px',
+                            right: '-5px',
+                            background: '#ef4444',
+                            color: 'white',
+                            borderRadius: '50%',
+                            padding: '2px 6px',
+                            fontSize: '0.7rem',
+                            fontWeight: 'bold',
+                            boxShadow: '0 0 6px #ef4444'
+                        }}>
+                            {pendingRequestsCount}
+                        </span>
+                    )}
+                </button>
+                <button
                     className={`tab-btn ${activeTab === "results" ? "active" : ""}`}
                     onClick={() => setActiveTab("results")}
                 >
@@ -292,6 +328,18 @@ function Dashboard() {
                     onClick={() => setActiveTab("individual")}
                 >
                     👤 Individual Points
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === "analytics" ? "active" : ""}`}
+                    onClick={() => setActiveTab("analytics")}
+                >
+                    📊 Analytics
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === "scanner" ? "active" : ""}`}
+                    onClick={() => setActiveTab("scanner")}
+                >
+                    🔍 Scanner
                 </button>
                 <button
                     className={`tab-btn ${activeTab === "profiles" ? "active" : ""}`}
@@ -337,9 +385,12 @@ function Dashboard() {
                 <main className="dashboard-main fade-in">
                     {activeTab === "events" && <ManageEvents />}
                     {activeTab === "registrations" && <ManageRegistrations />}
+                    {activeTab === "replacements" && <ManageReplacements />}
                     {activeTab === "results" && <ManageResults />}
                     {activeTab === "teams" && <ManageTeams />}
                     {activeTab === "individual" && <ManageIndividualPoints />}
+                    {activeTab === "analytics" && <ManageAnalytics />}
+                    {activeTab === "scanner" && <ManageScanner />}
                     {activeTab === "profiles" && <ManageStudentProfiles />}
                     {activeTab === "team_accounts" && <ManageTeamAccounts />}
                     {activeTab === "announcements" && <ManageAnnouncements />}

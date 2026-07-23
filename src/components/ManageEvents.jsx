@@ -14,6 +14,13 @@ export default function ManageEvents() {
     const [toast, setToast] = useState(null);
     const { confirm, confirmState } = useConfirm();
 
+    // Event Sync States
+    const [detectedDbEvents, setDetectedDbEvents] = useState([]);
+    const [loadingDetectedEvents, setLoadingDetectedEvents] = useState(false);
+    const [syncOldEventName, setSyncOldEventName] = useState("");
+    const [syncNewEventId, setSyncNewEventId] = useState("");
+    const [isSyncing, setIsSyncing] = useState(false);
+
     // Load dynamic student categories
     let dynamicCategories = [];
     try {
@@ -45,12 +52,161 @@ export default function ManageEvents() {
         generalSubtype: "On Stage",
     });
 
+    const scanDatabaseEventNames = async () => {
+        setLoadingDetectedEvents(true);
+        try {
+            const eventCounts = {};
+            // Scan registrations
+            const regSnap = await getDocs(collection(db, "registrations"));
+            const arrayFields = ["events", "onStageEvents", "offStageEvents", "generalEvents"];
+            regSnap.docs.forEach(d => {
+                const data = d.data();
+                arrayFields.forEach(field => {
+                    if (Array.isArray(data[field])) {
+                        data[field].forEach(evName => {
+                            if (evName && typeof evName === "string") {
+                                const trimmed = evName.trim();
+                                if (trimmed) {
+                                    eventCounts[trimmed] = (eventCounts[trimmed] || 0) + 1;
+                                }
+                            }
+                        });
+                    }
+                });
+            });
 
+            // Scan results
+            const resSnap = await getDocs(collection(db, "results"));
+            resSnap.docs.forEach(d => {
+                const evName = d.data().eventName;
+                if (evName && typeof evName === "string") {
+                    const trimmed = evName.trim();
+                    if (trimmed) {
+                        eventCounts[trimmed] = (eventCounts[trimmed] || 0) + 1;
+                    }
+                }
+            });
+
+            const list = Object.keys(eventCounts).map(name => ({
+                name,
+                count: eventCounts[name]
+            })).sort((a, b) => b.count - a.count);
+
+            setDetectedDbEvents(list);
+        } catch (err) {
+            console.error("Error scanning DB event names:", err);
+        } finally {
+            setLoadingDetectedEvents(false);
+        }
+    };
+
+    const syncEventRecords = async (oldName, newName, targetEventId) => {
+        let totalSynced = 0;
+
+        // 1. Sync registrations
+        const regSnap = await getDocs(collection(db, "registrations"));
+        const regBatch = writeBatch(db);
+        let regCount = 0;
+        const arrayFields = ["events", "onStageEvents", "offStageEvents", "generalEvents"];
+
+        regSnap.docs.forEach(d => {
+            const data = d.data();
+            let needsUpdate = false;
+            const updates = {};
+            arrayFields.forEach(field => {
+                if (Array.isArray(data[field]) && data[field].includes(oldName)) {
+                    const updatedArray = data[field].map(e => e === oldName ? newName : e);
+                    updates[field] = Array.from(new Set(updatedArray));
+                    needsUpdate = true;
+                }
+            });
+            if (needsUpdate) {
+                regBatch.update(d.ref, updates);
+                regCount++;
+            }
+        });
+
+        if (regCount > 0) {
+            await regBatch.commit();
+            totalSynced += regCount;
+        }
+
+        // 2. Sync results
+        const resSnap = await getDocs(collection(db, "results"));
+        const resBatch = writeBatch(db);
+        let resCount = 0;
+
+        resSnap.docs.forEach(d => {
+            const data = d.data();
+            let needsUpdate = false;
+            const updates = {};
+            if (data.eventId === targetEventId || (data.eventName && data.eventName.trim().toUpperCase() === oldName.trim().toUpperCase())) {
+                updates.eventId = targetEventId;
+                updates.eventName = newName;
+                needsUpdate = true;
+            }
+            if (needsUpdate) {
+                resBatch.update(d.ref, updates);
+                resCount++;
+            }
+        });
+
+        if (resCount > 0) {
+            await resBatch.commit();
+            totalSynced += resCount;
+        }
+
+        return totalSynced;
+    };
+
+    const handleSyncOldEventData = async (e) => {
+        e.preventDefault();
+        const fromName = syncOldEventName.trim();
+        
+        // Find target event name and ID
+        const targetEventObj = events.find(ev => ev.id === syncNewEventId);
+        const toName = targetEventObj?.name;
+
+        if (!fromName || !syncNewEventId || !toName) {
+            showToast("Please specify both old and target event names.", "error");
+            return;
+        }
+
+        if (fromName.toLowerCase() === toName.toLowerCase()) {
+            showToast("Old and target event names are identical.", "error");
+            return;
+        }
+
+        if (!await confirm(`Are you sure you want to replace all records for event "${fromName}" with "${toName}" across Registrations and Results?`)) return;
+
+        setIsSyncing(true);
+        try {
+            const totalSynced = await syncEventRecords(fromName, toName, syncNewEventId);
+            
+            // Delete the old event document if it exists in the active event list
+            const oldEventObj = events.find(ev => ev.name.toLowerCase() === fromName.toLowerCase());
+            if (oldEventObj) {
+                if (await confirm(`The old event "${fromName}" exists in the active events database. Do you want to delete it now?`)) {
+                    await deleteDoc(doc(db, "events", oldEventObj.id));
+                }
+            }
+
+            showToast(`Successfully updated ${totalSynced} records from "${fromName}" to "${toName}"!`, "success");
+            setSyncOldEventName("");
+            setSyncNewEventId("");
+            fetchEvents();
+            scanDatabaseEventNames();
+        } catch (err) {
+            console.error("Error syncing event names:", err);
+            showToast("Failed to sync event records: " + err.message, "error");
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     const fetchEvents = async () => {
         if (!loading) setLoading(true);
         try {
-            // timeout after 5 seconds
             const timeoutPromise = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error("Connection timed out. Check your internet or Firebase config.")), 5000)
             );
@@ -62,7 +218,6 @@ export default function ManageEvents() {
             setEvents(list);
         } catch (err) {
             console.error("Error fetching events:", err);
-            // alert(`Error: ${err.message}`); // Silent fail better for UX, logs are enough
         }
         setLoading(false);
     };
@@ -70,6 +225,7 @@ export default function ManageEvents() {
     useEffect(() => {
         const run = async () => {
             await fetchEvents();
+            await scanDatabaseEventNames();
         };
         run();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -96,8 +252,19 @@ export default function ManageEvents() {
 
         try {
             if (editId) {
+                const oldEvent = events.find(e => e.id === editId);
+                const oldName = oldEvent?.name;
+
                 await updateDoc(doc(db, "events", editId), { ...formData, name: eventName });
-                showToast("Event updated successfully!", "success");
+
+                if (oldName && oldName.trim().toUpperCase() !== eventName.trim().toUpperCase()) {
+                    showToast("Event updated, syncing references...", "info");
+                    const totalSynced = await syncEventRecords(oldName, eventName, editId);
+                    showToast(`Event updated & synced across ${totalSynced} registrations/results!`, "success");
+                    scanDatabaseEventNames();
+                } else {
+                    showToast("Event updated successfully!", "success");
+                }
             } else {
                 await addDoc(collection(db, "events"), { ...formData, name: eventName });
                 showToast("Event added successfully!", "success");
@@ -368,71 +535,134 @@ export default function ManageEvents() {
             {confirmState && <ConfirmDialog {...confirmState} />}
             <h3 className="section-title">Manage Event</h3>
 
-            {/* ADD FORM */}
-            <form onSubmit={handleSubmit} className="admin-form">
-                <h4>{editId ? "Edit Event" : "Add New Event"}</h4>
-                <div className="form-grid">
-                    <input className="admin-input full-width" name="name" placeholder="Event Name" value={formData.name} onChange={handleChange} required />
-                    <select className="admin-select" name="category" value={formData.category} onChange={handleChange}>
-                        <option value="">-- Category --</option>
-                        <option value="A">Category A</option>
-                        <option value="B">Category B</option>
-                        <option value="C">Category C</option>
-                    </select>
-                    <input className="admin-input" name="date" placeholder="Date (e.g. Day 1)" value={formData.date} onChange={handleChange} />
-                    <input className="admin-input" name="time" placeholder="Time (e.g. 10:00 AM)" value={formData.time} onChange={handleChange} />
-                    <input className="admin-input" name="stage" placeholder="Stage" value={formData.stage} onChange={handleChange} />
-                    <select className="admin-select" name="type" value={formData.type} onChange={handleChange}>
-                        <option value="On Stage">On Stage 🎭</option>
-                        <option value="Off Stage">Off Stage 📝</option>
-                        <option value="General">General 🌐</option>
-                    </select>
-                    {formData.type === "General" && (
-                        <select className="admin-select" name="generalSubtype" value={formData.generalSubtype || "On Stage"} onChange={handleChange}>
-                            <option value="On Stage">General - On Stage 🎭</option>
-                            <option value="Off Stage">General - Off Stage 📝</option>
+            <div className="admin-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+                {/* ADD FORM */}
+                <form onSubmit={handleSubmit} className="admin-form" style={{ height: 'fit-content' }}>
+                    <h4>{editId ? "Edit Event" : "Add New Event"}</h4>
+                    <div className="form-grid">
+                        <input className="admin-input full-width" name="name" placeholder="Event Name" value={formData.name} onChange={handleChange} required />
+                        <select className="admin-select" name="category" value={formData.category} onChange={handleChange}>
+                            <option value="">-- Category --</option>
+                            <option value="A">Category A</option>
+                            <option value="B">Category B</option>
+                            <option value="C">Category C</option>
                         </select>
-                    )}
-                    <select className="admin-select" name="studentCategory" value={formData.studentCategory === "General" ? "Common/General" : formData.studentCategory} onChange={handleChange}>
-                        <option value="Common/General">Common / General — No Jr/Sr split, separate points pool</option>
-                        {dynamicCategories.map(cat => (
-                            <option key={cat} value={cat}>{cat} Only</option>
-                        ))}
-                        <option value="Junior & Senior">Junior &amp; Senior — Both compete, tracked per category</option>
-                    </select>
-                </div>
-                <div className="admin-form-actions" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
-                    <button type="submit" className="submit-btn" style={{ width: '100%', padding: '15px', fontSize: '1.1rem' }}>
-                        {editId ? "Update Event ✓" : "Add Event +"}
-                    </button>
-
-                    {editId && (
-                        <button type="button" onClick={handleCancelEdit} className="submit-btn" style={{ background: 'var(--bg-tertiary)', width: '100%' }}>
-                            Cancel
+                        <input className="admin-input" name="date" placeholder="Date (e.g. Day 1)" value={formData.date} onChange={handleChange} />
+                        <input className="admin-input" name="time" placeholder="Time (e.g. 10:00 AM)" value={formData.time} onChange={handleChange} />
+                        <input className="admin-input" name="stage" placeholder="Stage" value={formData.stage} onChange={handleChange} />
+                        <select className="admin-select" name="type" value={formData.type} onChange={handleChange}>
+                            <option value="On Stage">On Stage 🎭</option>
+                            <option value="Off Stage">Off Stage 📝</option>
+                            <option value="General">General 🌐</option>
+                        </select>
+                        {formData.type === "General" && (
+                            <select className="admin-select" name="generalSubtype" value={formData.generalSubtype || "On Stage"} onChange={handleChange}>
+                                <option value="On Stage">General - On Stage 🎭</option>
+                                <option value="Off Stage">General - Off Stage 📝</option>
+                            </select>
+                        )}
+                        <select className="admin-select" name="studentCategory" value={formData.studentCategory === "General" ? "Common/General" : formData.studentCategory} onChange={handleChange}>
+                            <option value="Common/General">Common / General — No Jr/Sr split, separate points pool</option>
+                            {dynamicCategories.map(cat => (
+                                <option key={cat} value={cat}>{cat} Only</option>
+                            ))}
+                            <option value="Junior & Senior">Junior &amp; Senior — Both compete, tracked per category</option>
+                        </select>
+                    </div>
+                    <div className="admin-form-actions" style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+                        <button type="submit" className="submit-btn" style={{ width: '100%', padding: '15px', fontSize: '1.1rem' }}>
+                            {editId ? "Update Event ✓" : "Add Event +"}
                         </button>
-                    )}
 
-                    {!editId && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', width: '100%' }}>
-                            <button type="button" onClick={handleSeedDatabase} className="submit-btn" style={{ background: '#22c55e', fontSize: '0.85rem' }}>
-                                🌱 Seed DB
+                        {editId && (
+                            <button type="button" onClick={handleCancelEdit} className="submit-btn" style={{ background: 'var(--bg-tertiary)', width: '100%' }}>
+                                Cancel
                             </button>
-                            <button type="button" onClick={handleCheckSync} className="submit-btn" style={{ background: 'var(--primary)', fontSize: '0.85rem' }}>
-                                🔎 Check Sync
+                        )}
+
+                        {!editId && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', width: '100%' }}>
+                                <button type="button" onClick={handleSeedDatabase} className="submit-btn" style={{ background: '#22c55e', fontSize: '0.85rem' }}>
+                                    🌱 Seed DB
+                                </button>
+                                <button type="button" onClick={handleCheckSync} className="submit-btn" style={{ background: 'var(--primary)', fontSize: '0.85rem' }}>
+                                    🔎 Check Sync
+                                </button>
+                                <button type="button" onClick={fixEventTypes} className="submit-btn" style={{ background: 'var(--secondary)', fontSize: '0.85rem' }}>
+                                    🔧 Fix Types
+                                </button>
+                                <button type="button" onClick={handleCleanupDuplicates} className="submit-btn" style={{ background: '#eab308', color: '#000', fontSize: '0.85rem' }}>
+                                    🧹 Deduplicate
+                                </button>
+                                <button type="button" onClick={handleClearAllEvents} className="submit-btn" style={{ background: '#ef4444', fontSize: '0.85rem' }}>
+                                    🧨 Clear All
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </form>
+
+                {/* REPLACE / MERGE EVENT CARD */}
+                {!editId && (
+                    <div className="admin-form" style={{ border: '1px solid rgba(234, 179, 8, 0.3)', background: 'rgba(234, 179, 8, 0.05)', height: 'fit-content' }}>
+                        <h4 style={{ color: '#eab308', display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 15px 0' }}>
+                            <span>🔄</span> Replace & Sync Event
+                        </h4>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>
+                            If you changed an event's name or corrected a typo, use this to swap references across all registrations and published results in one click.
+                        </p>
+                        <form onSubmit={handleSyncOldEventData} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: 'bold' }}>Old Event Name (Detected in Database)</label>
+                                {detectedDbEvents.length > 0 ? (
+                                    <select
+                                        className="admin-select"
+                                        value={syncOldEventName}
+                                        onChange={e => setSyncOldEventName(e.target.value)}
+                                        style={{ width: '100%' }}
+                                        required
+                                    >
+                                        <option value="">-- Select Old Event Name --</option>
+                                        {detectedDbEvents.map(item => (
+                                            <option key={item.name} value={item.name}>
+                                                {item.name} ({item.count} references)
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        type="text"
+                                        className="admin-input"
+                                        value={syncOldEventName}
+                                        onChange={e => setSyncOldEventName(e.target.value)}
+                                        placeholder="e.g. SPEECH MALAYALM"
+                                        style={{ width: '100%' }}
+                                        required
+                                    />
+                                )}
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.82rem', fontWeight: 'bold' }}>Target New Event</label>
+                                <select
+                                    className="admin-select"
+                                    value={syncNewEventId}
+                                    onChange={e => setSyncNewEventId(e.target.value)}
+                                    style={{ width: '100%' }}
+                                    required
+                                >
+                                    <option value="">-- Select Target Event --</option>
+                                    {events.map(ev => (
+                                        <option key={ev.id} value={ev.id}>{ev.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <button type="submit" className="submit-btn" disabled={isSyncing} style={{ background: '#eab308', color: '#000', fontWeight: 'bold', width: '100%', padding: '12px', marginTop: '10px' }}>
+                                {isSyncing ? "Syncing..." : "Sync All Event Records Now"}
                             </button>
-                            <button type="button" onClick={fixEventTypes} className="submit-btn" style={{ background: 'var(--secondary)', fontSize: '0.85rem' }}>
-                                🔧 Fix Types
-                            </button>
-                            <button type="button" onClick={handleCleanupDuplicates} className="submit-btn" style={{ background: '#eab308', color: '#000', fontSize: '0.85rem' }}>
-                                🧹 Deduplicate
-                            </button>
-                            <button type="button" onClick={handleClearAllEvents} className="submit-btn" style={{ background: '#ef4444', fontSize: '0.85rem' }}>
-                                🧨 Clear All
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </form>
+                        </form>
+                    </div>
+                )}
+            </div>
 
 
 

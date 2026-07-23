@@ -52,7 +52,7 @@ const CustomCursor = () => {
       });
     });
     return () => { unsub(); clearTimeout(liveTimerRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Feature 2: Update glow color when route changes ──
@@ -157,7 +157,7 @@ const CustomCursor = () => {
       document.body.removeEventListener("mouseleave", handleMouseLeave);
       cancelAnimationFrame(requestRef);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveFlash, location.pathname]);
 
   return (

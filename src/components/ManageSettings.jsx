@@ -88,7 +88,7 @@ export default function ManageSettings() {
             root.style.setProperty('--bg-main', branding.backgroundColor);
             root.style.setProperty('--surface', branding.surfaceColor);
 
-            localStorage.setItem("branding_appName", branding.appName || "HAMARTIA");
+            localStorage.setItem("branding_appName", branding.appName || "HAMARTIA Arts Fest");
             localStorage.setItem("branding_appShortName", branding.appShortName || "HAMARTIA");
             localStorage.setItem("branding_logoUrl", branding.logoUrl || "/pwa-512x512.png");
             if (branding.studentCategories) {

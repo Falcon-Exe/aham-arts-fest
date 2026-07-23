@@ -586,11 +586,11 @@
 
   .bento-card {
     height: 140px;
-    padding: var(--space-3);
+    padding: 12px;
   }
 
   .card-label {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
   }
 
   .card-num {
@@ -617,7 +617,7 @@
   }
 
   .card-profile .card-label {
-    font-size: 1.1rem !important;
+    font-size: 1rem !important;
   }
 
   .card-profile .card-icon {

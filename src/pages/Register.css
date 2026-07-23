@@ -152,7 +152,7 @@
 
 .category-tab {
   flex: 1;
-  padding: 10px;
+  padding: 10px 16px;
   border-radius: 8px;
   border: 1px solid var(--border-soft);
   background: var(--bg-secondary);
@@ -160,6 +160,13 @@
   cursor: pointer;
   font-weight: 600;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  text-align: center;
+  font-size: 0.92rem;
 }
 
 .category-tab.active {
@@ -446,6 +453,12 @@
   /* Form Mobile Overrides */
   .category-tabs {
     flex-direction: column;
+    align-items: center;
+  }
+
+  .category-tab {
+    max-width: 100% !important;
+    width: 100%;
   }
 
   .events-selection-grid {

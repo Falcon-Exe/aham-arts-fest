@@ -35,10 +35,18 @@ function Header() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const appName = localStorage.getItem("branding_appName") || "HAMARTIA";
-  const words = appName.split(" ");
-  const lastWord = words.length > 1 ? words.pop() : "";
-  const mainTitle = words.join(" ");
+  const appName = localStorage.getItem("branding_appName") || "HAMARTIA Arts Fest";
+  let mainTitle = "HAMARTIA";
+  let lastWord = "Arts Fest";
+
+  if (appName.toUpperCase().includes("HAMARTIA")) {
+    mainTitle = "HAMARTIA";
+    lastWord = appName.replace(/HAMARTIA/i, "").trim() || "Arts Fest";
+  } else {
+    const words = appName.trim().split(" ");
+    lastWord = words.length > 1 ? words.pop() : appName;
+    mainTitle = words.join(" ") || "HAMARTIA";
+  }
 
   return (
     <header className={`island-header ${scrolled ? "hidden" : "visible"} ${hasTicker ? "has-ticker" : ""}`}>

@@ -11,21 +11,31 @@ export default function ManageRegistrations() {
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
     const { confirm, confirmState } = useConfirm();
+    const [teams, setTeams] = useState([]);
+    const [eventsList, setEventsList] = useState([]);
+    const [studentsList, setStudentsList] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [sortConfig, setSortConfig] = useState({ key: 'CHEST NUMBER', direction: 'asc' });
-    const [teams, setTeams] = useState([]);
 
     useEffect(() => {
-        const fetchTeams = async () => {
+        const fetchTeamsEventsAndStudents = async () => {
             try {
-                const snapshot = await getDocs(collection(db, "teams"));
-                const teamNames = snapshot.docs.map(doc => doc.data().name);
+                const teamSnap = await getDocs(collection(db, "teams"));
+                const teamNames = teamSnap.docs.map(doc => doc.data().name);
                 setTeams(teamNames);
+
+                const eventSnap = await getDocs(collection(db, "events"));
+                const events = eventSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setEventsList(events);
+
+                const studentSnap = await getDocs(collection(db, "students"));
+                const students = studentSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setStudentsList(students);
             } catch (err) {
-                console.error("Error fetching teams:", err);
+                console.error("Error fetching teams/events/students:", err);
             }
         };
-        fetchTeams();
+        fetchTeamsEventsAndStudents();
     }, []);
 
     // Pagination State
@@ -106,7 +116,9 @@ export default function ManageRegistrations() {
                     "OFF STAGE EVENTS": data.offStageEvents?.join(", ") || "",
                     "GENERAL EVENTS": data.generalEvents?.join(", ") || "",
                     _submittedAt: data.submittedAt,
-                    _source: "firestore"
+                    _source: "firestore",
+                    onStageCount: data.onStageEvents?.length || 0,
+                    offStageCount: data.offStageEvents?.length || 0
                 };
             });
 
@@ -245,6 +257,128 @@ export default function ManageRegistrations() {
         document.body.removeChild(link);
     };
 
+    const getStudentCategory = (chestNumber) => {
+        if (!chestNumber) return "";
+        const student = studentsList.find(s => 
+            String(s.chestNumber).toUpperCase() === String(chestNumber).toUpperCase()
+        );
+        return student ? (student.category || student.studentCategory || "") : "";
+    };
+
+    const isExceptionIndividualEvent = (name) => {
+        if (!name) return false;
+        const cleanName = name.trim().toUpperCase();
+        return cleanName === "TED X TALK" || cleanName === "TED-X TALK";
+    };
+
+    const getTeamLimitViolations = () => {
+        const violations = [];
+        if (registrations.length === 0 || eventsList.length === 0 || studentsList.length === 0) return [];
+
+        eventsList.forEach(event => {
+            // Only check On Stage and Off Stage events (exclude General events except exceptional ones)
+            const isGeneral = event.type === "General" || isGeneralEvent(event.name);
+            if (isGeneral && !isExceptionIndividualEvent(event.name)) return;
+
+            teams.forEach(team => {
+                // Filter registrations for this team & event
+                const teamRegsForEvent = registrations.filter(reg => {
+                    if (reg["TEAM"] !== team) return false;
+                    // Check if registration lists this event
+                    const onStageList = reg["ON STAGE EVENTS"] ? reg["ON STAGE EVENTS"].split(',').map(s => s.trim()) : [];
+                    const offStageList = reg["OFF STAGE EVENTS"] ? reg["OFF STAGE EVENTS"].split(',').map(s => s.trim()) : [];
+                    return onStageList.includes(event.name) || offStageList.includes(event.name);
+                });
+
+                // Group by category (Junior / Senior)
+                const categories = ["Junior", "Senior"];
+                categories.forEach(cat => {
+                    const regsForCat = teamRegsForEvent.filter(reg => {
+                        const chestNo = reg["CHEST NUMBER"] || reg["CHEST NO"];
+                        const sCat = getStudentCategory(chestNo);
+                        return sCat.toLowerCase() === cat.toLowerCase();
+                    });
+
+                    if (regsForCat.length > 2) {
+                        violations.push({
+                            event: event.name,
+                            team: team,
+                            category: cat,
+                            count: regsForCat.length,
+                            students: regsForCat.map(r => ({
+                                name: r["CANDIDATE NAME"] || r["CANDIDATE  FULL NAME"],
+                                chest: r["CHEST NUMBER"] || r["CHEST NO"],
+                                reg: r
+                            }))
+                        });
+                    }
+                });
+
+                // Check uncategorized registrations
+                const regsWithoutCat = teamRegsForEvent.filter(reg => {
+                    const chestNo = reg["CHEST NUMBER"] || reg["CHEST NO"];
+                    const sCat = getStudentCategory(chestNo);
+                    return !sCat;
+                });
+                if (regsWithoutCat.length > 2) {
+                    violations.push({
+                        event: event.name,
+                        team: team,
+                        category: "Uncategorized",
+                        count: regsWithoutCat.length,
+                        students: regsWithoutCat.map(r => ({
+                            name: r["CANDIDATE NAME"] || r["CANDIDATE  FULL NAME"],
+                            chest: r["CHEST NUMBER"] || r["CHEST NO"],
+                            reg: r
+                        }))
+                    });
+                }
+            });
+        });
+
+        return violations;
+    };
+
+    const getStudentLimitViolations = () => {
+        const violations = [];
+        if (registrations.length === 0) return [];
+
+        registrations.forEach(reg => {
+            // Skip team-wide registrations (no chestNumber)
+            if (!reg["CHEST NUMBER"] && !reg["CHEST NO"]) return;
+
+            const name = reg["CANDIDATE NAME"] || reg["CANDIDATE  FULL NAME"];
+            const chest = reg["CHEST NUMBER"] || reg["CHEST NO"];
+            const team = reg["TEAM"] || reg["TEAM NAME"];
+
+            if (reg.onStageCount > 4) {
+                violations.push({
+                    name,
+                    chest,
+                    team,
+                    type: "On Stage",
+                    count: reg.onStageCount,
+                    events: reg["ON STAGE EVENTS"],
+                    reg: reg
+                });
+            }
+
+            if (reg.offStageCount > 4) {
+                violations.push({
+                    name,
+                    chest,
+                    team,
+                    type: "Off Stage",
+                    count: reg.offStageCount,
+                    events: reg["OFF STAGE EVENTS"],
+                    reg: reg
+                });
+            }
+        });
+
+        return violations;
+    };
+
     const sortedRegistrations = getSortedRegistrations();
     const totalPages = Math.ceil(sortedRegistrations.length / itemsPerPage);
     const paginatedRegistrations = sortedRegistrations.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -271,6 +405,156 @@ export default function ManageRegistrations() {
                     <button onClick={fetchRegistrations} className="tab-btn" style={{ background: 'var(--bg-tertiary)' }}>Refresh</button>
                 </div>
             </div>
+
+            {/* Team Limit Violations Warning */}
+            {(() => {
+                const violations = getTeamLimitViolations();
+                if (violations.length === 0) return null;
+
+                return (
+                    <div style={{
+                        background: 'rgba(239, 68, 68, 0.08)',
+                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        marginBottom: '25px',
+                        color: 'var(--text-main)'
+                    }}>
+                        <h4 style={{ 
+                            margin: '0 0 12px 0', 
+                            color: '#ef4444', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px',
+                            fontSize: '1.05rem',
+                            fontWeight: '600'
+                        }}>
+                            ⚠️ Team Event Limit Violations (Max 2 students per event per team)
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {violations.map((violation, idx) => (
+                                <div key={idx} style={{ 
+                                    background: 'var(--bg-secondary)', 
+                                    border: '1px solid var(--border-soft)',
+                                    borderRadius: '8px',
+                                    padding: '12px 16px',
+                                    fontSize: '0.85rem'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '5px' }}>
+                                        <span>
+                                            Event: <strong style={{ color: 'var(--primary-light)' }}>{violation.event}</strong>
+                                        </span>
+                                        <span>
+                                            Category: <strong style={{ color: '#10b981' }}>{violation.category}</strong>
+                                        </span>
+                                        <span>
+                                            Team: <strong style={{ color: 'var(--text-main)' }}>{violation.team}</strong>
+                                        </span>
+                                        <span style={{ color: '#ef4444', fontWeight: 'bold' }}>
+                                            Registered: {violation.count} students (Exceeds by {violation.count - 2})
+                                        </span>
+                                    </div>
+                                    <div style={{ color: 'var(--text-muted)', display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                        <span style={{ minWidth: '60px' }}>Students:</span>
+                                        {violation.students.map((s, sIdx) => (
+                                            <span key={sIdx} style={{ 
+                                                background: 'var(--bg-main)', 
+                                                padding: '4px 8px', 
+                                                borderRadius: '4px',
+                                                border: '1px solid var(--border-soft)',
+                                                color: 'var(--text-secondary)',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}>
+                                                <span>{s.name} {s.chest ? `(#${s.chest})` : ''}</span>
+                                                <button
+                                                    onClick={() => openEditModal(s.reg)}
+                                                    style={{
+                                                        background: 'transparent',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        padding: 0,
+                                                        fontSize: '0.85rem',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        color: '#3b82f6'
+                                                    }}
+                                                    title="Edit Candidate"
+                                                >
+                                                    ✏️
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* Student Limit Violations Warning */}
+            {(() => {
+                const studentViolations = getStudentLimitViolations();
+                if (studentViolations.length === 0) return null;
+
+                return (
+                    <div style={{
+                        background: 'rgba(239, 68, 68, 0.08)',
+                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        borderRadius: '12px',
+                        padding: '20px',
+                        marginBottom: '25px',
+                        color: 'var(--text-main)'
+                    }}>
+                        <h4 style={{ 
+                            margin: '0 0 12px 0', 
+                            color: '#ef4444', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: '8px',
+                            fontSize: '1.05rem',
+                            fontWeight: '600'
+                        }}>
+                            ⚠️ Student Event Limit Violations (Max 4 events per category)
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {studentViolations.map((violation, idx) => (
+                                <div key={idx} style={{ 
+                                    background: 'var(--bg-secondary)', 
+                                    border: '1px solid var(--border-soft)',
+                                    borderRadius: '8px',
+                                    padding: '12px 16px',
+                                    fontSize: '0.85rem'
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '5px', alignItems: 'center' }}>
+                                        <span>
+                                            Candidate: <strong style={{ color: 'var(--text-main)' }}>{violation.name}</strong> {violation.chest ? `(#${violation.chest})` : ''}
+                                        </span>
+                                        <span>
+                                            Team: <strong style={{ color: 'var(--text-main)' }}>{violation.team}</strong>
+                                        </span>
+                                        <span style={{ color: '#ef4444', fontWeight: 'bold' }}>
+                                            {violation.type}: {violation.count}/4 events (Exceeds by {violation.count - 4})
+                                        </span>
+                                        <button 
+                                            onClick={() => openEditModal(violation.reg)}
+                                            className="tab-btn" 
+                                            style={{ padding: '4px 10px', fontSize: '0.8rem', background: '#3b82f6', border: 'none', marginLeft: '10px' }}
+                                        >
+                                            Edit Candidate ✏️
+                                        </button>
+                                    </div>
+                                    <div style={{ color: 'var(--text-muted)', marginTop: '6px', fontSize: '0.8rem' }}>
+                                        Events: <span style={{ color: 'var(--text-secondary)' }}>{violation.events}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}
 
             {loading ? (
                 <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>Loading...</div>
@@ -315,12 +599,38 @@ export default function ManageRegistrations() {
                                         <td>{reg["CHEST NUMBER"] || reg["CHEST NO"] || '-'}</td>
                                         <td>
                                             {reg["ON STAGE EVENTS"] ? (
-                                                <div style={{ color: '#4ade80', fontSize: '0.85rem' }}>{reg["ON STAGE EVENTS"]}</div>
+                                                <div style={{ color: '#4ade80', fontSize: '0.85rem' }}>
+                                                    {reg["ON STAGE EVENTS"]}
+                                                    {reg.onStageCount > 4 && (
+                                                        <span style={{ 
+                                                            display: 'block', 
+                                                            color: '#ef4444', 
+                                                            fontSize: '0.75rem', 
+                                                            fontWeight: 'bold',
+                                                            marginTop: '2px'
+                                                        }}>
+                                                            ⚠️ Limit Exceeded ({reg.onStageCount}/4)
+                                                        </span>
+                                                    )}
+                                                </div>
                                             ) : <span style={{ color: '#ccc' }}>-</span>}
                                         </td>
                                         <td>
                                             {reg["OFF STAGE EVENTS"] ? (
-                                                <div style={{ color: '#60a5fa', fontSize: '0.85rem' }}>{reg["OFF STAGE EVENTS"]}</div>
+                                                <div style={{ color: '#60a5fa', fontSize: '0.85rem' }}>
+                                                    {reg["OFF STAGE EVENTS"]}
+                                                    {reg.offStageCount > 4 && (
+                                                        <span style={{ 
+                                                            display: 'block', 
+                                                            color: '#ef4444', 
+                                                            fontSize: '0.75rem', 
+                                                            fontWeight: 'bold',
+                                                            marginTop: '2px'
+                                                        }}>
+                                                            ⚠️ Limit Exceeded ({reg.offStageCount}/4)
+                                                        </span>
+                                                    )}
+                                                </div>
                                             ) : <span style={{ color: '#ccc' }}>-</span>}
                                         </td>
                                         <td>

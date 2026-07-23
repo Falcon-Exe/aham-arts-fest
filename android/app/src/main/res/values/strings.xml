@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">HAMARTIA Arts Fest</string>
+    <string name="title_activity_main">HAMARTIA Arts Fest</string>
+    <string name="package_name">com.hamartia.artsfest</string>
+    <string name="custom_url_scheme">com.hamartia.artsfest</string>
+</resources>

@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "prompt", // 🔔 enables update prompt
+      registerType: "autoUpdate", // 🔔 automatically updates Service Worker immediately
 
       devOptions: {
         enabled: false,
@@ -17,7 +17,7 @@ export default defineConfig({
       workbox: {
         cleanupOutdatedCaches: true,
         clientsClaim: true,
-        skipWaiting: false,
+        skipWaiting: true,
         navigateFallback: "/offline.html",
 
         runtimeCaching: [
@@ -52,7 +52,7 @@ export default defineConfig({
       },
 
       manifest: {
-        name: "HAMARTIA",
+        name: "HAMARTIA Arts Fest",
         short_name: "HAMARTIA",
         start_url: "./",
         scope: "./",

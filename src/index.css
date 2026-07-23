@@ -5,10 +5,10 @@
    =============================== */
 :root {
   /* Colors */
-  --primary: #4F46E5;
-  --primary-hover: #4338CA;
-  --secondary: #7C3AED;
-  --accent: #06B6D4;
+  --primary: #e63946;
+  --primary-hover: #c92a37;
+  --secondary: #913831;
+  --accent: #f59e0b;
   --success: #10B981;
   --warning: #F59E0B;
   --danger: #EF4444;
@@ -28,7 +28,7 @@
   /* Legacy mappings */
   --primary-color: var(--primary);
   --primary-dark: var(--primary-hover);
-  --primary-soft: rgba(79, 70, 229, 0.1);
+  --primary-soft: rgba(230, 57, 70, 0.15);
   --bg-color: var(--bg-main);
   --card-bg: var(--bg-secondary);
   --text-color: var(--text-main);
@@ -282,8 +282,8 @@ button:disabled,
 
 /* Feature 2: Page-based color variables (set via JS) */
 :root {
-  --cursor-color: #4F46E5;
-  --cursor-glow: rgba(79, 70, 229, 0.15);
+  --cursor-color: #e63946;
+  --cursor-glow: rgba(230, 57, 70, 0.2);
 }
 
 /* Hide native cursor on desktop */

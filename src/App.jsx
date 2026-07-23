@@ -43,8 +43,11 @@ function AppContent() {
     const unsubscribeBranding = onSnapshot(doc(db, "settings", "branding"), (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
-        localStorage.setItem("branding_appName", data.appName || "HAMARTIA");
-        localStorage.setItem("branding_appShortName", data.appShortName || "HAMARTIA");
+        const name = (data.appName && data.appName !== "Arts Fest 2026") ? data.appName : "HAMARTIA Arts Fest";
+        const shortName = (data.appShortName && data.appShortName !== "FEST2026") ? data.appShortName : "HAMARTIA";
+
+        localStorage.setItem("branding_appName", name);
+        localStorage.setItem("branding_appShortName", shortName);
         localStorage.setItem("branding_logoUrl", data.logoUrl || "/pwa-512x512.png");
 
         if (data.studentCategories) {
@@ -52,6 +55,10 @@ function AppContent() {
         }
         if (data.studentClasses) {
           localStorage.setItem("branding_studentClasses", JSON.stringify(data.studentClasses));
+        }
+
+        if (data.appName) {
+          document.title = data.appName;
         }
 
         const root = document.documentElement;
