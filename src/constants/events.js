@@ -172,6 +172,107 @@ export const EVENT_SCOPE_MAP = {
     "SPIRITUAL TALK ARABIC": "Senior"
 };
 
+export const EVENT_CATEGORY_MAP = {
+    // Category A (12, 8, 4)
+    "REACTING": "A",
+    "TABLE TALK ARABIC": "A",
+    "DISCUSSION ENGLISH": "A",
+    "IDEAL TALK": "A",
+    "SPEECH URDU": "A",
+    "SATIRICAL TALK MALAYALAM": "A",
+    "ENCOUNTER": "A",
+    "INSPIRING TALK ENGLISH": "A",
+    "SPOT TRANSLATION (A-E)": "A",
+    "TABLE TALK URDU": "A",
+    "PROFESSIONAL INTERVIEW": "A",
+    "SELF BRANDING": "A",
+    "PANEL DISCUSSION": "A",
+    "SPIRITUAL TALK ARABIC": "A",
+    "SPEECH MALAYALAM": "A",
+    "SPEECH ARABIC": "A",
+    "SPEECH ENGLISH": "A",
+    "DEBATE": "A",
+    "ESSAY URDU": "A",
+    "TRANSLATION ENGLISH-MALAYALAM": "A",
+    "TRANSLATION ARABIC-MALAYALAM": "A",
+    "TRANSLATION URDU-MALAYALAM": "A",
+    "ESSAY MALAYALAM": "A",
+    "ESSAY ARABIC": "A",
+    "ESSAY ENGLISH": "A",
+    "SHOW YOUR POTENTIAL": "A",
+    "PHOTO FEATURE": "A",
+    "COLLAGE": "A",
+    "AI VIDEO CREATION": "A",
+
+    // Category B (10, 6, 3)
+    "WORD WAR ARABIC": "B",
+    "WORD WAR ENGLISH": "B",
+    "GENIUS PROFILE": "B",
+    "LISTENING ARABIC": "B",
+    "C-TALK HINDI": "B",
+    "PRODUCT MARKETING": "B",
+    "PRESS CONFERENCE": "B",
+    "BOOK DEFENCE": "B",
+    "SONG ARABIC": "B",
+    "MAPPILA SONG": "B",
+    "QIRATH": "B",
+    "SPELLING BEE": "B",
+    "SONG MALAYALAM": "B",
+    "MASTER HUNT": "B",
+    "URDU READING": "B",
+    "PROBLEM SOLVING": "B",
+    "PHOTOGRAPHY": "B",
+    "MINI STORY MALAYALAM": "B",
+    "STORY URDU": "B",
+    "REPORT WRITING ARABIC": "B",
+    "MINI STORY": "B",
+    "EPIC STUDY": "B",
+    "POEM MALAYALAM": "B",
+    "POEM ARABIC": "B",
+    "POEM ENGLISH": "B",
+    "STORY MALAYALAM": "B",
+    "STORY ARABIC": "B",
+    "STORY ENGLISH": "B",
+    "CALLIGRAPHY": "B",
+    "REPORT WRITING MALAYALAM": "B",
+    "REPORT WRITING ENGLISH": "B",
+    "CARTOON DRAWING": "B",
+    "Q & H PAINTING": "B",
+    "SHORT VLOGGING": "B",
+    "DIGITAL DESIGNING": "B",
+
+    // Category C (25, 15, 10)
+    "PADALUM PARACHILUM": "C",
+    "MASH UP": "C",
+    "TREND SETTING": "C",
+    "PROJECT SUBMISSION": "C",
+    "MORAL VIDEO CREATION": "C",
+    "TED X TALK": "C",
+    "ROLE PLAY": "C",
+    "ESCAPE ROOM": "C",
+    "DIGITAL MAGAZINE": "C",
+    "AMBIENCE SETTING": "C"
+};
+
+export const getEventCategory = (eventName) => {
+    if (!eventName) return "A";
+    const name = eventName.trim().toUpperCase();
+    if (EVENT_CATEGORY_MAP[name]) return EVENT_CATEGORY_MAP[name];
+    
+    // Fuzzy matching / fallback grouping based on key words
+    if (name.includes("SPEECH") || name.includes("TALK") || name.includes("TRANSLATION") || name.includes("DEBATE") || name.includes("COLLAGE") || name.includes("REACTING") || name.includes("ENCOUNTER") || name.includes("INTERVIEW") || name.includes("ESSAY") || name.includes("SHOW YOUR POTENTIAL") || name.includes("DISCUSSION") || name.includes("BRANDING") || name.includes("PHOTO FEATURE") || name.includes("AI VIDEO")) {
+        if (name === "TED X TALK" || name === "TED-X TALK") return "C";
+        return "A";
+    }
+    if (name.includes("QIRATH") || name.includes("SONG") || name.includes("WORD WAR") || name.includes("HUNT") || name.includes("BEE") || name.includes("POEM") || name.includes("STORY") || name.includes("REPORT") || name.includes("CARTOON") || name.includes("MARKETING") || name.includes("CONFERENCE") || name.includes("PHOTOGRAPHY") || name.includes("LISTENING") || name.includes("DEFENCE") || name.includes("PAINTING") || name.includes("VLOGGING") || name.includes("DESIGNING") || name.includes("READING") || name.includes("PROBLEM") || name.includes("EPIC") || name.includes("CALLIGRAPHY")) {
+        return "B";
+    }
+    if (name.includes("PADALUM") || name.includes("MASH UP") || name.includes("TREND") || name.includes("PROJECT") || name.includes("MORAL") || name.includes("ROLE PLAY") || name.includes("ESCAPE") || name.includes("MAGAZINE") || name.includes("AMBIENCE")) {
+        return "C";
+    }
+    return "A";
+};
+
 export const ALL_EVENTS = Object.keys(EVENT_MAP);
 
 export const ON_STAGE_EVENTS = ALL_EVENTS.filter(evt => EVENT_MAP[evt] === "On Stage" || (EVENT_MAP[evt] === "General" && GENERAL_SUBTYPE_MAP[evt] === "On Stage"));

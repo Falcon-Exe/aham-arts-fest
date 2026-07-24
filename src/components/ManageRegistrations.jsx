@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { collection, getDocs, query, orderBy, deleteDoc, doc, addDoc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, deleteDoc, doc, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "../firebase";
 import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
@@ -175,7 +175,7 @@ export default function ManageRegistrations() {
         setEditForm({
             fullName: reg["CANDIDATE NAME"] || "",
             chestNumber: reg["CHEST NUMBER"] || "",
-            cicNumber: reg["CIC NUMBER"] || "",
+            cicNumber: reg["CIC NO"] || "",
             team: reg["TEAM"] || "",
             onStageEvents: reg["ON STAGE EVENTS"] || "",
             offStageEvents: reg["OFF STAGE EVENTS"] || "",
@@ -188,19 +188,26 @@ export default function ManageRegistrations() {
         if (!editingReg) return;
 
         try {
+            // Normalize event names to official casing from eventsList
+            const normalizeEventName = (name) => {
+                const found = eventsList.find(e => e.name.trim().toUpperCase() === name.trim().toUpperCase());
+                return found ? found.name : name.trim();
+            };
+
             // Convert comma strings back to arrays
-            const onStageArr = editForm.onStageEvents.split(',').map(s => s.trim()).filter(Boolean);
-            const offStageArr = editForm.offStageEvents.split(',').map(s => s.trim()).filter(Boolean);
-            const generalArr = editForm.generalEvents.split(',').map(s => s.trim()).filter(Boolean);
+            const onStageArr = editForm.onStageEvents.split(',').map(s => s.trim()).filter(Boolean).map(normalizeEventName);
+            const offStageArr = editForm.offStageEvents.split(',').map(s => s.trim()).filter(Boolean).map(normalizeEventName);
+            const generalArr = editForm.generalEvents.split(',').map(s => s.trim()).filter(Boolean).map(normalizeEventName);
 
             const payload = {
-                fullName: editForm.fullName,
-                chestNumber: editForm.chestNumber,
-                cicNumber: editForm.cicNumber,
+                fullName: editForm.fullName.trim(),
+                chestNumber: editForm.chestNumber.trim(),
+                cicNumber: editForm.cicNumber.trim(),
                 team: editForm.team,
                 onStageEvents: onStageArr,
                 offStageEvents: offStageArr,
-                generalEvents: generalArr
+                generalEvents: generalArr,
+                events: Array.from(new Set([...onStageArr, ...offStageArr, ...generalArr]))
             };
 
             // Update existing Firestore record
@@ -214,6 +221,52 @@ export default function ManageRegistrations() {
         } catch (error) {
             console.error("Error updating registration:", error);
             showToast("Failed to update registration", "error");
+        }
+    };
+
+    const handleReconcileAllRegistrations = async () => {
+        if (!await confirm("This will scan all registration documents in Firestore and fix any mismatched event counts (e.g. from previous edit operations). Continue?")) return;
+        setLoading(true);
+        let fixedCount = 0;
+        try {
+            const querySnapshot = await getDocs(collection(db, "registrations"));
+            const batch = writeBatch(db);
+            let batchCount = 0;
+            
+            for (const docSnap of querySnapshot.docs) {
+                const data = docSnap.data();
+                const onStage = data.onStageEvents || [];
+                const offStage = data.offStageEvents || [];
+                const general = data.generalEvents || [];
+                const currentEvents = data.events || [];
+                
+                const correctEvents = Array.from(new Set([...onStage, ...offStage, ...general])).sort();
+                const sortedCurrentEvents = [...currentEvents].sort();
+                
+                const isMismatch = JSON.stringify(correctEvents) !== JSON.stringify(sortedCurrentEvents);
+                if (isMismatch) {
+                    batch.update(docSnap.ref, { events: correctEvents });
+                    batchCount++;
+                    fixedCount++;
+                    
+                    if (batchCount >= 500) {
+                        await batch.commit();
+                        batchCount = 0;
+                    }
+                }
+            }
+            
+            if (batchCount > 0) {
+                await batch.commit();
+            }
+            
+            showToast(`Successfully fixed ${fixedCount} mismatched registrations!`, "success");
+            fetchRegistrations();
+        } catch (err) {
+            console.error("Reconcile failed:", err);
+            showToast("Failed to reconcile registrations: " + err.message, "error");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -260,7 +313,7 @@ export default function ManageRegistrations() {
     const getStudentCategory = (chestNumber) => {
         if (!chestNumber) return "";
         const student = studentsList.find(s => 
-            String(s.chestNumber).toUpperCase() === String(chestNumber).toUpperCase()
+            String(s.chestNumber).trim().toUpperCase() === String(chestNumber).trim().toUpperCase()
         );
         return student ? (student.category || student.studentCategory || "") : "";
     };
@@ -285,9 +338,10 @@ export default function ManageRegistrations() {
                 const teamRegsForEvent = registrations.filter(reg => {
                     if (reg["TEAM"] !== team) return false;
                     // Check if registration lists this event
-                    const onStageList = reg["ON STAGE EVENTS"] ? reg["ON STAGE EVENTS"].split(',').map(s => s.trim()) : [];
-                    const offStageList = reg["OFF STAGE EVENTS"] ? reg["OFF STAGE EVENTS"].split(',').map(s => s.trim()) : [];
-                    return onStageList.includes(event.name) || offStageList.includes(event.name);
+                    const onStageList = reg["ON STAGE EVENTS"] ? reg["ON STAGE EVENTS"].split(',').map(s => s.trim().toUpperCase()) : [];
+                    const offStageList = reg["OFF STAGE EVENTS"] ? reg["OFF STAGE EVENTS"].split(',').map(s => s.trim().toUpperCase()) : [];
+                    const targetUpper = String(event.name).trim().toUpperCase();
+                    return onStageList.includes(targetUpper) || offStageList.includes(targetUpper);
                 });
 
                 // Group by category (Junior / Senior)
@@ -309,7 +363,7 @@ export default function ManageRegistrations() {
                                 name: r["CANDIDATE NAME"] || r["CANDIDATE  FULL NAME"],
                                 chest: r["CHEST NUMBER"] || r["CHEST NO"],
                                 reg: r
-                            }))
+                             }))
                         });
                     }
                 });
@@ -403,6 +457,9 @@ export default function ManageRegistrations() {
                         Download CSV 📥
                     </button>
                     <button onClick={fetchRegistrations} className="tab-btn" style={{ background: 'var(--bg-tertiary)' }}>Refresh</button>
+                    <button onClick={handleReconcileAllRegistrations} className="tab-btn" style={{ background: '#3b82f6', color: 'white', border: 'none' }}>
+                        🔄 Fix Stale Data
+                    </button>
                 </div>
             </div>
 

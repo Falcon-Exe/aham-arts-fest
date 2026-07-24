@@ -5,7 +5,7 @@ import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
 
-import { getEventType, getEventScope, getGeneralSubtype, ALL_EVENTS, ON_STAGE_EVENTS } from "../constants/events";
+import { getEventType, getEventScope, getGeneralSubtype, getEventCategory, ALL_EVENTS, ON_STAGE_EVENTS } from "../constants/events";
 
 export default function ManageEvents() {
     const [events, setEvents] = useState([]);
@@ -114,10 +114,17 @@ export default function ManageEvents() {
             let needsUpdate = false;
             const updates = {};
             arrayFields.forEach(field => {
-                if (Array.isArray(data[field]) && data[field].includes(oldName)) {
-                    const updatedArray = data[field].map(e => e === oldName ? newName : e);
-                    updates[field] = Array.from(new Set(updatedArray));
-                    needsUpdate = true;
+                if (Array.isArray(data[field])) {
+                    const hasOldEvent = data[field].some(e => 
+                        String(e).trim().toUpperCase() === oldName.trim().toUpperCase()
+                    );
+                    if (hasOldEvent) {
+                        const updatedArray = data[field].map(e => 
+                            String(e).trim().toUpperCase() === oldName.trim().toUpperCase() ? newName : e
+                        );
+                        updates[field] = Array.from(new Set(updatedArray));
+                        needsUpdate = true;
+                    }
                 }
             });
             if (needsUpdate) {
@@ -392,7 +399,7 @@ export default function ManageEvents() {
                     const eventType = getEventType(eventName);
                     await addDoc(collection(db, "events"), {
                         name: eventName,
-                        category: "",
+                        category: getEventCategory(eventName),
                         date: "",
                         time: "",
                         stage: "",
@@ -433,10 +440,12 @@ export default function ManageEvents() {
                 const newType = getEventType(upperName);
                 const newScope = getEventScope(upperName);
                 const newGenSubtype = getGeneralSubtype(upperName);
+                const newCategory = getEventCategory(upperName);
 
                 const updates = {};
                 if (ev.type !== newType) updates.type = newType;
                 if (ev.studentCategory !== newScope) updates.studentCategory = newScope;
+                if (ev.category !== newCategory) updates.category = newCategory;
                 if (newType === "General" && ev.generalSubtype !== newGenSubtype) {
                     updates.generalSubtype = newGenSubtype;
                 }

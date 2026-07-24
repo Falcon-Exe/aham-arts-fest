@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, getDocs, updateDoc, doc, onSnapshot, writeBatch, addDoc } from "firebase/firestore";
+import { collection, query, getDocs, updateDoc, doc, onSnapshot, writeBatch } from "firebase/firestore";
 import { db } from "../firebase";
 import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
@@ -62,7 +62,7 @@ export default function ManageReplacements() {
 
     const getStudentEventCount = (chestNumber) => {
         const reg = registrations.find(r => 
-            String(r.chestNumber).toUpperCase() === String(chestNumber).toUpperCase()
+            String(r.chestNumber).trim().toUpperCase() === String(chestNumber).trim().toUpperCase()
         );
         if (!reg) return { onstage: 0, offstage: 0 };
         return {
@@ -74,7 +74,7 @@ export default function ManageReplacements() {
     const getStudentCategory = (chestNumber) => {
         if (!chestNumber) return "";
         const student = studentsList.find(s => 
-            String(s.chestNumber).toUpperCase() === String(chestNumber).toUpperCase()
+            String(s.chestNumber).trim().toUpperCase() === String(chestNumber).trim().toUpperCase()
         );
         return student ? (student.category || student.studentCategory || "") : "";
     };
@@ -84,16 +84,19 @@ export default function ManageReplacements() {
         
         return registrations.filter(r => {
             if (r.team !== teamName) return false;
-            if (excludeChestNumber && String(r.chestNumber).toUpperCase() === String(excludeChestNumber).toUpperCase()) return false;
+            if (excludeChestNumber && String(r.chestNumber).trim().toUpperCase() === String(excludeChestNumber).trim().toUpperCase()) return false;
             
             // Check student category
             const sCat = getStudentCategory(r.chestNumber);
             if (sCat.toLowerCase() !== category.toLowerCase()) return false;
 
-            const onStageList = r.onStageEvents || [];
-            const offStageList = r.offStageEvents || [];
-            const events = r.events || [];
-            return onStageList.includes(eventName) || offStageList.includes(eventName) || events.includes(eventName);
+            const allEvents = [
+                ...(r.events || []),
+                ...(r.onStageEvents || []),
+                ...(r.offStageEvents || []),
+                ...(r.generalEvents || [])
+            ].map(e => String(e).trim().toUpperCase());
+            return allEvents.includes(String(eventName).trim().toUpperCase());
         }).length;
     };
 
@@ -128,10 +131,13 @@ export default function ManageReplacements() {
         let teamWarning = "";
         
         if ((evType === "On Stage" || evType === "Off Stage") && (!isGeneral || isExceptionIndividualEvent(request.eventName))) {
-            const counts = getStudentEventCount(request.newChestNumber);
-            const count = evType === "On Stage" ? counts.onstage : counts.offstage;
-            if (count >= 4) {
-                warningSuffix = `\n\n⚠️ WARNING: The replacement student "${request.newStudentName}" already has ${count} ${evType} event(s) registered (limit is 4). Approving this will cause them to exceed the limit.`;
+            // Only check the individual 4-event limit for non-exception (non-General) events
+            if (!isExceptionIndividualEvent(request.eventName)) {
+                const counts = getStudentEventCount(request.newChestNumber);
+                const count = evType === "On Stage" ? counts.onstage : counts.offstage;
+                if (count >= 4) {
+                    warningSuffix = `\n\n⚠️ WARNING: The replacement student "${request.newStudentName}" already has ${count} ${evType} event(s) registered (limit is 4). Approving this will cause them to exceed the limit.`;
+                }
             }
 
             const currentCategory = getStudentCategory(request.newChestNumber);
@@ -153,7 +159,7 @@ export default function ManageReplacements() {
             
             // Find old student's registration
             const oldRegDoc = regSnap.docs.find(d => 
-                String(d.data().chestNumber).toUpperCase() === String(request.oldChestNumber).toUpperCase()
+                String(d.data().chestNumber).trim().toUpperCase() === String(request.oldChestNumber).trim().toUpperCase()
             );
 
             if (!oldRegDoc) {
@@ -163,7 +169,9 @@ export default function ManageReplacements() {
 
             // Remove event from old student's lists
             const oldRegData = oldRegDoc.data();
-            const cleanArray = (arr, val) => (arr || []).filter(item => item !== val);
+            const cleanArray = (arr, val) => (arr || []).filter(item => 
+                String(item).trim().toUpperCase() !== String(val).trim().toUpperCase()
+            );
             
             batch.update(doc(db, "registrations", oldRegDoc.id), {
                 events: cleanArray(oldRegData.events, request.eventName),
@@ -175,7 +183,7 @@ export default function ManageReplacements() {
 
             // Find new student's registration
             const newRegDoc = regSnap.docs.find(d => 
-                String(d.data().chestNumber).toUpperCase() === String(request.newChestNumber).toUpperCase()
+                String(d.data().chestNumber).trim().toUpperCase() === String(request.newChestNumber).trim().toUpperCase()
             );
 
             const newEventType = resolveEventType(request.eventName);
@@ -185,7 +193,9 @@ export default function ManageReplacements() {
                 // Add event to new student's registration lists
                 const newRegData = newRegDoc.data();
                 const addToArray = (arr, val, condition) => {
-                    const cleaned = (arr || []).filter(item => item !== val);
+                    const cleaned = (arr || []).filter(item => 
+                        String(item).trim().toUpperCase() !== String(val).trim().toUpperCase()
+                    );
                     if (condition) cleaned.push(val);
                     return Array.from(new Set(cleaned));
                 };
@@ -202,7 +212,7 @@ export default function ManageReplacements() {
                 // Fetch student details from master students
                 const studentSnap = await getDocs(collection(db, "students"));
                 const studentDoc = studentSnap.docs.find(d => 
-                    String(d.data().chestNumber).toUpperCase() === String(request.newChestNumber).toUpperCase()
+                    String(d.data().chestNumber).trim().toUpperCase() === String(request.newChestNumber).trim().toUpperCase()
                 );
                 
                 const cicNo = studentDoc ? studentDoc.data().cicNumber || "" : "";
@@ -227,7 +237,7 @@ export default function ManageReplacements() {
             const resultsSnap = await getDocs(collection(db, "results"));
             resultsSnap.docs.forEach(resDoc => {
                 const resData = resDoc.data();
-                if (String(resData.chestNo).toUpperCase() === String(request.oldChestNumber).toUpperCase() &&
+                if (String(resData.chestNo).trim().toUpperCase() === String(request.oldChestNumber).trim().toUpperCase() &&
                     String(resData.eventName).trim().toUpperCase() === String(request.eventName).trim().toUpperCase()) {
                     
                     batch.update(resDoc.ref, {
@@ -338,7 +348,7 @@ export default function ManageReplacements() {
                                                         
                                                         return (
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                                                                {count >= 4 && (
+                                                                {count >= 4 && !isExceptionIndividualEvent(req.eventName) && (
                                                                     <div style={{ 
                                                                         color: '#facc15', 
                                                                         fontSize: '0.75rem', 

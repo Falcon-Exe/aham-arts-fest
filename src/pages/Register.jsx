@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { db, auth } from "../firebase";
 import { Helmet } from "react-helmet-async";
 import "./Register.css";
-import { getEventType, isGeneralEvent, getEventScope } from "../constants/events";
+import { getEventType, isGeneralEvent, getEventScope, getGeneralSubtype } from "../constants/events";
 import { logAppEvent } from "../utils/analytics";
 
 
@@ -229,18 +229,13 @@ export default function Register() {
         };
         fetchMasterStudents();
 
-        // Fetch Existing Registrations (for limit enforcement)
-        const fetchRegistrations = async () => {
-            try {
-                const q = query(collection(db, "registrations"));
-                const snapshot = await getDocs(q);
-                const regList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setExistingRegistrations(regList);
-            } catch (err) {
-                console.error("Error fetching registrations:", err);
-            }
-        };
-        fetchRegistrations();
+        // Listen to Existing Registrations in real-time (for limit enforcement)
+        const unsubscribeRegs = onSnapshot(collection(db, "registrations"), (snapshot) => {
+            const regList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setExistingRegistrations(regList);
+        }, (err) => {
+            console.error("Error listening to registrations:", err);
+        });
 
         // Registration Lock Listener
         const unsubSettings = onSnapshot(doc(db, "settings", "config"), (docSnap) => {
@@ -258,6 +253,7 @@ export default function Register() {
         return () => {
             unsubscribe();
             unsubSettings();
+            unsubscribeRegs();
         };
     }, [navigate]);
 
@@ -314,7 +310,7 @@ export default function Register() {
     const getStudentCategory = (chestNo) => {
         if (!chestNo) return "";
         const student = masterStudents.find(s => 
-            String(s.chestNumber).toUpperCase() === String(chestNo).toUpperCase()
+            String(s.chestNumber).trim().toUpperCase() === String(chestNo).trim().toUpperCase()
         );
         return student ? (student.category || student.studentCategory || "") : "";
     };
@@ -322,12 +318,15 @@ export default function Register() {
     const handleEventToggle = (eventName, type) => {
         setFormData(prev => {
             const currentList = prev.events;
-            if (currentList.includes(eventName)) {
-                return { ...prev, events: currentList.filter(e => e !== eventName) };
+            const eventNameUpper = String(eventName).trim().toUpperCase();
+            if (currentList.map(e => String(e).trim().toUpperCase()).includes(eventNameUpper)) {
+                return { ...prev, events: currentList.filter(e => String(e).trim().toUpperCase() !== eventNameUpper) };
             } else {
                 // Check if already registered in past submissions
                 if (formData.chestNumber) {
-                    const pastRegs = existingRegistrations.filter(r => String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase());
+                    const pastRegs = existingRegistrations.filter(r => 
+                        String(r.chestNumber).trim().toUpperCase() === String(formData.chestNumber).trim().toUpperCase()
+                    );
                     const allPastEvents = [];
                     pastRegs.forEach(r => {
                         if (r.events) allPastEvents.push(...r.events);
@@ -335,7 +334,7 @@ export default function Register() {
                         if (r.offStageEvents) allPastEvents.push(...r.offStageEvents);
                         if (r.generalEvents) allPastEvents.push(...r.generalEvents);
                     });
-                    if (allPastEvents.includes(eventName)) {
+                    if (allPastEvents.map(e => String(e).trim().toUpperCase()).includes(eventNameUpper)) {
                         showToast(`You are already registered for ${eventName}.`);
                         return prev;
                     }
@@ -346,7 +345,7 @@ export default function Register() {
                     const currentCategory = getStudentCategory(formData.chestNumber);
                     const teamEventCountForCategory = existingRegistrations.filter(r => {
                         if (r.team !== formData.team) return false;
-                        if (formData.chestNumber && String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase()) return false;
+                        if (formData.chestNumber && String(r.chestNumber).trim().toUpperCase() === String(formData.chestNumber).trim().toUpperCase()) return false;
                         
                         if (currentCategory) {
                             const otherStudentCategory = getStudentCategory(r.chestNumber);
@@ -358,8 +357,8 @@ export default function Register() {
                             ...(r.onStageEvents || []),
                             ...(r.offStageEvents || []),
                             ...(r.generalEvents || [])
-                        ];
-                        return allEvents.includes(eventName);
+                        ].map(e => String(e).trim().toUpperCase());
+                        return allEvents.includes(eventNameUpper);
                     }).length;
 
                     if (teamEventCountForCategory >= 2) {
@@ -370,16 +369,18 @@ export default function Register() {
                 }
 
                 // Limit Check for On Stage events
-                if (type === "On Stage") {
+                if (type === "On Stage" && !isExceptionIndividualEvent(eventName)) {
                     const onStageCount = currentList.filter(e => {
-                        const found = events.find(ev => ev.name === e);
+                        const found = events.find(ev => ev.name.trim().toUpperCase() === String(e).trim().toUpperCase());
                         const t = found?.type || getEventType(e);
                         return t === "On Stage" && !resolveIsGeneral(e);
                     }).length;
 
                     let pastOnStageCount = 0;
                     if (formData.chestNumber) {
-                        const pastRegs = existingRegistrations.filter(r => String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase());
+                        const pastRegs = existingRegistrations.filter(r => 
+                            String(r.chestNumber).trim().toUpperCase() === String(formData.chestNumber).trim().toUpperCase()
+                        );
                         pastRegs.forEach(r => {
                             if (r.onStageEvents) pastOnStageCount += r.onStageEvents.length;
                         });
@@ -396,16 +397,18 @@ export default function Register() {
                 }
                 
                 // Limit Check for Off Stage events
-                if (type === "Off Stage") {
+                if (type === "Off Stage" && !isExceptionIndividualEvent(eventName)) {
                     const offStageCount = currentList.filter(e => {
-                        const found = events.find(ev => ev.name === e);
+                        const found = events.find(ev => ev.name.trim().toUpperCase() === String(e).trim().toUpperCase());
                         const t = found?.type || getEventType(e);
                         return t === "Off Stage" && !resolveIsGeneral(e);
                     }).length;
 
                     let pastOffStageCount = 0;
                     if (formData.chestNumber) {
-                        const pastRegs = existingRegistrations.filter(r => String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase());
+                        const pastRegs = existingRegistrations.filter(r => 
+                            String(r.chestNumber).trim().toUpperCase() === String(formData.chestNumber).trim().toUpperCase()
+                        );
                         pastRegs.forEach(r => {
                             if (r.offStageEvents) pastOffStageCount += r.offStageEvents.length;
                         });
@@ -463,7 +466,9 @@ export default function Register() {
             const allPastEvents = [];
             
             if (formData.chestNumber) {
-                const pastRegs = existingRegistrations.filter(r => String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase());
+                const pastRegs = existingRegistrations.filter(r => 
+                    String(r.chestNumber).trim().toUpperCase() === String(formData.chestNumber).trim().toUpperCase()
+                );
                 pastRegs.forEach(r => {
                     if (r.onStageEvents) pastOnStageCount += r.onStageEvents.length;
                     if (r.offStageEvents) pastOffStageCount += r.offStageEvents.length;
@@ -475,7 +480,10 @@ export default function Register() {
                 });
             }
 
-            const duplicateEvents = formData.events.filter(e => allPastEvents.includes(e));
+            const allPastEventsUpper = allPastEvents.map(e => String(e).trim().toUpperCase());
+            const duplicateEvents = formData.events.filter(e => 
+                allPastEventsUpper.includes(String(e).trim().toUpperCase())
+            );
             if (duplicateEvents.length > 0) {
                 showToast(`Submission blocked: You have already registered for ${duplicateEvents.join(", ")}`);
                 setSubmitting(false);
@@ -484,13 +492,13 @@ export default function Register() {
 
             // Team limit validation (Max 2 students per category per team per On/Off Stage event)
             for (const eventName of formData.events) {
-                const eventType = resolveEventType(eventName);
                 const isGeneral = resolveIsGeneral(eventName);
+                const eventType = isGeneral ? getGeneralSubtype(eventName) : resolveEventType(eventName);
                 if ((eventType === "On Stage" || eventType === "Off Stage") && (!isGeneral || isExceptionIndividualEvent(eventName))) {
                     const currentCategory = getStudentCategory(formData.chestNumber);
                     const teamEventCountForCategory = existingRegistrations.filter(r => {
                         if (r.team !== formData.team) return false;
-                        if (formData.chestNumber && String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase()) return false;
+                        if (formData.chestNumber && String(r.chestNumber).trim().toUpperCase() === String(formData.chestNumber).trim().toUpperCase()) return false;
                         
                         if (currentCategory) {
                             const otherStudentCategory = getStudentCategory(r.chestNumber);
@@ -502,8 +510,8 @@ export default function Register() {
                             ...(r.onStageEvents || []),
                             ...(r.offStageEvents || []),
                             ...(r.generalEvents || [])
-                        ];
-                        return allEvents.includes(eventName);
+                        ].map(e => String(e).trim().toUpperCase());
+                        return allEvents.includes(String(eventName).trim().toUpperCase());
                     }).length;
                     
                     if (teamEventCountForCategory >= 2) {
@@ -529,7 +537,7 @@ export default function Register() {
 
             // Find existing registration document for this student to merge rather than create duplicate documents
             const existingReg = existingRegistrations.find(r => 
-                String(r.chestNumber).toUpperCase() === String(formData.chestNumber).toUpperCase()
+                String(r.chestNumber).trim().toUpperCase() === String(formData.chestNumber).trim().toUpperCase()
             );
 
             if (existingReg) {
@@ -661,8 +669,20 @@ export default function Register() {
         return name.includes(eventSearchTerm.toLowerCase());
     };
 
-    const onStageList = events.filter(e => resolveEventType(e) === "On Stage" && (!resolveIsGeneral(e) || isExceptionIndividualEvent(e)) && filterByScope(e) && searchFilter(e));
-    const offStageList = events.filter(e => resolveEventType(e) === "Off Stage" && (!resolveIsGeneral(e) || isExceptionIndividualEvent(e)) && filterByScope(e) && searchFilter(e));
+    const onStageList = events.filter(e => {
+        const isGeneral = resolveIsGeneral(e);
+        const isException = isExceptionIndividualEvent(e);
+        const type = isGeneral ? getGeneralSubtype(e.name) : resolveEventType(e);
+        const matchesType = type === "On Stage" && (!isGeneral || isException);
+        return matchesType && filterByScope(e) && searchFilter(e);
+    });
+    const offStageList = events.filter(e => {
+        const isGeneral = resolveIsGeneral(e);
+        const isException = isExceptionIndividualEvent(e);
+        const type = isGeneral ? getGeneralSubtype(e.name) : resolveEventType(e);
+        const matchesType = type === "Off Stage" && (!isGeneral || isException);
+        return matchesType && filterByScope(e) && searchFilter(e);
+    });
     const generalList = events.filter(e => resolveIsGeneral(e) && !isExceptionIndividualEvent(e) && filterByScope(e) && searchFilter(e));
 
     const teamRegs = existingRegistrations.filter(r => r.team === formData.team);
@@ -687,21 +707,21 @@ export default function Register() {
             ...(r.onStageEvents || []),
             ...(r.offStageEvents || []),
             ...(r.generalEvents || [])
-        ];
-        return allEvents.includes(selectedEventName);
+        ].map(e => String(e).trim().toUpperCase());
+        return allEvents.includes(String(selectedEventName).trim().toUpperCase());
     });
 
     const replacementCandidates = masterStudents
         .filter(s => formData.team ? s.team === formData.team : true)
         .filter(s => {
             const isAlreadyRegistered = existingRegistrations.some(r => 
-                String(r.chestNumber).toUpperCase() === String(s.chestNumber).toUpperCase() &&
+                String(r.chestNumber).trim().toUpperCase() === String(s.chestNumber).trim().toUpperCase() &&
                 [
                     ...(r.events || []),
                     ...(r.onStageEvents || []),
                     ...(r.offStageEvents || []),
                     ...(r.generalEvents || [])
-                ].includes(selectedEventName)
+                ].map(e => String(e).trim().toUpperCase()).includes(String(selectedEventName).trim().toUpperCase())
             );
             return !isAlreadyRegistered;
         });

@@ -278,15 +278,18 @@ export default function ManageResults() {
 
                 if (isGeneral) {
                     batch.update(regRef, {
-                        generalEvents: arrayUnion(evName)
+                        generalEvents: arrayUnion(evName),
+                        events: arrayUnion(evName)
                     });
                 } else if (evType === "On Stage") {
                     batch.update(regRef, {
-                        onStageEvents: arrayUnion(evName)
+                        onStageEvents: arrayUnion(evName),
+                        events: arrayUnion(evName)
                     });
                 } else if (evType === "Off Stage") {
                     batch.update(regRef, {
-                        offStageEvents: arrayUnion(evName)
+                        offStageEvents: arrayUnion(evName),
+                        events: arrayUnion(evName)
                     });
                 }
             }

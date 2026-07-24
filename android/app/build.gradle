@@ -2,6 +2,7 @@ apply plugin: 'com.android.application'
 
 android {
     namespace = "com.hamartia.artsfest"
+    setProperty("archivesBaseName", "hamartia")
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.hamartia.artsfest"
