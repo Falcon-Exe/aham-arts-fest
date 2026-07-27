@@ -6,19 +6,12 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // PURE SCORING FUNCTION (Mirrors src/utils/scoringRules.js)
-function calculatePoints(category, place, grade, isGeneral) {
-  if (place === "None") return 0;
-  
+function calculatePoints(category, place, grade) {
   const placeMap = { First: 1, Second: 2, Third: 3, "1": 1, "2": 2, "3": 3 };
   const numericPlace = placeMap[place] || parseInt(place, 10);
-  if (!numericPlace || numericPlace > 3) return 0;
 
   let categoryPoints = 0;
-  if (isGeneral) {
-    if (numericPlace === 1) categoryPoints = 25;
-    if (numericPlace === 2) categoryPoints = 15;
-    if (numericPlace === 3) categoryPoints = 10;
-  } else {
+  if (place !== "None" && numericPlace && numericPlace >= 1 && numericPlace <= 3) {
     const base = {
       A: { 1: 12, 2: 8, 3: 4 },
       B: { 1: 10, 2: 6, 3: 3 },
@@ -36,12 +29,13 @@ function calculatePoints(category, place, grade, isGeneral) {
   return categoryPoints + gradePoints;
 }
 
+
 exports.onResultPublish = onDocumentCreated("results/{resultId}", async (event) => {
   const resultData = event.data.data();
   if (!resultData) return;
 
-  const { team, category, place, grade, isGeneral, eventName } = resultData;
-  const points = calculatePoints(category, place, grade, isGeneral);
+  const { team, category, place, grade, eventName } = resultData;
+  const points = calculatePoints(category, place, grade);
 
   logger.info(`Processing result for team ${team} in ${eventName}. Awarding ${points} points.`);
 

@@ -1,6 +1,4 @@
-export function calculatePoints({ category, place, grade, isGeneral }, config) {
-  if (place === "None") return 0;
-
+export function calculatePoints({ category, place, grade }, config) {
   // Map textual places to numbers if necessary
   const placeMap = {
     First: 1,
@@ -12,21 +10,9 @@ export function calculatePoints({ category, place, grade, isGeneral }, config) {
   };
 
   const numericPlace = placeMap[place] || parseInt(place, 10);
-  if (!numericPlace || numericPlace > 3) return 0;
-
   let categoryPoints = 0;
 
-  if (isGeneral) {
-    if (config?.general) {
-      if (numericPlace === 1) categoryPoints = config.general.first;
-      if (numericPlace === 2) categoryPoints = config.general.second;
-      if (numericPlace === 3) categoryPoints = config.general.third;
-    } else {
-      if (numericPlace === 1) categoryPoints = 25;
-      if (numericPlace === 2) categoryPoints = 15;
-      if (numericPlace === 3) categoryPoints = 10;
-    }
-  } else {
+  if (place !== "None" && numericPlace && numericPlace >= 1 && numericPlace <= 3) {
     if (config) {
       const base = {
         A: { 1: config.catA?.first ?? 12, 2: config.catA?.second ?? 8, 3: config.catA?.third ?? 4 },
@@ -60,3 +46,5 @@ export function calculatePoints({ category, place, grade, isGeneral }, config) {
 
   return categoryPoints + gradePoints;
 }
+
+

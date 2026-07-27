@@ -293,8 +293,7 @@ export default function ManageResults() {
             const totalPoints = calculatePoints({
                 category,
                 place,
-                grade,
-                isGeneral
+                grade
             }, scoringConfig);
 
             const batch = writeBatch(db);
@@ -600,8 +599,7 @@ export default function ManageResults() {
             const totalPoints = calculatePoints({
                 category,
                 place,
-                grade,
-                isGeneral
+                grade
             }, scoringConfig);
 
             let expectedStudentCategory = r.studentCategory;

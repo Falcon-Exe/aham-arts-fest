@@ -70,7 +70,7 @@ function Results() {
             const newRes = change.doc.data();
             const title = `🏆 New Result Announced!`;
             const body = `${newRes.name} (${newRes.chestNo || "No Chest No"}) from Team ${newRes.team} won ${newRes.place === 'None' ? 'Grade Only' : newRes.place} for ${newRes.eventName}!`;
-            
+
             setToast({ message: `${title} - ${body}`, type: "success" });
 
             if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
@@ -117,7 +117,7 @@ function Results() {
         console.error("Error loading events:", error);
       }
     };
-    
+
     fetchEvents();
 
     return () => unsubscribeResults();
@@ -156,7 +156,7 @@ function Results() {
 
   const champion = activeScoresData.length > 0 && activeScoresData[0].total > 0 ? [activeScoresData[0].team, activeScoresData[0].total] : null;
   const runnerUp = activeScoresData.length > 1 && activeScoresData[1].total > 0 ? [activeScoresData[1].team, activeScoresData[1].total] : null;
-  
+
   const firstPlace = activeScoresData.length > 0 && activeScoresData[0].total > 0 ? activeScoresData[0] : null;
   const secondPlace = activeScoresData.length > 1 && activeScoresData[1].total > 0 ? activeScoresData[1] : null;
   const thirdPlace = activeScoresData.length > 2 && activeScoresData[2].total > 0 ? activeScoresData[2] : null;
@@ -269,26 +269,26 @@ function Results() {
 
       {/* Category tabs */}
       <div className="tab-container" style={{ display: 'flex', gap: '8px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
-          <button className="tab-btn" style={{ background: activeCategoryTab === "Overall" ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "9px 18px", borderRadius: "30px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab("Overall")}>
-              🏆 Overall
+        <button className="tab-btn" style={{ background: activeCategoryTab === "Overall" ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "9px 18px", borderRadius: "30px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab("Overall")}>
+          🏆 Overall
+        </button>
+        {dynamicCategories.map(cat => (
+          <button key={cat} className="tab-btn" style={{ background: activeCategoryTab === cat ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "9px 18px", borderRadius: "30px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab(cat)}>
+            👤 {cat}
           </button>
-          {dynamicCategories.map(cat => (
-              <button key={cat} className="tab-btn" style={{ background: activeCategoryTab === cat ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "9px 18px", borderRadius: "30px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab(cat)}>
-                  👤 {cat}
-              </button>
-          ))}
-          <button className="tab-btn" style={{ background: activeCategoryTab === "General" ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "9px 18px", borderRadius: "30px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab("General")}>
-              🌐 General
-          </button>
+        ))}
+        <button className="tab-btn" style={{ background: activeCategoryTab === "General" ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "9px 18px", borderRadius: "30px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab("General")}>
+          🌐 General
+        </button>
       </div>
 
       {/* Sub-tabs: On Stage / Off Stage */}
       <div className="tab-container" style={{ display: 'flex', gap: '8px', marginBottom: '22px', overflowX: 'auto' }}>
-          {['All', 'On Stage', 'Off Stage'].map(sub => (
-              <button key={sub} className="tab-btn" style={{ background: activeSubTab === sub ? "var(--secondary, #e63946)" : "rgba(255,255,255,0.05)", color: "white", border: "1px solid var(--border-soft)", padding: "6px 14px", borderRadius: "20px", cursor: "pointer", whiteSpace: "nowrap", fontSize: "0.82rem", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveSubTab(sub)}>
-                  {sub === 'All' ? '📋 All Events' : sub === 'On Stage' ? '🎭 On Stage' : '📝 Off Stage'}
-              </button>
-          ))}
+        {['All', 'On Stage', 'Off Stage'].map(sub => (
+          <button key={sub} className="tab-btn" style={{ background: activeSubTab === sub ? "var(--secondary, #e63946)" : "rgba(255,255,255,0.05)", color: "white", border: "1px solid var(--border-soft)", padding: "6px 14px", borderRadius: "20px", cursor: "pointer", whiteSpace: "nowrap", fontSize: "0.82rem", fontWeight: "600", transition: "all 0.2s ease" }} onClick={() => setActiveSubTab(sub)}>
+            {sub === 'All' ? '📋 All Events' : sub === 'On Stage' ? '🎭 On Stage' : '📝 Off Stage'}
+          </button>
+        ))}
       </div>
 
       {/* 3D STANDINGS PODIUM */}
@@ -298,7 +298,7 @@ function Results() {
           <div className="podium-container">
             {/* 2nd Place */}
             {secondPlace && (
-              <div 
+              <div
                 className={`podium-step podium-second interactive-step ${activeTeam === secondPlace.team ? 'active-step' : ''}`}
                 onClick={() => setActiveTeam(activeTeam === secondPlace.team ? null : secondPlace.team)}
                 title={activeTeam === secondPlace.team ? "Clear filter" : `Filter results by ${secondPlace.team}`}
@@ -308,8 +308,8 @@ function Results() {
                 <div className="podium-avatar">🥈</div>
                 <div className="podium-team-name">{secondPlace.team}</div>
                 <div className="podium-pts"><AnimatedCounter value={secondPlace.total} /> pts</div>
-                <div className="podium-block" style={{ 
-                  height: '80px', 
+                <div className="podium-block" style={{
+                  height: '80px',
                   background: `linear-gradient(180deg, ${hexToRgba(teamColors[secondPlace.team] || '#a78bfa', 0.25)}, ${hexToRgba(teamColors[secondPlace.team] || '#a78bfa', 0.03)})`,
                   borderColor: hexToRgba(teamColors[secondPlace.team] || '#a78bfa', 0.3),
                   boxShadow: `0 8px 24px ${hexToRgba(teamColors[secondPlace.team] || '#a78bfa', 0.15)}, inset 0 1px 0 rgba(255,255,255,0.1)`
@@ -320,7 +320,7 @@ function Results() {
             )}
 
             {/* 1st Place */}
-            <div 
+            <div
               className={`podium-step podium-first interactive-step ${activeTeam === firstPlace.team ? 'active-step' : ''}`}
               onClick={() => setActiveTeam(activeTeam === firstPlace.team ? null : firstPlace.team)}
               title={activeTeam === firstPlace.team ? "Clear filter" : `Filter results by ${firstPlace.team}`}
@@ -331,8 +331,8 @@ function Results() {
               <div className="podium-avatar">🥇</div>
               <div className="podium-team-name">{firstPlace.team}</div>
               <div className="podium-pts"><AnimatedCounter value={firstPlace.total} /> pts</div>
-              <div className="podium-block" style={{ 
-                height: '120px', 
+              <div className="podium-block" style={{
+                height: '120px',
                 background: `linear-gradient(180deg, ${hexToRgba(teamColors[firstPlace.team] || '#e63946', 0.35)}, ${hexToRgba(teamColors[firstPlace.team] || '#e63946', 0.05)})`,
                 borderColor: hexToRgba(teamColors[firstPlace.team] || '#e63946', 0.4),
                 boxShadow: `0 12px 32px ${hexToRgba(teamColors[firstPlace.team] || '#e63946', 0.25)}, inset 0 1px 0 rgba(255,255,255,0.2)`
@@ -343,7 +343,7 @@ function Results() {
 
             {/* 3rd Place */}
             {thirdPlace && (
-              <div 
+              <div
                 className={`podium-step podium-third interactive-step ${activeTeam === thirdPlace.team ? 'active-step' : ''}`}
                 onClick={() => setActiveTeam(activeTeam === thirdPlace.team ? null : thirdPlace.team)}
                 title={activeTeam === thirdPlace.team ? "Clear filter" : `Filter results by ${thirdPlace.team}`}
@@ -353,8 +353,8 @@ function Results() {
                 <div className="podium-avatar">🥉</div>
                 <div className="podium-team-name">{thirdPlace.team}</div>
                 <div className="podium-pts"><AnimatedCounter value={thirdPlace.total} /> pts</div>
-                <div className="podium-block" style={{ 
-                  height: '60px', 
+                <div className="podium-block" style={{
+                  height: '60px',
                   background: `linear-gradient(180deg, ${hexToRgba(teamColors[thirdPlace.team] || '#34d399', 0.2)}, ${hexToRgba(teamColors[thirdPlace.team] || '#34d399', 0.02)})`,
                   borderColor: hexToRgba(teamColors[thirdPlace.team] || '#34d399', 0.25),
                   boxShadow: `0 6px 20px ${hexToRgba(teamColors[thirdPlace.team] || '#34d399', 0.1)}, inset 0 1px 0 rgba(255,255,255,0.08)`
@@ -417,7 +417,7 @@ function Results() {
                   <h3 className="results-event">{eventName}</h3>
                   {studentCategory && (
                     <span className={`result-category-badge category-${studentCategory.toLowerCase().replace(/[^a-z0-9]/g, '')}`}>
-                      🏷️ {studentCategory === "Junior" ? "Thamheediyya (Junior)" : studentCategory === "Senior" ? "Aliya (Senior)" : studentCategory}
+                      🏷️ {studentCategory}
                     </span>
                   )}
                 </div>
@@ -453,7 +453,6 @@ function Results() {
                           <div className="winner-meta">
                             {w.chestNo && <span className="winner-chest">{w.chestNo}</span>}
                             <span className={`winner-team team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>{w.team}</span>
-                            {(w.studentClass || w.class) && <span className="winner-chest" style={{ color: 'var(--text-secondary)' }}>{w.studentClass || w.class}</span>}
                             {w.grade && <span className={`winner-grade ${gradeClass(w.grade)}`}>{w.grade}</span>}
                           </div>
                         </div>
