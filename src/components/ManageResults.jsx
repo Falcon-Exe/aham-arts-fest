@@ -6,7 +6,7 @@ import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
 import { useMasterParticipants } from "../hooks/useMasterParticipants";
-import { isGeneralEvent, getEventType } from "../constants/events";
+import { isGeneralEvent, getEventType, resolveClassCategory } from "../constants/events";
 import { calculatePoints } from "../utils/scoringRules";
 import { compressImage } from "../utils/imageOptimizer";
 import { logAppEvent } from "../utils/analytics";
@@ -17,6 +17,8 @@ export default function ManageResults() {
     const [results, setResults] = useState([]);
     const { participants: masterParticipants } = useMasterParticipants();
     const [filteredParticipants, setFilteredParticipants] = useState([]);
+    const [allRegisteredParticipants, setAllRegisteredParticipants] = useState([]);
+    const [publishCategoryFilter, setPublishCategoryFilter] = useState("All");
     const [selectedStudentId, setSelectedStudentId] = useState("");
     const [editId, setEditId] = useState(null);
     const [formData, setFormData] = useState({
@@ -26,7 +28,8 @@ export default function ManageResults() {
         name: "",
         team: "",
         grade: "",
-        chestNo: ""
+        chestNo: "",
+        studentCategory: ""
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showHomePoints, setShowHomePoints] = useState(false);
@@ -113,12 +116,27 @@ export default function ManageResults() {
     }, [fetchEvents, fetchResults]);
 
 
+    const filterParticipantsByCategory = (participants, catFilter) => {
+        if (!catFilter || catFilter === "All") return participants;
+        return participants.filter(p => {
+            const pClass = p["CLASS"] || p["STUDENT CLASS"] || p["CLASS NAME"] || p["class"] || "";
+            const resolved = resolveClassCategory(pClass, p["CATEGORY"] || p["STUDENT CATEGORY"]);
+            return resolved.trim().toUpperCase() === catFilter.trim().toUpperCase();
+        });
+    };
+
     const handleEventChange = (e) => {
         const eventId = e.target.value;
         const ev = events.find(event => event.id === eventId);
         const eventName = ev?.name || "";
 
-        setFormData({ ...formData, eventId, eventName, name: "", team: "", chestNo: "" });
+        let defaultCat = "All";
+        if (ev?.studentCategory === "Junior") defaultCat = "Junior";
+        else if (ev?.studentCategory === "Senior") defaultCat = "Senior";
+        else if (ev?.studentCategory === "General") defaultCat = "General";
+
+        setPublishCategoryFilter(defaultCat);
+        setFormData({ ...formData, eventId, eventName, name: "", team: "", chestNo: "", studentCategory: defaultCat !== "All" ? defaultCat : "" });
         setSelectedStudentId("");
 
         if (eventName) {
@@ -130,8 +148,10 @@ export default function ManageResults() {
                 const allEventsList = (onStage + "," + offStage + "," + general).split(',').map(s => s.trim().toUpperCase());
                 return allEventsList.includes(eventName.toUpperCase().trim());
             });
-            setFilteredParticipants(registered);
+            setAllRegisteredParticipants(registered);
+            setFilteredParticipants(filterParticipantsByCategory(registered, defaultCat));
         } else {
+            setAllRegisteredParticipants([]);
             setFilteredParticipants([]);
         }
     };
@@ -148,11 +168,15 @@ export default function ManageResults() {
         const student = filteredParticipants.find(p => p._id === val);
 
         if (student) {
+            const studentClass = student["CLASS"] || student["STUDENT CLASS"] || student["CLASS NAME"] || student["class"] || "";
+            const resolvedCat = resolveClassCategory(studentClass, student["CATEGORY"] || student["STUDENT CATEGORY"]);
             setFormData({
                 ...formData,
                 name: student["CANDIDATE NAME"] || student["CANDIDATE  FULL NAME"],
                 team: student["TEAM"] || student["TEAM NAME"] || "",
-                chestNo: student["CHEST NUMBER"] || student["CHEST NO"] || ""
+                chestNo: student["CHEST NUMBER"] || student["CHEST NO"] || "",
+                studentClass: studentClass,
+                studentCategory: resolvedCat !== "General" ? resolvedCat : (formData.studentCategory || "General")
             });
         }
     };
@@ -239,8 +263,13 @@ export default function ManageResults() {
         }
 
         let actualStudentCategory = eventObj?.studentCategory || "General";
-        if (actualStudentCategory === "Junior & Senior" && regCheck.studentObj) {
-            actualStudentCategory = regCheck.studentObj["CATEGORY"] || regCheck.studentObj["STUDENT CATEGORY"] || "General";
+        const studentClass = regCheck.studentObj ? (regCheck.studentObj["CLASS"] || regCheck.studentObj["STUDENT CLASS"] || regCheck.studentObj["CLASS NAME"] || regCheck.studentObj["class"] || "") : (formData.studentClass || "");
+
+        if (actualStudentCategory === "Junior & Senior" || actualStudentCategory === "Junior/Senior") {
+            const resolvedFromClass = resolveClassCategory(studentClass, regCheck.studentObj ? (regCheck.studentObj["CATEGORY"] || regCheck.studentObj["STUDENT CATEGORY"]) : formData.studentCategory);
+            actualStudentCategory = resolvedFromClass !== "General" ? resolvedFromClass : (formData.studentCategory || "Junior");
+        } else {
+            actualStudentCategory = resolveClassCategory(studentClass, actualStudentCategory);
         }
 
         // Validation: Prevent duplicate place for same event AND same category (excluding current edit)
@@ -299,6 +328,7 @@ export default function ManageResults() {
                 eventName: ev?.name || "Unknown",
                 category: isGeneral ? "General" : category,
                 studentCategory: actualStudentCategory,
+                studentClass: studentClass || formData.studentClass || "",
                 points: totalPoints,
                 timestamp: serverTimestamp() // Better than static string for ranking integrity
             };
@@ -392,7 +422,8 @@ export default function ManageResults() {
             name: result.name || "",
             team: result.team || "",
             grade: result.grade || "",
-            chestNo: result.chestNo || ""
+            chestNo: result.chestNo || "",
+            studentCategory: result.studentCategory || ""
         });
         setEditId(result.id);
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -406,7 +437,8 @@ export default function ManageResults() {
             name: "",
             team: "",
             grade: "",
-            chestNo: ""
+            chestNo: "",
+            studentCategory: ""
         });
         setSelectedStudentId("");
         setEditId(null);
@@ -554,18 +586,17 @@ export default function ManageResults() {
     }
 
     const handleRecalculatePoints = async () => {
-        if (!await confirm("This will recalculate points for ALL results based on the new rules (Category + Grade). Continue?")) return;
+        if (!await confirm("This will recalculate points and automatically resolve missing/generic candidate categories (Junior/Senior) for ALL published results. Continue?")) return;
         let updated = 0;
 
         for (const r of results) {
             const ev = events.find(e => e.id === r.eventId);
-            if (!ev) continue;
 
-            const category = ev.category || "A";
+            const category = ev?.category || r.category || "A";
             const place = r.place;
             const grade = r.grade;
 
-            const isGeneral = ev.type === "General" || isGeneralEvent(ev.name);
+            const isGeneral = ev?.type === "General" || isGeneralEvent(ev?.name || r.eventName);
             const totalPoints = calculatePoints({
                 category,
                 place,
@@ -573,23 +604,40 @@ export default function ManageResults() {
                 isGeneral
             }, scoringConfig);
 
-            let expectedStudentCategory = ev.studentCategory || "General";
-            // If the event supports both, we shouldn't overwrite the result's specific student category (Junior or Senior)
-            // with the generic "Junior & Senior" string.
-            if (expectedStudentCategory === "Junior & Senior" || expectedStudentCategory === "General" || expectedStudentCategory === "Common/General" || expectedStudentCategory === "Common / General") {
-                expectedStudentCategory = r.studentCategory || "General";
+            let expectedStudentCategory = r.studentCategory;
+            let expectedStudentClass = r.studentClass || r.class || "";
+
+            const candidateMatch = masterParticipants.find(p =>
+                (r.chestNo && String(p["CHEST NUMBER"] || p["CHEST NO"]).trim() === String(r.chestNo).trim()) ||
+                ((p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"])?.trim().toLowerCase() === r.name?.trim().toLowerCase())
+            );
+
+            if (candidateMatch) {
+                if (!expectedStudentClass) {
+                    expectedStudentClass = candidateMatch["CLASS"] || candidateMatch["STUDENT CLASS"] || candidateMatch["class"] || "";
+                }
+                const resolvedCat = resolveClassCategory(expectedStudentClass, candidateMatch["CATEGORY"] || candidateMatch["STUDENT CATEGORY"]);
+                if (resolvedCat !== "General") {
+                    expectedStudentCategory = resolvedCat;
+                }
             }
 
-            if (r.points !== totalPoints || r.studentCategory !== expectedStudentCategory) {
+            // Fallback to event definition if available
+            if (!expectedStudentCategory || expectedStudentCategory === "Junior & Senior") {
+                expectedStudentCategory = resolveClassCategory(expectedStudentClass, ev?.studentCategory && ev.studentCategory !== "Junior & Senior" ? ev.studentCategory : "General");
+            }
+
+            if (r.points !== totalPoints || r.studentCategory !== expectedStudentCategory || r.studentClass !== expectedStudentClass) {
                 await updateDoc(doc(db, "results", r.id), {
                     points: totalPoints,
                     category: isGeneral ? "General" : category,
-                    studentCategory: expectedStudentCategory
+                    studentCategory: expectedStudentCategory,
+                    studentClass: expectedStudentClass
                 });
                 updated++;
             }
         }
-        showToast(`Recalculation Complete! Updated ${updated} results.`, "success");
+        showToast(`Recalculation & Category Sync Complete! Updated ${updated} results.`, "success");
         fetchResults();
     };
 
@@ -1038,22 +1086,61 @@ export default function ManageResults() {
                             <option value="None">None (Grade Only)</option>
                         </select>
                         {(() => {
+                            const targetCat = formData.studentCategory || (publishCategoryFilter !== "All" ? publishCategoryFilter : "");
                             const existingWinner = results.find(r =>
                                 r.eventId === formData.eventId &&
                                 r.place === formData.place &&
                                 r.id !== editId &&
-                                r.place !== "None"
+                                r.place !== "None" &&
+                                (!targetCat || !r.studentCategory || r.studentCategory === targetCat)
                             );
                             if (existingWinner) {
                                 return (
                                     <div style={{ color: '#facc15', fontSize: '0.85rem', padding: '5px' }}>
-                                        ⚠️ Warning: A {formData.place} prize winner already exists for this event ({existingWinner.name}). Submitting this will create a tie.
+                                        ⚠️ Warning: A {formData.place} prize winner already exists for this event in {targetCat || 'this category'} ({existingWinner.name}). Submitting this will create a tie.
                                     </div>
                                 );
                             }
                             return null;
                         })()}
                     </div>
+
+                    {/* CLASS CATEGORY FILTER FOR CANDIDATE SELECTION */}
+                    {formData.eventId && !isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) && (
+                        <div className="full-width" style={{ marginTop: '10px', marginBottom: '5px' }}>
+                            <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                🎯 Filter Candidates by Class Category:
+                            </label>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {["All", "Junior", "Senior", "General"].map(cat => (
+                                    <button
+                                        key={cat}
+                                        type="button"
+                                        style={{
+                                            background: publishCategoryFilter === cat ? "var(--primary)" : "var(--bg-tertiary)",
+                                            color: "white",
+                                            border: "1px solid var(--border-soft)",
+                                            padding: "5px 14px",
+                                            borderRadius: "16px",
+                                            fontSize: "0.8rem",
+                                            cursor: "pointer",
+                                            fontWeight: "600",
+                                            transition: "all 0.2s ease"
+                                        }}
+                                        onClick={() => {
+                                            setPublishCategoryFilter(cat);
+                                            setFilteredParticipants(filterParticipantsByCategory(allRegisteredParticipants, cat));
+                                            if (cat !== "All") {
+                                                setFormData(prev => ({ ...prev, studentCategory: cat }));
+                                            }
+                                        }}
+                                    >
+                                        {cat === "All" ? "📋 All Registered" : cat === "Junior" ? "👤 Thamheediyya (Junior)" : cat === "Senior" ? "👤 Aliya (Senior)" : `👤 ${cat}`}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Dynamic Selection: Team for General, Student for Others */}
                     {(
@@ -1092,12 +1179,13 @@ export default function ManageResults() {
                             required={selectedStudentId !== "Manual Entry"}
                             disabled={!formData.eventId}
                         >
-                            <option value="">-- Select Registered Student --</option>
+                            <option value="">-- Select Registered Student ({filteredParticipants.length} available) --</option>
                             {filteredParticipants.map((p) => {
                                 const chestNo = p["CHEST NUMBER"] || p["CHEST NO"];
                                 const name = p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"];
                                 const team = p["TEAM"] || p["TEAM NAME"];
                                 const cicNo = p["CIC NO"] || p["CIC NUMBER"];
+                                const catTag = (p["CATEGORY"] || p["STUDENT CATEGORY"]) ? `[${p["CATEGORY"] || p["STUDENT CATEGORY"]}] ` : "";
 
                                 // Check for potential issues
                                 const hasDuplicateName = filteredParticipants.filter(
@@ -1115,7 +1203,7 @@ export default function ManageResults() {
 
                                 return (
                                     <option key={p._id} value={p._id}>
-                                        {warningFlag}{chestNo ? `[${chestNo}] ` : "[---] "}{name}{team ? ` - ${team}` : ""}{cicNo ? ` (CIC: ${cicNo})` : ""}
+                                        {warningFlag}{catTag}{chestNo ? `[${chestNo}] ` : "[---] "}{name}{team ? ` - ${team}` : ""}{cicNo ? ` (CIC: ${cicNo})` : ""}
                                     </option>
                                 );
                             })}
@@ -1268,6 +1356,7 @@ export default function ManageResults() {
                     <thead>
                         <tr>
                             <th>Event</th>
+                            <th>Category</th>
                             <th>Prize</th>
                             <th>Name</th>
                             <th>Team</th>
@@ -1280,6 +1369,18 @@ export default function ManageResults() {
                         {filteredResults.map(r => (
                             <tr key={r.id}>
                                 <td>{r.eventName}</td>
+                                <td>
+                                    <span style={{
+                                        fontSize: '0.75rem',
+                                        fontWeight: '700',
+                                        padding: '2px 8px',
+                                        borderRadius: '10px',
+                                        background: r.studentCategory === 'Junior' ? 'rgba(59, 130, 246, 0.2)' : r.studentCategory === 'Senior' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+                                        color: r.studentCategory === 'Junior' ? '#60a5fa' : r.studentCategory === 'Senior' ? '#c084fc' : '#4ade80'
+                                    }}>
+                                        {r.studentCategory || "General"}
+                                    </span>
+                                </td>
                                 <td>{r.place}</td>
                                 <td>{r.name}</td>
                                 <td>{r.team}</td>

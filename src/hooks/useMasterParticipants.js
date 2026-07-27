@@ -11,25 +11,50 @@ export const useMasterParticipants = () => {
         setLoading(true);
         setError(null);
         try {
-            const firestorePromise = getDocs(query(collection(db, "registrations"), orderBy("submittedAt", "desc")))
-                .then(snapshot => snapshot.docs.map(doc => ({
-                    _id: doc.id,
-                    "CANDIDATE NAME": doc.data().fullName,
-                    "CIC NO": doc.data().cicNumber,
-                    "CHEST NUMBER": doc.data().chestNumber,
-                    "TEAM": doc.data().team,
-                    "ON STAGE EVENTS": doc.data().onStageEvents?.join(", ") || "",
-                    "OFF STAGE EVENTS": doc.data().offStageEvents?.join(", ") || "",
-                    "GENERAL EVENTS": doc.data().generalEvents?.join(", ") || "",
-                    _source: "firestore",
-                    _submittedAt: doc.data().submittedAt
-                })))
-                .catch(err => {
-                    console.error("FIRESTORE LOAD FAILED:", err);
-                    return [];
-                });
+            // Fetch both registrations and students in parallel
+            const [regSnap, studentSnap] = await Promise.all([
+                getDocs(query(collection(db, "registrations"))).catch(() => ({ docs: [] })),
+                getDocs(query(collection(db, "students"))).catch(() => ({ docs: [] }))
+            ]);
 
-            const firestoreData = await firestorePromise;
+            // Build student metadata map by chest number and candidate name
+            const studentMetaMap = {};
+            studentSnap.docs.forEach(d => {
+                const s = d.data();
+                const chest = s.chestNumber || s.chestNo;
+                const name = (s.fullName || s.name || "").trim().toUpperCase();
+                const studentClass = s.studentClass || s.class || s.className || "";
+                const category = s.category || s.studentCategory || "";
+
+                if (chest) studentMetaMap[`CHEST_${chest}`] = { studentClass, category };
+                if (name) studentMetaMap[`NAME_${name}`] = { studentClass, category };
+            });
+
+            const firestoreData = regSnap.docs.map(doc => {
+                const data = doc.data();
+                const chest = data.chestNumber;
+                const name = (data.fullName || "").trim().toUpperCase();
+
+                const meta = studentMetaMap[`CHEST_${chest}`] || studentMetaMap[`NAME_${name}`] || {};
+                const studentClass = data.studentClass || data.class || meta.studentClass || "";
+                const category = data.studentCategory || data.category || meta.category || "";
+
+                return {
+                    _id: doc.id,
+                    "CANDIDATE NAME": data.fullName,
+                    "CIC NO": data.cicNumber,
+                    "CHEST NUMBER": data.chestNumber,
+                    "TEAM": data.team,
+                    "CLASS": studentClass,
+                    "CATEGORY": category,
+                    "ON STAGE EVENTS": data.onStageEvents?.join(", ") || "",
+                    "OFF STAGE EVENTS": data.offStageEvents?.join(", ") || "",
+                    "GENERAL EVENTS": data.generalEvents?.join(", ") || "",
+                    _source: "firestore",
+                    _submittedAt: data.submittedAt
+                };
+            });
+
             setParticipants(firestoreData);
         } catch (err) {
             console.error("Error formatting participants:", err);

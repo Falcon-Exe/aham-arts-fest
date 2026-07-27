@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useTeamScores } from "../hooks/useTeamScores";
 import { collection, getDocs, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
-import { getEventType } from "../constants/events";
+import { getEventType, resolveClassCategory } from "../constants/events";
 import AnimatedCounter from "../components/AnimatedCounter";
 
+import { useMasterParticipants } from "../hooks/useMasterParticipants";
 import Toast from '../components/Toast';
 import "./Results.css";
 
@@ -38,6 +39,7 @@ function Results() {
 
   // Use Hook for official scores
   const { scores: sortedTeamsData, champion: hookChampion, runnerUp: hookRunnerUp, showResultsPoints, teamColors } = useTeamScores();
+  const { participants: masterParticipants } = useMasterParticipants();
 
   const [eventPosters, setEventPosters] = useState({});
   const [eventTypes, setEventTypes] = useState({});
@@ -163,17 +165,33 @@ function Results() {
   const shouldShowPoints = showResultsPoints || isDev;
 
   /* ===============================
-     GROUP BY EVENT
+     GROUP BY EVENT & CATEGORY
      =============================== */
   const grouped = {};
   rows.forEach((r) => {
     if (!r.eventName) return;
+
+    let studentClass = r.studentClass || r.class || "";
+    let studentCat = r.studentCategory;
+
+    // Cross-reference candidate list if category/class is missing or generic
+    if (!studentClass || !studentCat || studentCat === "Junior & Senior" || studentCat === "Junior/Senior") {
+      const candidateMatch = masterParticipants.find(p =>
+        (r.chestNo && String(p["CHEST NUMBER"] || p["CHEST NO"]).trim() === String(r.chestNo).trim()) ||
+        (r.name && (p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"])?.trim().toUpperCase() === r.name.trim().toUpperCase())
+      );
+      if (candidateMatch) {
+        if (!studentClass) studentClass = candidateMatch["CLASS"] || "";
+        if (!studentCat || studentCat === "Junior & Senior" || studentCat === "Junior/Senior") {
+          studentCat = candidateMatch["CATEGORY"] || "";
+        }
+      }
+    }
+
+    let rowCat = resolveClassCategory(studentClass, studentCat);
+
     // Category filter
     if (activeCategoryTab !== "Overall") {
-      let rowCat = r.studentCategory || "General";
-      if (rowCat === "Common/General" || rowCat === "Common / General") {
-        rowCat = "General";
-      }
       if (rowCat !== activeCategoryTab) return;
     }
     // Sub-tab (stage type) filter
@@ -185,15 +203,25 @@ function Results() {
       const resolvedType = (rawType === "General" && generalSubtype) ? generalSubtype : rawType;
       if (resolvedType !== activeSubTab) return;
     }
-    if (!grouped[r.eventName]) grouped[r.eventName] = [];
-    grouped[r.eventName].push(r);
+
+    const groupKey = `${r.eventName}|||${rowCat}`;
+    if (!grouped[groupKey]) {
+      grouped[groupKey] = {
+        key: groupKey,
+        eventName: r.eventName,
+        studentCategory: rowCat,
+        list: []
+      };
+    }
+    grouped[groupKey].list.push(r);
   });
 
-  const filteredEvents = Object.entries(grouped).filter(([eventName, list]) => {
+  const filteredEvents = Object.values(grouped).filter((groupObj) => {
+    const { eventName, studentCategory, list } = groupObj;
     const q = search.toLowerCase();
 
-    // Check if event name matches
-    const matchesEvent = eventName.toLowerCase().includes(q);
+    // Check if event name or student category matches
+    const matchesEvent = eventName.toLowerCase().includes(q) || (studentCategory && studentCategory.toLowerCase().includes(q));
 
     // Check if any student name or chest number in this event matches
     const matchesStudent = list.some(r =>
@@ -382,20 +410,27 @@ function Results() {
         </div>
       ) : (
         <div className="results-grid stagger-reveal-grid">
-          {filteredEvents.map(([event, list]) => (
-            <div key={event} className="results-card premium-glass-hover">
+          {filteredEvents.map(({ key, eventName, studentCategory, list }) => (
+            <div key={key} className="results-card premium-glass-hover">
               <div className="result-card-header">
-                <h3 className="results-event">{event}</h3>
+                <div>
+                  <h3 className="results-event">{eventName}</h3>
+                  {studentCategory && (
+                    <span className={`result-category-badge category-${studentCategory.toLowerCase().replace(/[^a-z0-9]/g, '')}`}>
+                      🏷️ {studentCategory === "Junior" ? "Thamheediyya (Junior)" : studentCategory === "Senior" ? "Aliya (Senior)" : studentCategory}
+                    </span>
+                  )}
+                </div>
 
-                {eventPosters[event] && (
+                {eventPosters[eventName] && (
                   <a
-                    href={eventPosters[event].replace('/upload/', '/upload/fl_attachment/')}
+                    href={eventPosters[eventName].replace('/upload/', '/upload/fl_attachment/')}
                     className="download-poster-btn"
+                    title="Download Result Poster"
                   >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e63946" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                   </a>
                 )}
-
               </div>
 
               {["First", "Second", "Third"].map((prize) => {
@@ -418,6 +453,7 @@ function Results() {
                           <div className="winner-meta">
                             {w.chestNo && <span className="winner-chest">{w.chestNo}</span>}
                             <span className={`winner-team team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>{w.team}</span>
+                            {(w.studentClass || w.class) && <span className="winner-chest" style={{ color: 'var(--text-secondary)' }}>{w.studentClass || w.class}</span>}
                             {w.grade && <span className={`winner-grade ${gradeClass(w.grade)}`}>{w.grade}</span>}
                           </div>
                         </div>

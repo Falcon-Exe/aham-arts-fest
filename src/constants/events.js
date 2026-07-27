@@ -305,4 +305,22 @@ export const getEventScope = (eventName) => {
     return EVENT_SCOPE_MAP[name] || "Junior & Senior";
 };
 
+export const resolveClassCategory = (studentClass, studentCategory) => {
+    if (studentClass) {
+        const upper = String(studentClass).toUpperCase().trim();
+        if (upper.includes("THAMHEEDIYYA") || upper.includes("THAMHIDIYYA")) {
+            return "Junior";
+        }
+        if (upper.includes("ALIYA") || upper.includes("AALIYA")) {
+            return "Senior";
+        }
+    }
+    if (studentCategory && studentCategory !== "Junior & Senior" && studentCategory !== "Junior/Senior") {
+        let cat = String(studentCategory).trim();
+        if (cat === "Common/General" || cat === "Common / General") return "General";
+        return cat;
+    }
+    return "General";
+};
+
 export default ALL_EVENTS;

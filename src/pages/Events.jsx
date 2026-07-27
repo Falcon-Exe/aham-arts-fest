@@ -30,19 +30,48 @@ export default function Events() {
         fetchEvents();
     }, []);
 
-    const [activeTab, setActiveTab] = useState("All"); // On Stage, Off Stage, All
+    const [activeCategoryTab, setActiveCategoryTab] = useState("Overall");
+    const [activeTab, setActiveTab] = useState("All"); // On Stage, Off Stage, General, All
+
+    // Load dynamic student categories
+    let dynamicCategories = [];
+    try {
+        const storedCats = localStorage.getItem("branding_studentCategories");
+        if (storedCats) dynamicCategories = JSON.parse(storedCats);
+    } catch (e) {
+        console.error(e);
+    }
+    if (dynamicCategories.length === 0) {
+        dynamicCategories = ["Junior", "Senior"];
+    }
 
     const filteredEvents = events.filter((event) => {
         const matchesSearch = event.name?.toLowerCase().includes(search.toLowerCase()) ||
-            event.category?.toLowerCase().includes(search.toLowerCase());
+            event.category?.toLowerCase().includes(search.toLowerCase()) ||
+            event.studentCategory?.toLowerCase().includes(search.toLowerCase());
 
         const eventMainType = event.type || getEventType(event.name) || "On Stage";
         const isGeneral = event.type === "General" || isGeneralEvent(event.name);
 
-        const matchesTab = activeTab === "All" ||
+        const matchesStageTab = activeTab === "All" ||
             (activeTab === "General" ? isGeneral : (eventMainType === activeTab && !isGeneral));
 
-        return matchesSearch && matchesTab;
+        let matchesCategoryTab = true;
+        if (activeCategoryTab !== "Overall") {
+            let eventCat = event.studentCategory || "General";
+            if (eventCat === "Common/General" || eventCat === "Common / General") {
+                eventCat = "General";
+            }
+
+            if (activeCategoryTab === "General") {
+                matchesCategoryTab = isGeneral || eventCat === "General";
+            } else {
+                const isJoint = eventCat === "Junior & Senior" || eventCat === "Junior/Senior";
+                matchesCategoryTab = eventCat === activeCategoryTab || isJoint;
+            }
+        }
+
+        return matchesSearch && matchesStageTab && matchesCategoryTab;
     });
 
     return (
@@ -73,7 +102,22 @@ export default function Events() {
                     )}
                 </div>
 
-                {/* TAB NAVIGATION */}
+                {/* CLASS CATEGORY TAB NAVIGATION */}
+                <div className="tab-container" style={{ display: 'flex', gap: '8px', marginBottom: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                    <button className="tab-btn" style={{ background: activeCategoryTab === "Overall" ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "8px 16px", borderRadius: "20px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", fontSize: "0.85rem", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab("Overall")}>
+                        🏆 Overall
+                    </button>
+                    {dynamicCategories.map(cat => (
+                        <button key={cat} className="tab-btn" style={{ background: activeCategoryTab === cat ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "8px 16px", borderRadius: "20px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", fontSize: "0.85rem", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab(cat)}>
+                            👤 {cat}
+                        </button>
+                    ))}
+                    <button className="tab-btn" style={{ background: activeCategoryTab === "General" ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "8px 16px", borderRadius: "20px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: "600", fontSize: "0.85rem", transition: "all 0.2s ease" }} onClick={() => setActiveCategoryTab("General")}>
+                        🌐 General
+                    </button>
+                </div>
+
+                {/* STAGE TYPE TAB NAVIGATION */}
                 <div className="team-filter-bar events-tabs">
                     {["On Stage", "Off Stage", "General", "All"].map(tab => (
                         <button
@@ -82,7 +126,7 @@ export default function Events() {
                             onClick={() => setActiveTab(tab)}
                         >
                             <span className="pill-name">
-                                {tab === "On Stage" ? "🎭 On Stage" : tab === "Off Stage" ? "📝 Off Stage" : tab === "General" ? "🌐 General" : "🌐 All"}
+                                {tab === "On Stage" ? "🎭 On Stage" : tab === "Off Stage" ? "📝 Off Stage" : tab === "General" ? "🌐 General" : "📋 All Stages"}
                             </span>
                         </button>
                     ))}
