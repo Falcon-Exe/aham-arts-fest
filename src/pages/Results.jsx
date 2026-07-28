@@ -32,6 +32,14 @@ function Results() {
   const [activeTeam, setActiveTeam] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [expandedEvents, setExpandedEvents] = useState({});
+
+  const toggleEventExpand = (key) => {
+    setExpandedEvents(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
 
   const handleToastClose = () => {
     setToast(null);
@@ -461,6 +469,67 @@ function Results() {
                   </div>
                 );
               })}
+
+              {/* NON-PLACE / GRADE-ONLY PERFORMERS (COLLAPSIBLE) */}
+              {(() => {
+                const nonPlaceStudents = list.filter(
+                  (r) => !["First", "Second", "Third"].includes(r.place)
+                );
+                if (nonPlaceStudents.length === 0) return null;
+
+                const isExpanded = expandedEvents[key] || search.trim() !== "";
+
+                return (
+                  <div className="results-position non-place-position" style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px dashed var(--border-soft)' }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleEventExpand(key)}
+                      className="toggle-non-place-btn"
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        justify: 'space-between',
+                        alignItems: 'center',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid var(--border-soft)',
+                        padding: '10px 14px',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <span>🎖️ Grade Only Performers ({nonPlaceStudents.length})</span>
+                      <span style={{ color: 'var(--primary)', fontWeight: '700' }}>
+                        {isExpanded ? '▲ Hide' : '▼ View All'}
+                      </span>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="non-place-list" style={{ marginTop: '10px' }}>
+                        {nonPlaceStudents.map((w, i) => (
+                          <div key={i} className={`winner-box prize-none team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>
+                            <div style={{ flex: 1 }}>
+                              <div className="winner-name">{formatName(w.name)}</div>
+                              <div className="winner-meta">
+                                {w.chestNo && <span className="winner-chest">{w.chestNo}</span>}
+                                <span className={`winner-team team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>{w.team}</span>
+                                {w.grade ? (
+                                  <span className={`winner-grade ${gradeClass(w.grade)}`}>{w.grade}</span>
+                                ) : (
+                                  <span className="winner-grade grade-c">Participant</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>

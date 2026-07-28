@@ -432,6 +432,15 @@
   text-shadow: 0 0 10px rgba(205, 127, 50, 0.3);
 }
 
+.prize-none {
+  border-left: 4px solid var(--border-soft);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+}
+
+.prize-none .winner-name {
+  color: var(--text-main);
+}
+
 .winner-meta {
   display: flex;
   align-items: center;

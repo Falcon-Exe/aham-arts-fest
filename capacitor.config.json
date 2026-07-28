@@ -1,9 +1,0 @@
-{
-  "appId": "com.hamartia.artsfest",
-  "appName": "HAMARTIA Arts Fest",
-  "webDir": "dist",
-  "server": {
-    "androidScheme": "https",
-    "cleartext": true
-  }
-}

@@ -217,23 +217,6 @@ function Home() {
             </div>
             <span className="card-icon" style={{ position: 'relative', top: 'auto', right: 'auto', marginLeft: 'auto', fontSize: '2rem' }}>🎓</span>
           </Link>
-
-          <a 
-            href="https://drive.google.com/uc?export=download&id=1TsUVY_wucLx-ELP-_XWVQz1RlfXnSW0t" 
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bento-card card-apk premium-glass-hover"
-            style={{ gridColumn: '1 / -1', background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.25))', border: '1px solid rgba(34, 197, 94, 0.4)', textDecoration: 'none' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-              <span className="card-num" style={{ margin: 0, color: '#22c55e' }}>📲</span>
-              <div>
-                <span className="card-label" style={{ margin: 0, fontSize: '1.2rem', color: '#fff' }}>DOWNLOAD ANDROID APP (APK)</span>
-                <p style={{ margin: '3px 0 0 0', fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)' }}>Get the official HAMARTIA Android App directly on your phone</p>
-              </div>
-            </div>
-            <span className="card-icon" style={{ position: 'relative', top: 'auto', right: 'auto', marginLeft: 'auto', fontSize: '2rem' }}>⬇️</span>
-          </a>
         </div>
       </section>
 

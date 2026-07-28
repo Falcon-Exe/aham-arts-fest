@@ -7,18 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "cap:sync": "vite build && npx cap sync",
-    "cap:android": "vite build && npx cap open android",
-    "cap:andriod": "vite build && npx cap open android",
-    "cap:ios": "vite build && npx cap open ios"
+    "preview": "vite preview"
   },
   "dependencies": {
-    "@capacitor/android": "^8.4.2",
-    "@capacitor/cli": "^8.4.2",
-    "@capacitor/core": "^8.4.2",
-    "@capacitor/ios": "^8.4.2",
-    "@tanstack/react-query": "^5.101.1",
+    "@tanstack/react-query": "^5.101.4",
     "@vercel/analytics": "^1.6.1",
     "@vercel/speed-insights": "^1.3.1",
     "clsx": "^2.1.1",
@@ -26,28 +18,30 @@
     "html2canvas": "^1.4.1",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.1",
-    "lucide-react": "^1.23.0",
-    "papaparse": "^5.5.3",
+    "lucide-react": "^1.27.0",
+    "papaparse": "^5.5.4",
     "qrcode.react": "^4.2.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "react-helmet-async": "^2.0.5",
-    "react-router-dom": "^7.12.0",
-    "recharts": "^3.10.0",
+    "react-is": "^19.0.0",
+    "react-router": "^8.3.0",
+    "react-router-dom": "^7.18.1",
+    "recharts": "^3.10.1",
     "tailwind-merge": "^3.6.0",
-    "vite-plugin-pwa": "^1.2.0"
+    "vite-plugin-pwa": "^1.3.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.1",
-    "@types/react": "^19.2.5",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^5.1.1",
-    "eslint": "^9.39.1",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.4.24",
-    "globals": "^16.5.0",
-    "vite": "^7.2.4",
-    "vitest": "^4.1.9"
+    "@eslint/js": "^10.0.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.0.4",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.3",
+    "globals": "^17.8.0",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "minimatch": "^10.2.5",
@@ -55,6 +49,3 @@
     "tar": "^7.5.21"
   }
 }
-
-
-
