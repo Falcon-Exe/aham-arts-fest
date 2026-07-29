@@ -217,7 +217,7 @@ export default function ManageGallery() {
                     {loadingInsta ? (
                         <p style={{ color: 'var(--text-muted)' }}>Loading live posts...</p>
                     ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                             {instaPosts.map(post => {
                                 const isPinned = metaItems[post.id]?.isPinned;
                                 const hasCustomCaption = metaItems[post.id] && metaItems[post.id].title !== post.alt;

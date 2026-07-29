@@ -12,7 +12,7 @@ export default function GalleryPage() {
     const [apiFailed, setApiFailed] = useState(false);
     const [nextCursor, setNextCursor] = useState(null);
     const [selectedImg, setSelectedImg] = useState(null);
-    const [colCount, setColCount] = useState(3);
+    const colCount = 3;
     const observer = useRef();
 
     useEffect(() => {
@@ -25,18 +25,6 @@ export default function GalleryPage() {
             setMetaItems(map);
         });
         return () => unsubscribe();
-    }, []);
-
-    useEffect(() => {
-        const handleResize = () => {
-            // FIX MOBILE VIEW: 2 columns on mobile instead of 1 so images aren't massive
-            if (window.innerWidth <= 600) setColCount(2);
-            else if (window.innerWidth <= 992) setColCount(3);
-            else setColCount(4); // 4 columns on large desktop
-        };
-        handleResize();
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
     }, []);
 
     const fetchPosts = async (after = null) => {
