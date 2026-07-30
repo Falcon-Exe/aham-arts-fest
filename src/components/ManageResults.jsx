@@ -6,11 +6,91 @@ import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
 import { useMasterParticipants } from "../hooks/useMasterParticipants";
-import { isGeneralEvent, getEventType, resolveClassCategory } from "../constants/events";
+import { isGeneralEvent, getEventType, resolveClassCategory, getEventScope } from "../constants/events";
 import { calculatePoints } from "../utils/scoringRules";
 import { compressImage } from "../utils/imageOptimizer";
 import { logAppEvent } from "../utils/analytics";
 import styles from "./ManageResults.module.css";
+
+export const getEventCategoryBreakdown = (ev, resultsList = []) => {
+    if (!ev) return { targetCats: [], breakdown: [], isFullyCompleted: false, hasAnyResults: false, label: "" };
+
+    const isGen = ev.type === "General" || isGeneralEvent(ev.name);
+    const scope = getEventScope(ev.name);
+
+    let targetCats = [];
+    if (isGen || ev.studentCategory === "General") {
+        targetCats = ["General"];
+    } else if (ev.studentCategory === "Junior") {
+        targetCats = ["Junior"];
+    } else if (ev.studentCategory === "Senior") {
+        targetCats = ["Senior"];
+    } else if (ev.studentCategory === "Junior & Senior" || ev.studentCategory === "Junior/Senior") {
+        targetCats = ["Junior", "Senior"];
+    } else if (scope === "Junior") {
+        targetCats = ["Junior"];
+    } else if (scope === "Senior") {
+        targetCats = ["Senior"];
+    } else {
+        targetCats = ["Junior", "Senior"];
+    }
+
+    const eventResults = resultsList.filter(r =>
+        r.eventId === ev.id ||
+        (r.eventName && ev.name && r.eventName.toLowerCase().trim() === ev.name.toLowerCase().trim())
+    );
+
+    const breakdown = targetCats.map(cat => {
+        const catRes = eventResults.filter(r => {
+            const rCat = (r.studentCategory || "").trim();
+            if (cat === "General") {
+                return !rCat || rCat === "General";
+            }
+            return rCat.toUpperCase() === cat.toUpperCase();
+        });
+
+        const hasFirst = catRes.some(r => r.place === "First");
+        const hasSecond = catRes.some(r => r.place === "Second");
+        const hasThird = catRes.some(r => r.place === "Third");
+        const count = catRes.length;
+
+        let status = "pending";
+        let icon = "⚪";
+
+        if (hasFirst && (hasSecond || hasThird || count >= 3)) {
+            status = "completed";
+            icon = "🟢";
+        } else if (count > 0 || hasFirst || hasSecond || hasThird) {
+            status = "in_progress";
+            icon = "🟡";
+        }
+
+        return {
+            category: cat,
+            status,
+            icon,
+            count,
+            hasFirst,
+            hasSecond,
+            hasThird,
+            catRes
+        };
+    });
+
+    const isFullyCompleted = breakdown.length > 0 && breakdown.every(b => b.status === "completed");
+    const hasAnyResults = breakdown.some(b => b.count > 0);
+
+    const parts = breakdown.map(b => `${b.category}: ${b.icon} ${b.status === 'completed' ? 'Done' : b.status === 'in_progress' ? 'In Prog' : 'Pending'}`);
+    const label = parts.length > 0 ? `[${parts.join(" | ")}]` : "";
+
+    return {
+        targetCats,
+        breakdown,
+        isFullyCompleted,
+        hasAnyResults,
+        label
+    };
+};
 
 export default function ManageResults() {
     const [events, setEvents] = useState([]);
@@ -372,12 +452,57 @@ export default function ManageResults() {
             showToast(editId ? `Result updated! Points: ${totalPoints}` : `Result published! Points: ${totalPoints}`, "success");
             logAppEvent(editId ? 'result_updated' : 'result_published', { event: payload.eventName, category: payload.category, place: payload.place, points: totalPoints });
 
-            // Full reset — clear all fields to prevent duplicate submissions
-            setFormData({ eventId: "", eventName: "", place: "First", name: "", team: "", grade: "", chestNo: "" });
-            setSelectedStudentId("");
-            setFilteredParticipants([]);
-            setEditId(null);
-            fetchResults();
+            const currentEvId = formData.eventId;
+            const currentEvName = payload.eventName || formData.eventName;
+            const publishedPlace = formData.place;
+            const currentStudentCat = formData.studentCategory;
+
+            // Auto-advance prize place
+            let nextPlace = "First";
+            if (publishedPlace === "First") nextPlace = "Second";
+            else if (publishedPlace === "Second") nextPlace = "Third";
+            else if (publishedPlace === "Third") nextPlace = "First";
+
+            await fetchResults();
+
+            if (editId) {
+                setEditId(null);
+                setFormData(prev => ({
+                    ...prev,
+                    place: "First",
+                    name: "",
+                    team: "",
+                    grade: "",
+                    chestNo: ""
+                }));
+                setSelectedStudentId("");
+            } else {
+                // Retain selected event so form does not refresh/reset event selection!
+                setFormData(prev => ({
+                    ...prev,
+                    eventId: currentEvId,
+                    eventName: currentEvName,
+                    place: nextPlace,
+                    name: "",
+                    team: "",
+                    grade: "",
+                    chestNo: "",
+                    studentCategory: currentStudentCat || (publishCategoryFilter !== "All" ? publishCategoryFilter : "")
+                }));
+                setSelectedStudentId("");
+
+                if (currentEvName) {
+                    const registered = masterParticipants.filter(p => {
+                        const onStage = p["ON STAGE EVENTS"] || p["ON STAGE ITEMS"] || "";
+                        const offStage = p["OFF STAGE EVENTS"] || p["OFF STAGE ITEMS"] || p["OFF STAGE ITEMES"] || "";
+                        const general = p["GENERAL EVENTS"] || p["OFF STAGE - GENERAL"] || p["ON STAGE - GENERAL"] || "";
+                        const allEventsList = (onStage + "," + offStage + "," + general).split(',').map(s => s.trim().toUpperCase());
+                        return allEventsList.includes(currentEvName.toUpperCase().trim());
+                    });
+                    setAllRegisteredParticipants(registered);
+                    setFilteredParticipants(filterParticipantsByCategory(registered, publishCategoryFilter));
+                }
+            }
         } catch (err) {
             console.error(err);
             showToast("Error saving result", "error");
@@ -645,6 +770,252 @@ export default function ManageResults() {
 
     // Event Search State
     const [eventSearchTerm, setEventSearchTerm] = useState("");
+    const [overviewSearch, setOverviewSearch] = useState("");
+    const [overviewStatusFilter, setOverviewStatusFilter] = useState("All");
+
+    // Batch Result Upload State
+    const [publishMode, setPublishMode] = useState("batch"); // "batch" | "single"
+    const [batchRows, setBatchRows] = useState([
+        { id: "row-1", place: "First", studentId: "", name: "", chestNo: "", team: "", grade: "A+", studentClass: "" },
+        { id: "row-2", place: "Second", studentId: "", name: "", chestNo: "", team: "", grade: "A", studentClass: "" },
+        { id: "row-3", place: "Third", studentId: "", name: "", chestNo: "", team: "", grade: "B", studentClass: "" }
+    ]);
+
+    const handleBatchStudentChange = (index, studentId) => {
+        const nextRows = [...batchRows];
+        const row = { ...nextRows[index], studentId };
+
+        if (studentId === "Manual Entry") {
+            row.name = "";
+            row.team = "";
+            row.chestNo = "";
+            row.studentClass = "";
+        } else {
+            const student = filteredParticipants.find(p => p._id === studentId) || masterParticipants.find(p => p._id === studentId);
+            if (student) {
+                const studentClass = student["CLASS"] || student["STUDENT CLASS"] || student["CLASS NAME"] || student["class"] || "";
+                const resolvedCat = resolveClassCategory(studentClass, student["CATEGORY"] || student["STUDENT CATEGORY"]);
+                row.name = student["CANDIDATE NAME"] || student["CANDIDATE  FULL NAME"] || "";
+                row.team = student["TEAM"] || student["TEAM NAME"] || "";
+                row.chestNo = student["CHEST NUMBER"] || student["CHEST NO"] || "";
+                row.studentClass = studentClass;
+                row.studentCategory = resolvedCat !== "General" ? resolvedCat : (formData.studentCategory || "General");
+            }
+        }
+        nextRows[index] = row;
+        setBatchRows(nextRows);
+    };
+
+    const handleBatchTeamChange = (index, teamName) => {
+        const nextRows = [...batchRows];
+        nextRows[index] = {
+            ...nextRows[index],
+            team: teamName,
+            name: teamName ? `${teamName} Team` : ""
+        };
+        setBatchRows(nextRows);
+    };
+
+    const handleBatchRowUpdate = (index, field, value) => {
+        const nextRows = [...batchRows];
+        nextRows[index] = { ...nextRows[index], [field]: value };
+        setBatchRows(nextRows);
+    };
+
+    const handleAddBatchRow = () => {
+        setBatchRows(prev => [
+            ...prev,
+            { id: `row-${Date.now()}`, place: "None", studentId: "", name: "", chestNo: "", team: "", grade: "A", studentClass: "" }
+        ]);
+    };
+
+    const handleRemoveBatchRow = (index) => {
+        if (batchRows.length <= 1) return;
+        setBatchRows(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handlePopulateBatchFromCSV = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            let csvData = event.target.result;
+            if (csvData.charCodeAt(0) === 0xFEFF) csvData = csvData.slice(1);
+
+            const lines = csvData.split(/\r?\n/).filter(line => line.trim() !== "");
+            if (lines.length < 2) {
+                showToast("CSV file is empty or missing data rows.", "error");
+                return;
+            }
+
+            const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+            const newRows = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(",").map(v => v.trim());
+                const row = {};
+                headers.forEach((h, idx) => {
+                    row[h] = values[idx] || "";
+                });
+
+                const place = row.prize || row.place || (i === 1 ? "First" : i === 2 ? "Second" : i === 3 ? "Third" : "None");
+                const name = row.name || row.studentname || row.candidate;
+                const team = row.team;
+                const grade = row.grade || "A";
+                const chestNo = row.chestno || row.chestnumber;
+
+                if (name || team) {
+                    const match = masterParticipants.find(p =>
+                        (chestNo && String(p["CHEST NUMBER"] || p["CHEST NO"]).trim() === String(chestNo).trim()) ||
+                        ((p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"])?.trim().toLowerCase() === (name || "").trim().toLowerCase())
+                    );
+
+                    newRows.push({
+                        id: `csv-row-${i}`,
+                        place: place,
+                        studentId: match ? match._id : "Manual Entry",
+                        name: name || (match ? (match["CANDIDATE NAME"] || match["CANDIDATE  FULL NAME"]) : ""),
+                        team: team || (match ? (match["TEAM"] || match["TEAM NAME"]) : ""),
+                        chestNo: chestNo || (match ? (match["CHEST NUMBER"] || match["CHEST NO"]) : ""),
+                        grade: grade,
+                        studentClass: match ? (match["CLASS"] || match["STUDENT CLASS"]) : ""
+                    });
+                }
+            }
+
+            if (newRows.length > 0) {
+                setBatchRows(newRows);
+                showToast(`Loaded ${newRows.length} rows into Batch Form! Review and click Publish All.`, "success");
+            } else {
+                showToast("No valid result rows found in CSV.", "warning");
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const handleBatchSubmit = async (e) => {
+        e.preventDefault();
+        if (isSubmitting) return;
+        if (!formData.eventId) {
+            showToast("Please select an event first", "error");
+            return;
+        }
+
+        const ev = events.find(event => event.id === formData.eventId);
+        if (!ev) {
+            showToast("Selected event not found", "error");
+            return;
+        }
+
+        const isGeneral = ev.type === "General" || isGeneralEvent(ev.name);
+        const validRows = batchRows.filter(r => (isGeneral ? (r.team && r.team.trim() !== "") : ((r.name && r.name.trim() !== "") || (r.studentId && r.studentId !== ""))));
+
+        if (validRows.length === 0) {
+            showToast("Please fill in at least one winner before publishing.", "error");
+            return;
+        }
+
+        const placeCounts = {};
+        validRows.forEach(r => {
+            if (r.place && r.place !== "None") {
+                placeCounts[r.place] = (placeCounts[r.place] || 0) + 1;
+            }
+        });
+
+        const duplicatePlaces = Object.entries(placeCounts).filter(([, count]) => count > 1);
+        if (duplicatePlaces.length > 0) {
+            const confirmTie = await confirm(`Multiple candidates are assigned to: ${duplicatePlaces.map(([p]) => p).join(", ")}. Do you want to publish as a Tie?`);
+            if (!confirmTie) return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const category = ev.category || "A";
+            const batch = writeBatch(db);
+            let publishedCount = 0;
+
+            for (const r of validRows) {
+                let actualStudentCategory = ev.studentCategory || "General";
+
+                if (publishCategoryFilter !== "All") {
+                    actualStudentCategory = publishCategoryFilter;
+                } else if (actualStudentCategory === "Junior & Senior" || actualStudentCategory === "Junior/Senior") {
+                    const resolvedFromClass = resolveClassCategory(r.studentClass, r.studentCategory);
+                    actualStudentCategory = resolvedFromClass !== "General" ? resolvedFromClass : "Junior";
+                } else {
+                    actualStudentCategory = resolveClassCategory(r.studentClass, actualStudentCategory);
+                }
+
+                const totalPoints = calculatePoints({
+                    category,
+                    place: r.place,
+                    grade: r.grade
+                }, scoringConfig);
+
+                const payload = {
+                    eventId: ev.id,
+                    eventName: ev.name,
+                    place: r.place,
+                    name: r.name,
+                    team: r.team,
+                    grade: r.grade || "",
+                    chestNo: r.chestNo || "",
+                    category: isGeneral ? "General" : category,
+                    studentCategory: actualStudentCategory,
+                    studentClass: r.studentClass || "",
+                    points: totalPoints,
+                    timestamp: serverTimestamp()
+                };
+
+                const resultRef = doc(collection(db, "results"));
+                batch.set(resultRef, payload);
+
+                if (payload.team && totalPoints > 0) {
+                    const teamScoreRef = doc(db, "teamScores", payload.team.toUpperCase());
+                    batch.set(teamScoreRef, {
+                        totalPoints: increment(totalPoints),
+                        ...(isGeneral
+                            ? { generalPoints: increment(totalPoints) }
+                            : { regularPoints: increment(totalPoints) }
+                        ),
+                        lastUpdated: serverTimestamp()
+                    }, { merge: true });
+                }
+
+                const auditRef = doc(collection(db, "auditLogs"));
+                batch.set(auditRef, {
+                    action: "publish_result_batch",
+                    timestamp: serverTimestamp(),
+                    event: payload.eventName,
+                    team: payload.team,
+                    pointsAwarded: totalPoints,
+                    resultId: resultRef.id,
+                    admin: auth.currentUser?.email || "unknown"
+                });
+
+                publishedCount++;
+            }
+
+            await batch.commit();
+
+            showToast(`🎉 Successfully published all ${publishedCount} results for "${ev.name}"!`, "success");
+            logAppEvent("batch_results_published", { event: ev.name, count: publishedCount });
+
+            setBatchRows([
+                { id: "row-1", place: "First", studentId: "", name: "", chestNo: "", team: "", grade: "A+", studentClass: "" },
+                { id: "row-2", place: "Second", studentId: "", name: "", chestNo: "", team: "", grade: "A", studentClass: "" },
+                { id: "row-3", place: "Third", studentId: "", name: "", chestNo: "", team: "", grade: "B", studentClass: "" }
+            ]);
+
+            await fetchResults();
+        } catch (err) {
+            console.error("Batch publish failed:", err);
+            showToast("Failed to publish batch results.", "error");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     // Student-First Search State
     const [studentSearchTerm, setStudentSearchTerm] = useState("");
@@ -922,7 +1293,7 @@ export default function ManageResults() {
                 const nameMap = new Map();
                 masterParticipants.forEach(p => {
                     const name = (p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"] || "").trim();
-                    if (!name) return;
+                    if (!name || name.toLowerCase().includes("team registration")) return;
 
                     if (!nameMap.has(name)) {
                         nameMap.set(name, []);
@@ -995,268 +1366,815 @@ export default function ManageResults() {
             })()}
 
 
-            <h3 className={styles.sectionTitle}>{editId ? "Edit Result" : "Publish Results (Winners)"}</h3>
+            {/* EVENT CATEGORIES PUBLICATION OVERVIEW */}
+            <div className="card" style={{ marginBottom: '25px', padding: '18px', background: 'var(--bg-secondary)', border: '1px solid var(--border-soft)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                    <h4 style={{ margin: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        📅 Event Category Publication Progress Overview
+                    </h4>
+                    <input
+                        type="text"
+                        placeholder="🔍 Search Event Status..."
+                        value={overviewSearch}
+                        onChange={(e) => setOverviewSearch(e.target.value)}
+                        className="admin-input"
+                        style={{ padding: '6px 12px', fontSize: '0.82rem', flex: '0 1 220px' }}
+                    />
+                </div>
 
-            <form onSubmit={handleSubmit} className={styles.card}>
-                <div className={styles.formGrid}>
-                    <div className="full-width" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                        <input
-                            placeholder="🔍 Filter Events..."
-                            value={eventSearchTerm}
-                            onChange={(e) => setEventSearchTerm(e.target.value)}
-                            className="admin-input full-width"
-                        />
-                        <select
-                            className="admin-select full-width"
-                            value={formData.eventId}
-                            onChange={handleEventChange}
-                            required
-                        >
-                            <option value="">-- Select Event --</option>
-                            {filteredEventsForSelect.map(ev => {
-                                const eventResults = results.filter(r => r.eventId === ev.id);
-                                const hasFirst = eventResults.some(r => r.place === "First");
-                                const hasSecond = eventResults.some(r => r.place === "Second");
-                                const hasThird = eventResults.some(r => r.place === "Third");
-                                const isCompleted = hasFirst && hasSecond && hasThird;
+                {(() => {
+                    const eventsWithBreakdown = events.map(ev => ({
+                        ev,
+                        ...getEventCategoryBreakdown(ev, results)
+                    }));
 
-                                let statusIndicator = "";
-                                if (isCompleted) {
-                                    statusIndicator = "🟢 (Completed)";
-                                } else if (hasFirst || hasSecond || hasThird) {
-                                    statusIndicator = "🟡 (In Progress)";
-                                } else {
-                                    statusIndicator = "⚪ (No Results)";
-                                }
+                    const totalEventsCount = events.length;
+                    const fullyCompletedCount = eventsWithBreakdown.filter(item => item.isFullyCompleted).length;
+                    const inProgressCount = eventsWithBreakdown.filter(item => !item.isFullyCompleted && item.hasAnyResults).length;
+                    const pendingCount = eventsWithBreakdown.filter(item => !item.hasAnyResults).length;
 
-                                return (
-                                    <option key={ev.id} value={ev.id}>
-                                        {ev.name} {statusIndicator}
-                                    </option>
-                                );
-                            })}
-                        </select>
+                    const filteredOverviewEvents = eventsWithBreakdown.filter(({ ev, isFullyCompleted, hasAnyResults }) => {
+                        const q = overviewSearch.toLowerCase();
+                        const matchesSearch = ev.name.toLowerCase().includes(q);
+                        if (!matchesSearch) return false;
+                        if (overviewStatusFilter === "Completed") return isFullyCompleted;
+                        if (overviewStatusFilter === "InProgress") return !isFullyCompleted && hasAnyResults;
+                        if (overviewStatusFilter === "Pending") return !hasAnyResults;
+                        return true;
+                    });
 
-                        {/* STUDENT FINDER */}
-                        <div style={{ position: 'relative' }}>
-                            <input
-                                placeholder="🎓 Find by Student Name or Event..."
-                                value={studentSearchTerm}
-                                onChange={handleStudentSearchChange}
-                                className="admin-input full-width"
-                                style={{ marginTop: '5px' }}
-                            />
-                            {studentEventSuggestions.length > 0 && (
-                                <ul style={{
-                                    position: 'absolute', top: '100%', left: 0, right: 0,
-                                    background: '#1a1a1a', border: '1px solid #444',
-                                    listStyle: 'none', padding: 0, margin: 0, zIndex: 100,
-                                    maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 10px rgba(0,0,0,0.5)'
-                                }}>
-                                    {studentEventSuggestions.map((s, i) => (
-                                        <li
-                                            key={i}
-                                            onClick={() => selectStudentEvent(s)}
-                                            style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-soft)', cursor: 'pointer', fontSize: '0.85rem' }}
-                                            onMouseEnter={e => e.target.style.background = 'var(--surface-hover)'}
-                                            onMouseLeave={e => e.target.style.background = 'transparent'}
-                                        >
-                                            <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>{s.studentName}</span>
-                                            <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>({s.chestNo})</span>
-                                            <br />
-                                            <span style={{ color: 'var(--primary)', fontSize: '0.75rem' }}>👉 {s.eventName}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                        <select
-                            className="admin-select"
-                            value={formData.place}
-                            onChange={e => setFormData({ ...formData, place: e.target.value })}
-                        >
-                            <option value="First">First Prize 🥇</option>
-                            <option value="Second">Second Prize 🥈</option>
-                            <option value="Third">Third Prize 🥉</option>
-                            <option value="None">None (Grade Only)</option>
-                        </select>
-                        {(() => {
-                            const targetCat = formData.studentCategory || (publishCategoryFilter !== "All" ? publishCategoryFilter : "");
-                            const existingWinner = results.find(r =>
-                                r.eventId === formData.eventId &&
-                                r.place === formData.place &&
-                                r.id !== editId &&
-                                r.place !== "None" &&
-                                (!targetCat || !r.studentCategory || r.studentCategory === targetCat)
-                            );
-                            if (existingWinner) {
-                                return (
-                                    <div style={{ color: '#facc15', fontSize: '0.85rem', padding: '5px' }}>
-                                        ⚠️ Warning: A {formData.place} prize winner already exists for this event in {targetCat || 'this category'} ({existingWinner.name}). Submitting this will create a tie.
-                                    </div>
-                                );
-                            }
-                            return null;
-                        })()}
-                    </div>
-
-                    {/* CLASS CATEGORY FILTER FOR CANDIDATE SELECTION */}
-                    {formData.eventId && !isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) && (
-                        <div className="full-width" style={{ marginTop: '10px', marginBottom: '5px' }}>
-                            <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                🎯 Filter Candidates by Class Category:
-                            </label>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                {["All", "Junior", "Senior", "General"].map(cat => (
-                                    <button
-                                        key={cat}
-                                        type="button"
-                                        style={{
-                                            background: publishCategoryFilter === cat ? "var(--primary)" : "var(--bg-tertiary)",
-                                            color: "white",
-                                            border: "1px solid var(--border-soft)",
-                                            padding: "5px 14px",
-                                            borderRadius: "16px",
-                                            fontSize: "0.8rem",
-                                            cursor: "pointer",
-                                            fontWeight: "600",
-                                            transition: "all 0.2s ease"
-                                        }}
-                                        onClick={() => {
-                                            setPublishCategoryFilter(cat);
-                                            setFilteredParticipants(filterParticipantsByCategory(allRegisteredParticipants, cat));
-                                            if (cat !== "All") {
-                                                setFormData(prev => ({ ...prev, studentCategory: cat }));
-                                            }
-                                        }}
-                                    >
-                                        {cat === "All" ? "📋 All Registered" : cat === "Junior" ? "👤 Thamheediyya (Junior)" : cat === "Senior" ? "👤 Aliya (Senior)" : `👤 ${cat}`}
-                                    </button>
-                                ))}
+                    return (
+                        <>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => setOverviewStatusFilter("All")}
+                                    style={{
+                                        background: overviewStatusFilter === "All" ? "var(--primary)" : "var(--bg-tertiary)",
+                                        color: "white", border: "1px solid var(--border-soft)", padding: "5px 12px", borderRadius: "16px", fontSize: "0.78rem", cursor: "pointer", fontWeight: "600"
+                                    }}
+                                >
+                                    📋 All ({totalEventsCount})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setOverviewStatusFilter("Completed")}
+                                    style={{
+                                        background: overviewStatusFilter === "Completed" ? "#22c55e" : "var(--bg-tertiary)",
+                                        color: "white", border: "1px solid var(--border-soft)", padding: "5px 12px", borderRadius: "16px", fontSize: "0.78rem", cursor: "pointer", fontWeight: "600"
+                                    }}
+                                >
+                                    🟢 Completed ({fullyCompletedCount})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setOverviewStatusFilter("InProgress")}
+                                    style={{
+                                        background: overviewStatusFilter === "InProgress" ? "#eab308" : "var(--bg-tertiary)",
+                                        color: "white", border: "1px solid var(--border-soft)", padding: "5px 12px", borderRadius: "16px", fontSize: "0.78rem", cursor: "pointer", fontWeight: "600"
+                                    }}
+                                >
+                                    🟡 In Progress ({inProgressCount})
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setOverviewStatusFilter("Pending")}
+                                    style={{
+                                        background: overviewStatusFilter === "Pending" ? "#64748b" : "var(--bg-tertiary)",
+                                        color: "white", border: "1px solid var(--border-soft)", padding: "5px 12px", borderRadius: "16px", fontSize: "0.78rem", cursor: "pointer", fontWeight: "600"
+                                    }}
+                                >
+                                    ⚪ Pending ({pendingCount})
+                                </button>
                             </div>
-                        </div>
-                    )}
 
-                    {/* Dynamic Selection: Team for General, Student for Others */}
-                    {(
-                        (() => {
-                            const evName = events.find(e => e.id === formData.eventId)?.name;
-                            return isGeneralEvent(evName);
-                        })()
-                    ) ? (
-                        <div className="full-width" style={{ marginBottom: '15px' }}>
-                            <label style={{ color: '#aaa', fontSize: '0.8rem', marginBottom: '5px', display: 'block' }}>Select Winning Team (General Event)</label>
+                            <div className="admin-table-container" style={{ maxHeight: '220px' }}>
+                                <table className="admin-table" style={{ fontSize: '0.8rem' }}>
+                                    <thead>
+                                        <tr>
+                                            <th>Event Name</th>
+                                            <th>Category Scope</th>
+                                            <th>Published Status per Category</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredOverviewEvents.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No matching events found.</td>
+                                            </tr>
+                                        ) : (
+                                            filteredOverviewEvents.map(({ ev, breakdown }) => (
+                                                <tr key={ev.id} style={{ background: formData.eventId === ev.id ? 'rgba(59, 130, 246, 0.12)' : 'transparent' }}>
+                                                    <td style={{ fontWeight: 'bold' }}>{ev.name}</td>
+                                                    <td>{ev.studentCategory || getEventScope(ev.name)}</td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                            {breakdown.map(b => (
+                                                                <span key={b.category} style={{
+                                                                    fontSize: '0.72rem', padding: '2px 8px', borderRadius: '10px',
+                                                                    background: b.status === 'completed' ? 'rgba(34, 197, 94, 0.2)' : b.status === 'in_progress' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                                                                    color: b.status === 'completed' ? '#4ade80' : b.status === 'in_progress' ? '#facc15' : 'var(--text-muted)'
+                                                                }}>
+                                                                    {b.category}: {b.icon} {b.status === 'completed' ? 'Done' : b.status === 'in_progress' ? 'In Prog' : 'Pending'}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                handleEventChange({ target: { value: ev.id } });
+                                                                const formEl = document.querySelector('form');
+                                                                if (formEl) formEl.scrollIntoView({ behavior: 'smooth' });
+                                                            }}
+                                                            style={{
+                                                                background: formData.eventId === ev.id ? 'var(--primary)' : 'var(--bg-tertiary)',
+                                                                color: 'white', border: '1px solid var(--border-soft)',
+                                                                padding: '3px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold'
+                                                            }}
+                                                        >
+                                                            {formData.eventId === ev.id ? 'Active ✓' : 'Select ⚡'}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    );
+                })()}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginTop: '20px', marginBottom: '12px' }}>
+                <h3 className={styles.sectionTitle} style={{ margin: 0 }}>
+                    {editId ? "Edit Result" : "Publish Event Results"}
+                </h3>
+                {!editId && (
+                    <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-secondary)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-soft)' }}>
+                        <button
+                            type="button"
+                            onClick={() => setPublishMode("batch")}
+                            style={{
+                                background: publishMode === "batch" ? "var(--primary)" : "transparent",
+                                color: "white",
+                                border: "none",
+                                padding: "6px 14px",
+                                borderRadius: "6px",
+                                fontSize: "0.82rem",
+                                fontWeight: "bold",
+                                cursor: "pointer",
+                                transition: "all 0.2s ease"
+                            }}
+                        >
+                            ⚡ Batch Mode (Publish All at Once)
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPublishMode("single")}
+                            style={{
+                                background: publishMode === "single" ? "var(--primary)" : "transparent",
+                                color: "white",
+                                border: "none",
+                                padding: "6px 14px",
+                                borderRadius: "6px",
+                                fontSize: "0.82rem",
+                                fontWeight: "bold",
+                                cursor: "pointer",
+                                transition: "all 0.2s ease"
+                            }}
+                        >
+                            👤 Single Winner Mode
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            {/* BATCH MODE FORM */}
+            {publishMode === "batch" && !editId ? (
+                <form onSubmit={handleBatchSubmit} className={styles.card}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                            <input
+                                placeholder="🔍 Filter Events..."
+                                value={eventSearchTerm}
+                                onChange={(e) => setEventSearchTerm(e.target.value)}
+                                className="admin-input full-width"
+                            />
                             <select
                                 className="admin-select full-width"
-                                value={formData.team}
-                                onChange={(e) => {
-                                    const t = e.target.value;
-                                    setFormData({
-                                        ...formData,
-                                        team: t,
-                                        name: t ? `${t} Team` : "" // Auto-set name
-                                    });
-                                    setSelectedStudentId("Manual Entry"); // Bypass student validation
-                                }}
+                                value={formData.eventId}
+                                onChange={handleEventChange}
                                 required
                             >
-                                <option value="">-- Select Team --</option>
-                                {liveTeams.map(team => (
-                                    <option key={team} value={team}>{team}</option>
-                                ))}
+                                <option value="">-- Select Event --</option>
+                                {filteredEventsForSelect.map(ev => {
+                                    const categoryInfo = getEventCategoryBreakdown(ev, results);
+                                    return (
+                                        <option key={ev.id} value={ev.id}>
+                                            {ev.name} {categoryInfo.label}
+                                        </option>
+                                    );
+                                })}
                             </select>
-                        </div>
-                    ) : (
-                        <select
-                            className="admin-select full-width"
-                            value={selectedStudentId}
-                            onChange={handleStudentChange}
-                            required={selectedStudentId !== "Manual Entry"}
-                            disabled={!formData.eventId}
-                        >
-                            <option value="">-- Select Registered Student ({filteredParticipants.length} available) --</option>
-                            {filteredParticipants.map((p) => {
-                                const chestNo = p["CHEST NUMBER"] || p["CHEST NO"];
-                                const name = p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"];
-                                const team = p["TEAM"] || p["TEAM NAME"];
-                                const cicNo = p["CIC NO"] || p["CIC NUMBER"];
-                                const catTag = (p["CATEGORY"] || p["STUDENT CATEGORY"]) ? `[${p["CATEGORY"] || p["STUDENT CATEGORY"]}] ` : "";
 
-                                // Check for potential issues
-                                const hasDuplicateName = filteredParticipants.filter(
-                                    participant => (participant["CANDIDATE NAME"] || participant["CANDIDATE  FULL NAME"]) === name
-                                ).length > 1;
-
-                                const hasNoChestNo = !chestNo;
-                                const hasNoTeam = !team;
-
-                                // Build warning flags
-                                let warningFlag = "";
-                                if (hasDuplicateName && chestNo) warningFlag = "⚠️ DUP ";
-                                else if (hasNoChestNo) warningFlag = "⚠️ NO-CHEST ";
-                                else if (hasNoTeam) warningFlag = "⚠️ NO-TEAM ";
-
+                            {/* ACTIVE EVENT CATEGORY STATUS CARD */}
+                            {(() => {
+                                const activeEv = events.find(e => e.id === formData.eventId);
+                                if (!activeEv) return null;
+                                const { breakdown } = getEventCategoryBreakdown(activeEv, results);
                                 return (
-                                    <option key={p._id} value={p._id}>
-                                        {warningFlag}{catTag}{chestNo ? `[${chestNo}] ` : "[---] "}{name}{team ? ` - ${team}` : ""}{cicNo ? ` (CIC: ${cicNo})` : ""}
-                                    </option>
+                                    <div style={{
+                                        background: 'var(--bg-tertiary)',
+                                        border: '1px solid var(--border-soft)',
+                                        borderRadius: '8px',
+                                        padding: '12px 14px',
+                                        marginTop: '8px',
+                                        marginBottom: '8px'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                                            <span style={{ fontSize: '0.82rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+                                                📊 Published Category Results for "{activeEv.name}":
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData({ eventId: "", eventName: "", place: "First", name: "", team: "", grade: "", chestNo: "", studentCategory: "" });
+                                                    setSelectedStudentId("");
+                                                    setFilteredParticipants([]);
+                                                }}
+                                                style={{
+                                                    background: 'transparent',
+                                                    border: '1px solid var(--border-soft)',
+                                                    color: 'var(--text-secondary)',
+                                                    fontSize: '0.72rem',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                ✕ Deselect Event
+                                            </button>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+                                            {breakdown.map(b => (
+                                                <div key={b.category} style={{
+                                                    background: 'var(--bg-secondary)',
+                                                    border: `1px solid ${b.status === 'completed' ? 'rgba(34, 197, 94, 0.4)' : b.status === 'in_progress' ? 'rgba(234, 179, 8, 0.4)' : 'var(--border-soft)'}`,
+                                                    borderRadius: '6px',
+                                                    padding: '8px 10px'
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 'bold', fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                                                        <span>{b.category} Category</span>
+                                                        <span style={{
+                                                            fontSize: '0.7rem',
+                                                            padding: '1px 6px',
+                                                            borderRadius: '4px',
+                                                            background: b.status === 'completed' ? 'rgba(34, 197, 94, 0.2)' : b.status === 'in_progress' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                                                            color: b.status === 'completed' ? '#4ade80' : b.status === 'in_progress' ? '#facc15' : 'var(--text-muted)'
+                                                        }}>
+                                                            {b.icon} {b.status === 'completed' ? 'Completed' : b.status === 'in_progress' ? 'In Progress' : 'No Results'}
+                                                        </span>
+                                                    </div>
+                                                    {b.catRes.length > 0 ? (
+                                                        <ul style={{ margin: '4px 0 0 0', paddingLeft: '14px', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                                                            {b.catRes.map(r => (
+                                                                <li key={r.id}>
+                                                                    <strong style={{ color: 'var(--primary)' }}>{r.place}:</strong> {r.name} ({r.team}) {r.grade ? `[${r.grade}]` : ''}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    ) : (
+                                                        <p style={{ margin: '4px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                                            No published winners yet.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
                                 );
-                            })}
-                            <option value="Manual Entry">Enter Manually...</option>
+                            })()}
+                        </div>
+
+                        {formData.eventId && (
+                            <div style={{ marginTop: '10px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                                    <h4 style={{ margin: 0, color: 'var(--primary)', fontSize: '0.95rem' }}>
+                                        🏆 Enter All Winners for "{formData.eventName}" at Once
+                                    </h4>
+                                    <label className={styles.buttonPrimary} style={{ background: 'var(--bg-tertiary)', color: 'var(--text-main)', cursor: 'pointer', fontSize: '0.78rem', padding: '5px 12px', border: '1px solid var(--border-soft)' }}>
+                                        📥 Load CSV for this Event
+                                        <input type="file" accept=".csv" onChange={handlePopulateBatchFromCSV} style={{ display: 'none' }} />
+                                    </label>
+                                </div>
+
+                                {/* CLASS CATEGORY SELECTOR FOR BATCH SUBMISSION */}
+                                {!isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) && (
+                                    <div style={{ marginBottom: '15px', background: 'var(--bg-tertiary)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border-soft)' }}>
+                                        <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '6px' }}>
+                                            🎯 Select Target Category for this Result Entry:
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                            {["All", "Junior", "Senior", "General"].map(cat => (
+                                                <button
+                                                    key={cat}
+                                                    type="button"
+                                                    style={{
+                                                        background: publishCategoryFilter === cat ? "var(--primary)" : "var(--bg-secondary)",
+                                                        color: "white",
+                                                        border: "1px solid var(--border-soft)",
+                                                        padding: "4px 12px",
+                                                        borderRadius: "14px",
+                                                        fontSize: "0.78rem",
+                                                        cursor: "pointer",
+                                                        fontWeight: "600"
+                                                    }}
+                                                    onClick={() => {
+                                                        setPublishCategoryFilter(cat);
+                                                        setFilteredParticipants(filterParticipantsByCategory(allRegisteredParticipants, cat));
+                                                        if (cat !== "All") {
+                                                            setFormData(prev => ({ ...prev, studentCategory: cat }));
+                                                        }
+                                                    }}
+                                                >
+                                                    {cat === "All" ? "📋 All Categories" : cat === "Junior" ? "👤 Thamheediyya (Junior)" : cat === "Senior" ? "👤 Aliya (Senior)" : `👤 ${cat}`}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* BATCH WINNERS TABLE */}
+                                <div className="admin-table-container" style={{ marginBottom: '15px' }}>
+                                    <table className="admin-table" style={{ fontSize: '0.85rem' }}>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: '140px' }}>Prize Position</th>
+                                                <th>{isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) ? "Winning Team" : "Student Winner"}</th>
+                                                <th style={{ width: '100px' }}>Grade</th>
+                                                <th style={{ width: '110px' }}>Chest No</th>
+                                                <th style={{ width: '120px' }}>Team</th>
+                                                <th style={{ width: '50px' }}>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {batchRows.map((row, idx) => (
+                                                <tr key={row.id || idx}>
+                                                    <td>
+                                                        <select
+                                                            className="admin-select"
+                                                            style={{ padding: '6px', fontSize: '0.8rem', width: '100%' }}
+                                                            value={row.place}
+                                                            onChange={e => handleBatchRowUpdate(idx, "place", e.target.value)}
+                                                        >
+                                                            <option value="First">First Prize 🥇</option>
+                                                            <option value="Second">Second Prize 🥈</option>
+                                                            <option value="Third">Third Prize 🥉</option>
+                                                            <option value="None">Grade Only (None)</option>
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        {isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) ? (
+                                                            <select
+                                                                className="admin-select"
+                                                                style={{ padding: '6px', fontSize: '0.8rem', width: '100%' }}
+                                                                value={row.team}
+                                                                onChange={e => handleBatchTeamChange(idx, e.target.value)}
+                                                            >
+                                                                <option value="">-- Select Team --</option>
+                                                                {liveTeams.map(t => (
+                                                                    <option key={t} value={t}>{t}</option>
+                                                                ))}
+                                                            </select>
+                                                        ) : (
+                                                            <select
+                                                                className="admin-select"
+                                                                style={{ padding: '6px', fontSize: '0.8rem', width: '100%' }}
+                                                                value={row.studentId}
+                                                                onChange={e => handleBatchStudentChange(idx, e.target.value)}
+                                                            >
+                                                                <option value="">-- Select Candidate ({filteredParticipants.length} available) --</option>
+                                                                {filteredParticipants.map(p => {
+                                                                    const chestNo = p["CHEST NUMBER"] || p["CHEST NO"];
+                                                                    const name = p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"];
+                                                                    const team = p["TEAM"] || p["TEAM NAME"];
+                                                                    return (
+                                                                        <option key={p._id} value={p._id}>
+                                                                            {chestNo ? `[${chestNo}] ` : ""}{name}{team ? ` - ${team}` : ""}
+                                                                        </option>
+                                                                    );
+                                                                })}
+                                                                <option value="Manual Entry">Enter Manually...</option>
+                                                            </select>
+                                                        )}
+                                                        {row.studentId === "Manual Entry" && (
+                                                            <input
+                                                                className="admin-input"
+                                                                style={{ marginTop: '4px', padding: '4px', fontSize: '0.8rem', width: '100%' }}
+                                                                placeholder="Manually Enter Candidate Name"
+                                                                value={row.name}
+                                                                onChange={e => handleBatchRowUpdate(idx, "name", e.target.value)}
+                                                            />
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        <select
+                                                            className="admin-select"
+                                                            style={{ padding: '6px', fontSize: '0.8rem', width: '100%' }}
+                                                            value={row.grade}
+                                                            onChange={e => handleBatchRowUpdate(idx, "grade", e.target.value)}
+                                                        >
+                                                            <option value="A+">A+</option>
+                                                            <option value="A">A</option>
+                                                            <option value="B">B</option>
+                                                            <option value="C">C</option>
+                                                            <option value="">None</option>
+                                                        </select>
+                                                    </td>
+                                                    <td>
+                                                        <input
+                                                            className="admin-input"
+                                                            style={{ padding: '6px', fontSize: '0.8rem', width: '100%' }}
+                                                            placeholder="Chest No"
+                                                            value={row.chestNo}
+                                                            onChange={e => handleBatchRowUpdate(idx, "chestNo", e.target.value)}
+                                                        />
+                                                    </td>
+                                                    <td>
+                                                        <input
+                                                            className="admin-input"
+                                                            style={{ padding: '6px', fontSize: '0.8rem', width: '100%' }}
+                                                            placeholder="Team"
+                                                            value={row.team}
+                                                            onChange={e => handleBatchRowUpdate(idx, "team", e.target.value)}
+                                                        />
+                                                    </td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveBatchRow(idx)}
+                                                            style={{ background: 'transparent', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '0.9rem' }}
+                                                            title="Remove row"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={handleAddBatchRow}
+                                        style={{ background: 'var(--bg-tertiary)', color: 'var(--text-main)', border: '1px solid var(--border-soft)', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: '600' }}
+                                    >
+                                        ➕ Add Grade-Only / Extra Winner Row
+                                    </button>
+
+                                    <button
+                                        type="submit"
+                                        className={styles.buttonPrimary}
+                                        style={{ padding: '10px 24px', fontSize: '0.9rem', opacity: isSubmitting ? 0.6 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+                                        disabled={isSubmitting}
+                                    >
+                                        {isSubmitting ? "⏳ Publishing All Results..." : `🚀 Publish All Results for ${formData.eventName || 'Event'}`}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </form>
+            ) : (
+                /* SINGLE RESULT FORM */
+                <form onSubmit={handleSubmit} className={styles.card}>
+                    <div className={styles.formGrid}>
+                        <div className="full-width" style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                            <input
+                                placeholder="🔍 Filter Events..."
+                                value={eventSearchTerm}
+                                onChange={(e) => setEventSearchTerm(e.target.value)}
+                                className="admin-input full-width"
+                            />
+                            <select
+                                className="admin-select full-width"
+                                value={formData.eventId}
+                                onChange={handleEventChange}
+                                required
+                            >
+                                <option value="">-- Select Event --</option>
+                                {filteredEventsForSelect.map(ev => {
+                                    const categoryInfo = getEventCategoryBreakdown(ev, results);
+
+                                    return (
+                                        <option key={ev.id} value={ev.id}>
+                                            {ev.name} {categoryInfo.label}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+
+                            {/* ACTIVE EVENT CATEGORY STATUS CARD */}
+                            {(() => {
+                                const activeEv = events.find(e => e.id === formData.eventId);
+                                if (!activeEv) return null;
+                                const { breakdown } = getEventCategoryBreakdown(activeEv, results);
+                                return (
+                                    <div style={{
+                                        background: 'var(--bg-tertiary)',
+                                        border: '1px solid var(--border-soft)',
+                                        borderRadius: '8px',
+                                        padding: '12px 14px',
+                                        marginTop: '8px',
+                                        marginBottom: '8px'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                                            <span style={{ fontSize: '0.82rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+                                                📊 Published Category Results for "{activeEv.name}":
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setFormData({ eventId: "", eventName: "", place: "First", name: "", team: "", grade: "", chestNo: "", studentCategory: "" });
+                                                    setSelectedStudentId("");
+                                                    setFilteredParticipants([]);
+                                                }}
+                                                style={{
+                                                    background: 'transparent',
+                                                    border: '1px solid var(--border-soft)',
+                                                    color: 'var(--text-secondary)',
+                                                    fontSize: '0.72rem',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                ✕ Deselect Event
+                                            </button>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+                                            {breakdown.map(b => (
+                                                <div key={b.category} style={{
+                                                    background: 'var(--bg-secondary)',
+                                                    border: `1px solid ${b.status === 'completed' ? 'rgba(34, 197, 94, 0.4)' : b.status === 'in_progress' ? 'rgba(234, 179, 8, 0.4)' : 'var(--border-soft)'}`,
+                                                    borderRadius: '6px',
+                                                    padding: '8px 10px'
+                                                }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 'bold', fontSize: '0.78rem', color: 'var(--text-main)' }}>
+                                                        <span>{b.category} Category</span>
+                                                        <span style={{
+                                                            fontSize: '0.7rem',
+                                                            padding: '1px 6px',
+                                                            borderRadius: '4px',
+                                                            background: b.status === 'completed' ? 'rgba(34, 197, 94, 0.2)' : b.status === 'in_progress' ? 'rgba(234, 179, 8, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                                                            color: b.status === 'completed' ? '#4ade80' : b.status === 'in_progress' ? '#facc15' : 'var(--text-muted)'
+                                                        }}>
+                                                            {b.icon} {b.status === 'completed' ? 'Completed' : b.status === 'in_progress' ? 'In Progress' : 'No Results'}
+                                                        </span>
+                                                    </div>
+                                                    {b.catRes.length > 0 ? (
+                                                        <ul style={{ margin: '4px 0 0 0', paddingLeft: '14px', fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                                                            {b.catRes.map(r => (
+                                                                <li key={r.id}>
+                                                                    <strong style={{ color: 'var(--primary)' }}>{r.place}:</strong> {r.name} ({r.team}) {r.grade ? `[${r.grade}]` : ''}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    ) : (
+                                                        <p style={{ margin: '4px 0 0 0', fontSize: '0.72rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                                            No published winners yet.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* STUDENT FINDER */}
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    placeholder="🎓 Find by Student Name or Event..."
+                                    value={studentSearchTerm}
+                                    onChange={handleStudentSearchChange}
+                                    className="admin-input full-width"
+                                    style={{ marginTop: '5px' }}
+                                />
+                                {studentEventSuggestions.length > 0 && (
+                                    <ul style={{
+                                        position: 'absolute', top: '100%', left: 0, right: 0,
+                                        background: '#1a1a1a', border: '1px solid #444',
+                                        listStyle: 'none', padding: 0, margin: 0, zIndex: 100,
+                                        maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 10px rgba(0,0,0,0.5)'
+                                    }}>
+                                        {studentEventSuggestions.map((s, i) => (
+                                            <li
+                                                key={i}
+                                                onClick={() => selectStudentEvent(s)}
+                                                style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-soft)', cursor: 'pointer', fontSize: '0.85rem' }}
+                                                onMouseEnter={e => e.target.style.background = 'var(--surface-hover)'}
+                                                onMouseLeave={e => e.target.style.background = 'transparent'}
+                                            >
+                                                <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>{s.studentName}</span>
+                                                <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>({s.chestNo})</span>
+                                                <br />
+                                                <span style={{ color: 'var(--primary)', fontSize: '0.75rem' }}>👉 {s.eventName}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                            <select
+                                className="admin-select"
+                                value={formData.place}
+                                onChange={e => setFormData({ ...formData, place: e.target.value })}
+                            >
+                                <option value="First">First Prize 🥇</option>
+                                <option value="Second">Second Prize 🥈</option>
+                                <option value="Third">Third Prize 🥉</option>
+                                <option value="None">None (Grade Only)</option>
+                            </select>
+                            {(() => {
+                                const targetCat = formData.studentCategory || (publishCategoryFilter !== "All" ? publishCategoryFilter : "");
+                                const existingWinner = results.find(r =>
+                                    r.eventId === formData.eventId &&
+                                    r.place === formData.place &&
+                                    r.id !== editId &&
+                                    r.place !== "None" &&
+                                    (!targetCat || !r.studentCategory || r.studentCategory === targetCat)
+                                );
+                                if (existingWinner) {
+                                    return (
+                                        <div style={{ color: '#facc15', fontSize: '0.85rem', padding: '5px' }}>
+                                            ⚠️ Warning: A {formData.place} prize winner already exists for this event in {targetCat || 'this category'} ({existingWinner.name}). Submitting this will create a tie.
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
+                        </div>
+
+                        {/* CLASS CATEGORY FILTER FOR CANDIDATE SELECTION */}
+                        {formData.eventId && !isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) && (
+                            <div className="full-width" style={{ marginTop: '10px', marginBottom: '5px' }}>
+                                <label style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                    🎯 Filter Candidates by Class Category:
+                                </label>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    {["All", "Junior", "Senior", "General"].map(cat => (
+                                        <button
+                                            key={cat}
+                                            type="button"
+                                            style={{
+                                                background: publishCategoryFilter === cat ? "var(--primary)" : "var(--bg-tertiary)",
+                                                color: "white",
+                                                border: "1px solid var(--border-soft)",
+                                                padding: "5px 14px",
+                                                borderRadius: "16px",
+                                                fontSize: "0.8rem",
+                                                cursor: "pointer",
+                                                fontWeight: "600",
+                                                transition: "all 0.2s ease"
+                                            }}
+                                            onClick={() => {
+                                                setPublishCategoryFilter(cat);
+                                                setFilteredParticipants(filterParticipantsByCategory(allRegisteredParticipants, cat));
+                                                if (cat !== "All") {
+                                                    setFormData(prev => ({ ...prev, studentCategory: cat }));
+                                                }
+                                            }}
+                                        >
+                                            {cat === "All" ? "📋 All Registered" : cat === "Junior" ? "👤 Thamheediyya (Junior)" : cat === "Senior" ? "👤 Aliya (Senior)" : `👤 ${cat}`}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Dynamic Selection: Team for General, Student for Others */}
+                        {(
+                            (() => {
+                                const evName = events.find(e => e.id === formData.eventId)?.name;
+                                return isGeneralEvent(evName);
+                            })()
+                        ) ? (
+                            <div className="full-width" style={{ marginBottom: '15px' }}>
+                                <label style={{ color: '#aaa', fontSize: '0.8rem', marginBottom: '5px', display: 'block' }}>Select Winning Team (General Event)</label>
+                                <select
+                                    className="admin-select full-width"
+                                    value={formData.team}
+                                    onChange={(e) => {
+                                        const t = e.target.value;
+                                        setFormData({
+                                            ...formData,
+                                            team: t,
+                                            name: t ? `${t} Team` : "" // Auto-set name
+                                        });
+                                        setSelectedStudentId("Manual Entry"); // Bypass student validation
+                                    }}
+                                    required
+                                >
+                                    <option value="">-- Select Team --</option>
+                                    {liveTeams.map(team => (
+                                        <option key={team} value={team}>{team}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        ) : (
+                            <select
+                                className="admin-select full-width"
+                                value={selectedStudentId}
+                                onChange={handleStudentChange}
+                                required={selectedStudentId !== "Manual Entry"}
+                                disabled={!formData.eventId}
+                            >
+                                <option value="">-- Select Registered Student ({filteredParticipants.length} available) --</option>
+                                {filteredParticipants.map((p) => {
+                                    const chestNo = p["CHEST NUMBER"] || p["CHEST NO"];
+                                    const name = p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"];
+                                    const team = p["TEAM"] || p["TEAM NAME"];
+                                    const cicNo = p["CIC NO"] || p["CIC NUMBER"];
+                                    const catTag = (p["CATEGORY"] || p["STUDENT CATEGORY"]) ? `[${p["CATEGORY"] || p["STUDENT CATEGORY"]}] ` : "";
+
+                                    const hasDuplicateName = filteredParticipants.filter(
+                                        participant => (participant["CANDIDATE NAME"] || participant["CANDIDATE  FULL NAME"]) === name
+                                    ).length > 1;
+
+                                    const hasNoChestNo = !chestNo;
+                                    const hasNoTeam = !team;
+
+                                    let warningFlag = "";
+                                    if (hasDuplicateName && chestNo) warningFlag = "⚠️ DUP ";
+                                    else if (hasNoChestNo) warningFlag = "⚠️ NO-CHEST ";
+                                    else if (hasNoTeam) warningFlag = "⚠️ NO-TEAM ";
+
+                                    return (
+                                        <option key={p._id} value={p._id}>
+                                            {warningFlag}{catTag}{chestNo ? `[${chestNo}] ` : "[---] "}{name}{team ? ` - ${team}` : ""}{cicNo ? ` (CIC: ${cicNo})` : ""}
+                                        </option>
+                                    );
+                                })}
+                                <option value="Manual Entry">Enter Manually...</option>
+                            </select>
+                        )}
+
+                        {selectedStudentId === "Manual Entry" && !isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) && (
+                            <input
+                                className="admin-input full-width"
+                                value={formData.name}
+                                placeholder="Manually Enter Name"
+                                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                required
+                            />
+                        )}
+
+                        <input className="admin-input" placeholder="Team" value={formData.team} onChange={e => setFormData({ ...formData, team: e.target.value })} required />
+                        <select
+                            className="admin-select"
+                            value={formData.grade}
+                            onChange={e => setFormData({ ...formData, grade: e.target.value })}
+                        >
+                            <option value="">-- Select Grade --</option>
+                            <option value="A+">A+</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
                         </select>
-                    )}
-
-                    {selectedStudentId === "Manual Entry" && !isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) && (
-                        <input
-                            className="admin-input full-width"
-                            value={formData.name}
-                            placeholder="Manually Enter Name"
-                            onChange={e => setFormData({ ...formData, name: e.target.value })}
-                            required
-                        />
-                    )}
-
-                    <input className="admin-input" placeholder="Team" value={formData.team} onChange={e => setFormData({ ...formData, team: e.target.value })} required />
-                    <select
-                        className="admin-select"
-                        value={formData.grade}
-                        onChange={e => setFormData({ ...formData, grade: e.target.value })}
-                    >
-                        <option value="">-- Select Grade --</option>
-                        <option value="A+">A+</option>
-                        <option value="A">A</option>
-                        <option value="B">B</option>
-                        <option value="C">C</option>
-                    </select>
-                    <input className="admin-input" placeholder="Chest No" value={formData.chestNo} onChange={e => setFormData({ ...formData, chestNo: e.target.value })} />
-                </div>
-                <div className="admin-form-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginTop: '20px' }}>
-                    <button
-                        type="submit"
-                        className={styles.buttonPrimary}
-                        style={{ flex: '1 1 200px', opacity: isSubmitting ? 0.6 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting ? "⏳ Saving..." : editId ? "Update Result ✓" : "Publish Winner"}
-                    </button>
-                    {editId && (
-                        <button type="button" onClick={handleCancelEdit} className={styles.buttonPrimary} style={{ flex: '1 1 150px', background: 'var(--bg-tertiary)' }}>
-                            Cancel
+                        <input className="admin-input" placeholder="Chest No" value={formData.chestNo} onChange={e => setFormData({ ...formData, chestNo: e.target.value })} />
+                    </div>
+                    <div className="admin-form-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', marginTop: '20px' }}>
+                        <button
+                            type="submit"
+                            className={styles.buttonPrimary}
+                            style={{ flex: '1 1 200px', opacity: isSubmitting ? 0.6 : 1, cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? "⏳ Saving..." : editId ? "Update Result ✓" : "Publish Winner"}
                         </button>
-                    )}
-                    {!editId && (
-                        <label className={styles.buttonPrimary} style={{ flex: '1 1 150px', background: 'var(--bg-secondary)', cursor: 'pointer', textAlign: 'center', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            📥 Bulk Upload (CSV)
-                            <input type="file" accept=".csv" onChange={handleBulkUpload} style={{ display: 'none' }} />
-                        </label>
-                    )}
-                </div>
-            </form>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                        {editId && (
+                            <button type="button" onClick={handleCancelEdit} className={styles.buttonPrimary} style={{ flex: '1 1 150px', background: 'var(--bg-tertiary)' }}>
+                                Cancel
+                            </button>
+                        )}
+                        {!editId && (
+                            <label className={styles.buttonPrimary} style={{ flex: '1 1 150px', background: 'var(--bg-secondary)', cursor: 'pointer', textAlign: 'center', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                📥 Bulk Upload (CSV)
+                                <input type="file" accept=".csv" onChange={handleBulkUpload} style={{ display: 'none' }} />
+                            </label>
+                        )}
+                    </div>
+                </form>
+            )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: '1 1 100%', flexWrap: 'wrap', marginBottom: '10px' }}>
                     <h4 style={{ margin: 0, color: 'var(--primary)', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '10px' }}>
                         Published Results History
@@ -1348,7 +2266,7 @@ export default function ManageResults() {
                         🔄 Recalculate Points
                     </button>
                 </div>
-            </div>
+
             <div className="admin-table-container" style={{ maxHeight: '400px' }}>
                 <table className="admin-table">
                     <thead>

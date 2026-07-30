@@ -557,6 +557,70 @@ export default function ManageStudents() {
         return sortableStudents;
     }, [students, registrations, sortConfig, searchTerm, eventFilter, getStudentRegistration]);
 
+    const handleExportCSV = () => {
+        if (!sortedStudents || sortedStudents.length === 0) {
+            showToast("No student records found to export.", "error");
+            return;
+        }
+
+        const headers = [
+            "Chest Number",
+            "Full Name",
+            "CIC Number",
+            "Class",
+            "Category",
+            "Team",
+            "On Stage Events",
+            "Off Stage Events",
+            "General Events",
+            "Total Events",
+            "Registration Status",
+            "Submitted By Team",
+            "Submission Date"
+        ];
+
+        const rows = sortedStudents.map(student => {
+            const reg = getStudentRegistration(student);
+            const onStage = (reg?.onStageEvents || []).join("; ");
+            const offStage = (reg?.offStageEvents || []).join("; ");
+            const general = (reg?.generalEvents || []).join("; ");
+            const totalEvents = (reg?.onStageEvents?.length || 0) + (reg?.offStageEvents?.length || 0) + (reg?.generalEvents?.length || 0);
+            const regStatus = totalEvents > 0 ? "Registered" : "Not Registered";
+            const submittedBy = reg?.team || student.team || "";
+            const submittedAt = reg?.submittedAt ? new Date(reg.submittedAt).toLocaleDateString() : "";
+
+            return [
+                `"${student.chestNumber || ''}"`,
+                `"${(student.fullName || '').replace(/"/g, '""')}"`,
+                `"${(student.cicNumber || '').replace(/"/g, '""')}"`,
+                `"${(student.studentClass || '').replace(/"/g, '""')}"`,
+                `"${(student.category || '').replace(/"/g, '""')}"`,
+                `"${(student.team || '').replace(/"/g, '""')}"`,
+                `"${onStage.replace(/"/g, '""')}"`,
+                `"${offStage.replace(/"/g, '""')}"`,
+                `"${general.replace(/"/g, '""')}"`,
+                `"${totalEvents}"`,
+                `"${regStatus}"`,
+                `"${submittedBy.replace(/"/g, '""')}"`,
+                `"${submittedAt}"`
+            ];
+        });
+
+        const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        const filterSuffix = eventFilter !== 'all' ? `_${eventFilter}` : '';
+        link.setAttribute("download", `master_students${filterSuffix}_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        showToast(`Exported ${sortedStudents.length} student records to CSV!`);
+    };
+
     return (
         <div className="manage-events-container">
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
@@ -743,12 +807,33 @@ export default function ManageStudents() {
                                 className="admin-input"
                                 value={eventFilter}
                                 onChange={e => setEventFilter(e.target.value)}
-                                style={{ flex: '0 0 260px', minWidth: '200px' }}
+                                style={{ flex: '0 0 250px', minWidth: '180px' }}
                             >
                                 <option value="all">📋 All Students ({eventCounts.total})</option>
                                 <option value="registered">✅ With Registered Events ({eventCounts.registered})</option>
                                 <option value="not_registered">⚪ Without Events ({eventCounts.notRegistered})</option>
                             </select>
+                            <button
+                                onClick={handleExportCSV}
+                                disabled={sortedStudents.length === 0}
+                                style={{
+                                    background: sortedStudents.length > 0 ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'var(--surface)',
+                                    color: 'white',
+                                    cursor: sortedStudents.length > 0 ? 'pointer' : 'not-allowed',
+                                    padding: '10px 18px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    fontWeight: 'bold',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    boxShadow: sortedStudents.length > 0 ? '0 4px 15px rgba(16, 185, 129, 0.3)' : 'none',
+                                    transition: 'all 0.3s ease',
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                📥 Export CSV ({sortedStudents.length})
+                            </button>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                             <span>👈 Swipe / drag horizontally to view all columns 👉</span>
