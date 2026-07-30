@@ -170,10 +170,14 @@
 
 .dashboard-split-layout {
   display: grid;
-  grid-template-columns: 1fr 2fr;
+  grid-template-columns: 340px 1fr;
   gap: 20px;
   align-items: start;
   overflow: visible;
+}
+
+.dashboard-split-layout > * {
+  min-width: 0;
 }
 
 /* --- Forms --- */
@@ -275,28 +279,38 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-soft);
   margin-top: var(--space-4);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-x pan-y !important;
+  overscroll-behavior-x: contain;
   box-shadow: var(--shadow-sm);
   position: relative;
   z-index: 1;
+  cursor: grab;
+}
+
+.admin-table-container:active {
+  cursor: grabbing;
 }
 
 .admin-table-container::-webkit-scrollbar {
-  height: 8px;
+  height: 10px;
 }
 .admin-table-container::-webkit-scrollbar-track {
-  background: var(--bg-main);
+  background: rgba(0, 0, 0, 0.25);
   border-radius: var(--radius-full);
 }
 .admin-table-container::-webkit-scrollbar-thumb {
-  background: var(--bg-tertiary);
+  background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
   border-radius: var(--radius-full);
 }
 
 .admin-table {
   width: 100%;
-  min-width: 800px;
+  min-width: 980px;
   border-collapse: collapse;
   background: transparent;
 }

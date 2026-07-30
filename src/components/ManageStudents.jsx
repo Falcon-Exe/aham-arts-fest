@@ -8,6 +8,9 @@ import ConfirmDialog from "./ConfirmDialog";
 export default function ManageStudents() {
     const [students, setStudents] = useState([]);
     const [teams, setTeams] = useState([]);
+    const [registrations, setRegistrations] = useState([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [eventFilter, setEventFilter] = useState("all"); // 'all', 'registered', 'not_registered'
     const [loading, setLoading] = useState(true);
     const [sortConfig, setSortConfig] = useState({ key: 'chestNumber', direction: 'asc' });
 
@@ -48,12 +51,52 @@ export default function ManageStudents() {
     const [team, setTeam] = useState("");
 
     const [editId, setEditId] = useState(null);
+    const [showForm, setShowForm] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [toast, setToast] = useState(null);
 
     const { confirm, confirmState } = useConfirm();
 
     const fileInputRef = useRef(null);
+    const tableContainerRef = useRef(null);
+
+    useEffect(() => {
+        const slider = tableContainerRef.current;
+        if (!slider) return;
+
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        const handleMouseDown = (e) => {
+            isDown = true;
+            startX = e.pageX - slider.offsetLeft;
+            scrollLeft = slider.scrollLeft;
+        };
+
+        const handleMouseLeave = () => { isDown = false; };
+        const handleMouseUp = () => { isDown = false; };
+
+        const handleMouseMove = (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - slider.offsetLeft;
+            const walk = (x - startX) * 1.5;
+            slider.scrollLeft = scrollLeft - walk;
+        };
+
+        slider.addEventListener('mousedown', handleMouseDown);
+        slider.addEventListener('mouseleave', handleMouseLeave);
+        slider.addEventListener('mouseup', handleMouseUp);
+        slider.addEventListener('mousemove', handleMouseMove);
+
+        return () => {
+            slider.removeEventListener('mousedown', handleMouseDown);
+            slider.removeEventListener('mouseleave', handleMouseLeave);
+            slider.removeEventListener('mouseup', handleMouseUp);
+            slider.removeEventListener('mousemove', handleMouseMove);
+        };
+    }, []);
 
     const showToast = (msg, type = "success") => {
         setToast({ message: msg, type });
@@ -293,8 +336,35 @@ export default function ManageStudents() {
             setLoading(false);
         });
 
-        return () => unsubscribe();
+        // Real-time sync for Registrations
+        const qRegs = query(collection(db, "registrations"));
+        const unsubscribeRegs = onSnapshot(qRegs, (snapshot) => {
+            const regList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setRegistrations(regList);
+        }, (error) => {
+            console.error("Error syncing registrations:", error);
+        });
+
+        return () => {
+            unsubscribe();
+            unsubscribeRegs();
+        };
     }, []);
+
+    const getStudentRegistration = React.useCallback((student) => {
+        if (!student || !registrations.length) return null;
+        const studentChest = String(student.chestNumber || '').trim().toUpperCase();
+        const studentName = String(student.fullName || '').trim().toUpperCase();
+        const studentTeam = String(student.team || '').trim().toUpperCase();
+
+        return registrations.find(r => {
+            const regChest = String(r.chestNumber || r.chestNo || '').trim().toUpperCase();
+            if (studentChest && regChest && regChest === studentChest) return true;
+            const regName = String(r.fullName || r.name || '').trim().toUpperCase();
+            const regTeam = String(r.team || '').trim().toUpperCase();
+            return regName === studentName && (regTeam === studentTeam || !studentTeam);
+        });
+    }, [registrations]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -350,6 +420,7 @@ export default function ManageStudents() {
         setStudentClass(student.studentClass || "");
         setCategory(student.category || "");
         setTeam(student.team || "");
+        setShowForm(true);
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
@@ -386,6 +457,7 @@ export default function ManageStudents() {
 
     const handleCancel = () => {
         setEditId(null);
+        setShowForm(false);
         setFullName("");
         setChestNumber("");
         setCicNumber("");
@@ -402,8 +474,64 @@ export default function ManageStudents() {
         setSortConfig({ key, direction });
     };
 
+    const eventCounts = React.useMemo(() => {
+        let registered = 0;
+        let notRegistered = 0;
+        students.forEach(s => {
+            const reg = getStudentRegistration(s);
+            const onStage = reg?.onStageEvents || [];
+            const offStage = reg?.offStageEvents || [];
+            const general = reg?.generalEvents || [];
+            if (onStage.length + offStage.length + general.length > 0) {
+                registered++;
+            } else {
+                notRegistered++;
+            }
+        });
+        return { registered, notRegistered, total: students.length };
+    }, [students, getStudentRegistration]);
+
     const sortedStudents = React.useMemo(() => {
         let sortableStudents = [...students];
+
+        if (eventFilter !== "all") {
+            sortableStudents = sortableStudents.filter(s => {
+                const reg = getStudentRegistration(s);
+                const onStage = reg?.onStageEvents || [];
+                const offStage = reg?.offStageEvents || [];
+                const general = reg?.generalEvents || [];
+                const hasEvents = (onStage.length + offStage.length + general.length) > 0;
+
+                if (eventFilter === "registered") return hasEvents;
+                if (eventFilter === "not_registered") return !hasEvents;
+                return true;
+            });
+        }
+
+        if (searchTerm.trim()) {
+            const lower = searchTerm.toLowerCase().trim();
+            sortableStudents = sortableStudents.filter(s => {
+                const reg = getStudentRegistration(s);
+                const onStage = (reg?.onStageEvents || []).join(" ").toLowerCase();
+                const offStage = (reg?.offStageEvents || []).join(" ").toLowerCase();
+                const general = (reg?.generalEvents || []).join(" ").toLowerCase();
+                const registeredBy = (reg?.team || "").toLowerCase();
+
+                return (
+                    (s.fullName || "").toLowerCase().includes(lower) ||
+                    (s.chestNumber || "").toString().toLowerCase().includes(lower) ||
+                    (s.cicNumber || "").toString().toLowerCase().includes(lower) ||
+                    (s.studentClass || "").toLowerCase().includes(lower) ||
+                    (s.category || "").toLowerCase().includes(lower) ||
+                    (s.team || "").toLowerCase().includes(lower) ||
+                    onStage.includes(lower) ||
+                    offStage.includes(lower) ||
+                    general.includes(lower) ||
+                    registeredBy.includes(lower)
+                );
+            });
+        }
+
         if (sortConfig.key !== null) {
             sortableStudents.sort((a, b) => {
                 let aVal = a[sortConfig.key] || '';
@@ -427,7 +555,7 @@ export default function ManageStudents() {
             });
         }
         return sortableStudents;
-    }, [students, sortConfig]);
+    }, [students, registrations, sortConfig, searchTerm, eventFilter, getStudentRegistration]);
 
     return (
         <div className="manage-events-container">
@@ -436,7 +564,33 @@ export default function ManageStudents() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
                 <h3 className="section-title" style={{ margin: 0 }}>🎓 Master Student Database</h3>
-                <div style={{ display: 'flex', gap: '15px' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                        onClick={() => {
+                            if (showForm) {
+                                handleCancel();
+                            } else {
+                                setShowForm(true);
+                            }
+                        }}
+                        style={{
+                            background: showForm ? 'var(--surface)' : 'linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)',
+                            color: 'white',
+                            cursor: 'pointer',
+                            padding: '10px 18px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            fontWeight: 'bold',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                            transition: 'all 0.3s ease'
+                        }}
+                    >
+                        {showForm ? "✕ Close Form" : "➕ Add New Student"}
+                    </button>
+
                     {students.length > 0 && (
                         <button 
                             onClick={handleDeleteAll} 
@@ -445,7 +599,7 @@ export default function ManageStudents() {
                                 background: 'linear-gradient(135deg, #e63946 0%, #b71c1c 100%)',
                                 color: 'white',
                                 cursor: 'pointer',
-                                padding: '10px 20px',
+                                padding: '10px 18px',
                                 borderRadius: '8px',
                                 border: 'none',
                                 fontWeight: 'bold',
@@ -466,7 +620,7 @@ export default function ManageStudents() {
                             background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                             color: 'white',
                             cursor: 'pointer',
-                            padding: '10px 20px',
+                            padding: '10px 18px',
                             borderRadius: '8px',
                             border: 'none',
                             fontWeight: 'bold',
@@ -485,8 +639,8 @@ export default function ManageStudents() {
                         cursor: 'pointer', 
                         display: 'inline-flex', 
                         alignItems: 'center', 
-                        gap: '10px',
-                        padding: '10px 20px',
+                        gap: '8px',
+                        padding: '10px 18px',
                         borderRadius: '8px',
                         boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
                         fontWeight: 'bold',
@@ -505,71 +659,101 @@ export default function ManageStudents() {
                 </div>
             </div>
 
-            <div className="dashboard-split-layout">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
                 {/* Form Section */}
-                <div className="admin-card">
-                    <h4>{editId ? "Edit Student" : "Add New Student"}</h4>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '15px' }}>
-                        Pre-register students so team leaders can just select them from a list.
-                    </p>
-                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                        <div>
-                            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Full Name *</label>
-                            <input type="text" className="admin-input" value={fullName} onChange={e => setFullName(e.target.value)} required />
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            <div style={{ flex: '1 1 120px' }}>
-                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Chest No *</label>
-                                <input type="text" className="admin-input" value={chestNumber} onChange={e => setChestNumber(e.target.value)} required />
-                            </div>
-                            <div style={{ flex: '1 1 120px' }}>
-                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>CIC No</label>
-                                <input type="text" className="admin-input" value={cicNumber} onChange={e => setCicNumber(e.target.value)} />
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                            <div style={{ flex: '1 1 100px' }}>
-                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Class / Section</label>
-                                <select className="admin-input" value={studentClass} onChange={e => setStudentClass(e.target.value)}>
-                                    <option value="">-- Select Class --</option>
-                                    {dynamicClasses.map(c => (
-                                        <option key={c} value={c}>{c}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div style={{ flex: '1 1 100px' }}>
-                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Category</label>
-                                <select className="admin-input" value={category} onChange={e => setCategory(e.target.value)}>
-                                    <option value="">-- Select --</option>
-                                    {dynamicCategories.map(cat => (
-                                        <option key={cat} value={cat}>{cat}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div style={{ flex: '1 1 100px' }}>
-                                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Team *</label>
-                                <select className="admin-input" value={team} onChange={e => setTeam(e.target.value)} required>
-                                    <option value="">-- Select --</option>
-                                    {teams.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                            <button type="submit" className="admin-btn primary" disabled={isSaving} style={{ flex: 1 }}>
-                                {isSaving ? "Saving..." : (editId ? "Update Student" : "Add Student")}
+                {(showForm || editId) && (
+                    <div className="admin-card" style={{ width: '100%', boxSizing: 'border-box', animation: 'fadeIn 0.3s ease-in-out' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                            <h4 style={{ margin: 0 }}>{editId ? "Edit Student" : "Add New Student"}</h4>
+                            <button 
+                                onClick={handleCancel}
+                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '1.2rem' }}
+                            >
+                                ✕
                             </button>
-                            {editId && (
+                        </div>
+                        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                                <div style={{ flex: '2 1 250px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Full Name *</label>
+                                    <input type="text" className="admin-input" value={fullName} onChange={e => setFullName(e.target.value)} required />
+                                </div>
+                                <div style={{ flex: '1 1 120px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Chest No *</label>
+                                    <input type="text" className="admin-input" value={chestNumber} onChange={e => setChestNumber(e.target.value)} required />
+                                </div>
+                                <div style={{ flex: '1 1 120px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>CIC No</label>
+                                    <input type="text" className="admin-input" value={cicNumber} onChange={e => setCicNumber(e.target.value)} />
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                                <div style={{ flex: '1 1 150px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Class / Section</label>
+                                    <select className="admin-input" value={studentClass} onChange={e => setStudentClass(e.target.value)}>
+                                        <option value="">-- Select Class --</option>
+                                        {dynamicClasses.map(c => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div style={{ flex: '1 1 150px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Category</label>
+                                    <select className="admin-input" value={category} onChange={e => setCategory(e.target.value)}>
+                                        <option value="">-- Select --</option>
+                                        {dynamicCategories.map(cat => (
+                                            <option key={cat} value={cat}>{cat}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div style={{ flex: '1 1 150px' }}>
+                                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Team *</label>
+                                    <select className="admin-input" value={team} onChange={e => setTeam(e.target.value)} required>
+                                        <option value="">-- Select --</option>
+                                        {teams.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                                <button type="submit" className="admin-btn primary" disabled={isSaving} style={{ padding: '10px 24px' }}>
+                                    {isSaving ? "Saving..." : (editId ? "Update Student" : "Add Student")}
+                                </button>
                                 <button type="button" className="admin-btn" onClick={handleCancel} style={{ background: 'var(--surface)' }}>
                                     Cancel
                                 </button>
-                            )}
-                        </div>
-                    </form>
-                </div>
+                            </div>
+                        </form>
+                    </div>
+                )}
 
                 {/* List Section */}
-                <div className="admin-table-container">
+                <div className="admin-table-container" ref={tableContainerRef}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px' }}>
+                        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <input
+                                type="text"
+                                className="admin-input"
+                                placeholder="🔍 Search students by name, chest #, class, team, or registered event..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                style={{ flex: '1 1 300px' }}
+                            />
+                            <select
+                                className="admin-input"
+                                value={eventFilter}
+                                onChange={e => setEventFilter(e.target.value)}
+                                style={{ flex: '0 0 260px', minWidth: '200px' }}
+                            >
+                                <option value="all">📋 All Students ({eventCounts.total})</option>
+                                <option value="registered">✅ With Registered Events ({eventCounts.registered})</option>
+                                <option value="not_registered">⚪ Without Events ({eventCounts.notRegistered})</option>
+                            </select>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                            <span>👈 Swipe / drag horizontally to view all columns 👉</span>
+                        </div>
+                    </div>
                     {loading ? <p>Loading students...</p> : (
                         <table className="admin-table">
                             <thead>
@@ -579,30 +763,71 @@ export default function ManageStudents() {
                                     <th onClick={() => handleSort('studentClass')} style={{ cursor: 'pointer' }}>Class {sortConfig.key === 'studentClass' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}</th>
                                     <th onClick={() => handleSort('category')} style={{ cursor: 'pointer' }}>Category {sortConfig.key === 'category' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}</th>
                                     <th onClick={() => handleSort('team')} style={{ cursor: 'pointer' }}>Team {sortConfig.key === 'team' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}</th>
+                                    <th>Registered Events & Registrant Details</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {sortedStudents.length > 0 ? sortedStudents.map(student => (
-                                    <tr key={student.id}>
-                                        <td style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>{student.chestNumber}</td>
-                                        <td>{student.fullName} <br /><small style={{ color: 'gray' }}>{student.cicNumber}</small></td>
-                                        <td>{student.studentClass}</td>
-                                        <td>{student.category}</td>
-                                        <td>{student.team}</td>
-                                        <td>
-                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                <button onClick={() => handleEdit(student)} className="tab-btn" style={{ padding: '4px 10px', fontSize: '0.8rem', minWidth: 'auto', background: 'var(--surface)' }}>
-                                                    Edit
-                                                </button>
-                                                <button onClick={() => handleDelete(student.id, student.fullName)} className="action-btn delete">
-                                                    🗑️
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )) : (
-                                    <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>No students pre-registered yet.</td></tr>
+                                {sortedStudents.length > 0 ? sortedStudents.map(student => {
+                                    const reg = getStudentRegistration(student);
+                                    const onStage = reg?.onStageEvents || [];
+                                    const offStage = reg?.offStageEvents || [];
+                                    const general = reg?.generalEvents || [];
+                                    const totalEvents = onStage.length + offStage.length + general.length;
+
+                                    return (
+                                        <tr key={student.id}>
+                                            <td style={{ fontWeight: 'bold', color: 'var(--primary-light)' }}>{student.chestNumber}</td>
+                                            <td>{student.fullName} <br /><small style={{ color: 'gray' }}>{student.cicNumber}</small></td>
+                                            <td>{student.studentClass}</td>
+                                            <td>{student.category}</td>
+                                            <td>{student.team}</td>
+                                            <td style={{ whiteSpace: 'normal', minWidth: '220px', maxWidth: '320px' }}>
+                                                {totalEvents > 0 ? (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.82rem' }}>
+                                                        {onStage.length > 0 && (
+                                                            <div>
+                                                                <strong style={{ color: '#ec4899' }}>🎭 On-Stage ({onStage.length}): </strong>
+                                                                <span>{onStage.join(", ")}</span>
+                                                            </div>
+                                                        )}
+                                                        {offStage.length > 0 && (
+                                                            <div>
+                                                                <strong style={{ color: '#3b82f6' }}>🎨 Off-Stage ({offStage.length}): </strong>
+                                                                <span>{offStage.join(", ")}</span>
+                                                            </div>
+                                                        )}
+                                                        {general.length > 0 && (
+                                                            <div>
+                                                                <strong style={{ color: '#eab308' }}>🌟 General ({general.length}): </strong>
+                                                                <span>{general.join(", ")}</span>
+                                                            </div>
+                                                        )}
+                                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px', fontStyle: 'italic' }}>
+                                                            Submitted by: <strong style={{ color: 'var(--text-main)' }}>{reg.team || student.team}</strong>
+                                                            {reg.submittedAt && ` • ${new Date(reg.submittedAt).toLocaleDateString()}`}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                                        ⚪ Not Registered Yet
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td>
+                                                <div style={{ display: 'flex', gap: '8px' }}>
+                                                    <button onClick={() => handleEdit(student)} className="tab-btn" style={{ padding: '4px 10px', fontSize: '0.8rem', minWidth: 'auto', background: 'var(--surface)' }}>
+                                                        Edit
+                                                    </button>
+                                                    <button onClick={() => handleDelete(student.id, student.fullName)} className="action-btn delete">
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                }) : (
+                                    <tr><td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>No matching students found.</td></tr>
                                 )}
                             </tbody>
                         </table>
