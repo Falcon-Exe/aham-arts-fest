@@ -178,6 +178,21 @@ export default function ManageResults() {
         }
     };
 
+    const handleResetPredictions = async () => {
+        if (!await confirm("Reset all public prediction vote counts to zero?")) return;
+        try {
+            await setDoc(doc(db, "predictionVotes", "summary"), {
+                overall: {},
+                stage: {},
+                offstage: {}
+            });
+            showToast("Prediction votes reset successfully to 0!", "success");
+        } catch (err) {
+            console.error("Error resetting predictions:", err);
+            showToast("Failed to reset prediction votes.", "error");
+        }
+    };
+
     // Fetch Events
     const fetchEvents = useCallback(async () => {
         const q = query(collection(db, "events"), orderBy("name"));
@@ -2288,6 +2303,13 @@ export default function ManageResults() {
                         style={{ padding: '8px 15px', fontSize: '0.85rem', background: '#ff9800' }}
                     >
                         🔄 Recalculate Points
+                    </button>
+                    <button
+                        onClick={handleResetPredictions}
+                        className={styles.buttonPrimary}
+                        style={{ padding: '8px 15px', fontSize: '0.85rem', background: '#dc2626' }}
+                    >
+                        🧹 Reset Prediction Votes
                     </button>
                 </div>
 

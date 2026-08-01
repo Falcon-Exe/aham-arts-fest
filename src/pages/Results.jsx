@@ -48,7 +48,7 @@ function Results() {
 
   // Listen to real-time prediction votes
   useEffect(() => {
-    const unsubVotes = onSnapshot(doc(db, "settings", "predictionVotes"), (snapshot) => {
+    const unsubVotes = onSnapshot(doc(db, "predictionVotes", "summary"), (snapshot) => {
       if (snapshot.exists()) {
         setPredictionVotes(snapshot.data());
       }
@@ -57,6 +57,14 @@ function Results() {
   }, []);
 
   const handleCastVote = async (teamName) => {
+    const previousTeam = userPredictions[activePredictionCategory];
+
+    if (previousTeam === teamName) {
+      const catLabel = activePredictionCategory === "overall" ? "Overall Champion" : activePredictionCategory === "stage" ? "Stage Champion" : "Off-Stage Winner";
+      setToast({ message: `Your vote for ${teamName} as ${catLabel} is already locked in! 🏆`, type: "info" });
+      return;
+    }
+
     const nextPredictions = { ...userPredictions, [activePredictionCategory]: teamName };
     setUserPredictions(nextPredictions);
     try {
@@ -66,15 +74,21 @@ function Results() {
     }
 
     const catLabel = activePredictionCategory === "overall" ? "Overall Champion" : activePredictionCategory === "stage" ? "Stage Champion" : "Off-Stage Winner";
-    setToast({ message: `🎯 Your prediction for ${teamName} as ${catLabel} is locked in! 🏆`, type: "success" });
+    setToast({ message: previousTeam ? `🔄 Changed your prediction to ${teamName} for ${catLabel}! 🏆` : `🎯 Your prediction for ${teamName} as ${catLabel} is locked in! 🏆`, type: "success" });
 
     try {
-      const docRef = doc(db, "settings", "predictionVotes");
-      await setDoc(docRef, {
+      const updatePayload = {
         [activePredictionCategory]: {
           [teamName]: increment(1)
         }
-      }, { merge: true });
+      };
+
+      if (previousTeam) {
+        updatePayload[activePredictionCategory][previousTeam] = increment(-1);
+      }
+
+      const docRef = doc(db, "predictionVotes", "summary");
+      await setDoc(docRef, updatePayload, { merge: true });
     } catch (err) {
       console.error("Failed to submit vote:", err);
     }
@@ -498,8 +512,8 @@ function Results() {
                 {activeScoresData.map(({ team }) => {
                   const color = teamColors[team] || '#a855f7';
                   const catVotes = predictionVotes?.[activePredictionCategory] || {};
-                  const totalVotes = Object.values(catVotes).reduce((sum, v) => sum + Number(v || 0), 0);
-                  const teamVotes = Number(catVotes[team] || 0);
+                  const totalVotes = Object.values(catVotes).reduce((sum, v) => sum + Math.max(0, Number(v || 0)), 0);
+                  const teamVotes = Math.max(0, Number(catVotes[team] || 0));
                   const percentage = totalVotes > 0 ? Math.round((teamVotes / totalVotes) * 100) : 0;
                   const isSelected = userPredictions[activePredictionCategory] === team;
 

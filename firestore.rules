@@ -40,6 +40,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Public Prediction Votes: Allow public read and write for interactive voting game
+    match /predictionVotes/{voteDoc} {
+      allow read: if true;
+      allow write: if true;
+    }
+
     // Registration Data Contract Verification
     match /registrations/{registration} {
       allow read: if true;
