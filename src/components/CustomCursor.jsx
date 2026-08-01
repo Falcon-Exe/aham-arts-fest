@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot, doc } from "firebase/firestore";
 import { db } from "../firebase";
 
 // Page-based cursor color config
@@ -39,8 +39,18 @@ const CustomCursor = () => {
   // ── Feature 1: Listen for new Firestore results → flash LIVE badge ──
   useEffect(() => {
     let isFirst = true;
+    let isResultsVisible = true;
+
+    // Listen to settings to check if results are visible
+    const unsubSettings = onSnapshot(doc(db, "settings", "publicConfig"), (docSnap) => {
+      if (docSnap.exists()) {
+        isResultsVisible = docSnap.data().showEventResults ?? true;
+      }
+    });
+
     const unsub = onSnapshot(collection(db, "results"), (snap) => {
       if (isFirst) { isFirst = false; return; }
+      if (!isResultsVisible) return;
       snap.docChanges().forEach((change) => {
         if (change.type === "added") {
           setLiveFlash(true);
@@ -51,7 +61,7 @@ const CustomCursor = () => {
         }
       });
     });
-    return () => { unsub(); clearTimeout(liveTimerRef.current); };
+    return () => { unsub(); unsubSettings(); clearTimeout(liveTimerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

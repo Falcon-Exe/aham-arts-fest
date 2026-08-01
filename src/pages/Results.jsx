@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTeamScores } from "../hooks/useTeamScores";
-import { collection, getDocs, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, onSnapshot, doc, setDoc, increment } from "firebase/firestore";
 import { db } from "../firebase";
 import { getEventType, resolveClassCategory } from "../constants/events";
 import AnimatedCounter from "../components/AnimatedCounter";
@@ -34,6 +34,52 @@ function Results() {
   const [toast, setToast] = useState(null);
   const [expandedEvents, setExpandedEvents] = useState({});
 
+  // Interactive Prediction Game state
+  const [activePredictionCategory, setActivePredictionCategory] = useState("overall"); // overall | stage | offstage
+  const [userPredictions, setUserPredictions] = useState(() => {
+    try {
+      const saved = localStorage.getItem("arts_fest_user_predictions");
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+  const [predictionVotes, setPredictionVotes] = useState({ overall: {}, stage: {}, offstage: {} });
+
+  // Listen to real-time prediction votes
+  useEffect(() => {
+    const unsubVotes = onSnapshot(doc(db, "settings", "predictionVotes"), (snapshot) => {
+      if (snapshot.exists()) {
+        setPredictionVotes(snapshot.data());
+      }
+    });
+    return () => unsubVotes();
+  }, []);
+
+  const handleCastVote = async (teamName) => {
+    const nextPredictions = { ...userPredictions, [activePredictionCategory]: teamName };
+    setUserPredictions(nextPredictions);
+    try {
+      localStorage.setItem("arts_fest_user_predictions", JSON.stringify(nextPredictions));
+    } catch (e) {
+      console.error(e);
+    }
+
+    const catLabel = activePredictionCategory === "overall" ? "Overall Champion" : activePredictionCategory === "stage" ? "Stage Champion" : "Off-Stage Winner";
+    setToast({ message: `🎯 Your prediction for ${teamName} as ${catLabel} is locked in! 🏆`, type: "success" });
+
+    try {
+      const docRef = doc(db, "settings", "predictionVotes");
+      await setDoc(docRef, {
+        [activePredictionCategory]: {
+          [teamName]: increment(1)
+        }
+      }, { merge: true });
+    } catch (err) {
+      console.error("Failed to submit vote:", err);
+    }
+  };
+
   const toggleEventExpand = (key) => {
     setExpandedEvents(prev => ({
       ...prev,
@@ -46,7 +92,7 @@ function Results() {
   };
 
   // Use Hook for official scores
-  const { scores: sortedTeamsData, champion: hookChampion, runnerUp: hookRunnerUp, showResultsPoints, teamColors } = useTeamScores();
+  const { scores: sortedTeamsData, champion: hookChampion, runnerUp: hookRunnerUp, showResultsPoints, showEventResults, teamColors } = useTeamScores();
   const { participants: masterParticipants } = useMasterParticipants();
 
   const [eventPosters, setEventPosters] = useState({});
@@ -72,7 +118,7 @@ function Results() {
       setRows(data);
       setLoading(false);
 
-      if (!isFirstLoad) {
+      if (!isFirstLoad && showEventResults) {
         snapshot.docChanges().forEach((change) => {
           if (change.type === "added") {
             const newRes = change.doc.data();
@@ -407,7 +453,118 @@ function Results() {
       </div>
 
       {/* RESULTS GRID */}
-      {filteredEvents.length === 0 ? (
+      {!showEventResults ? (
+        <div className="mystery-vault-card">
+          <div className="mystery-vault-glow"></div>
+          <div className="mystery-vault-content">
+            <div className="mystery-icon-wrapper">
+              <span className="mystery-icon">🔮</span>
+              <span className="mystery-badge-pulse">⚡ INTERACTIVE PREDICTION GAME</span>
+            </div>
+            <h3 className="mystery-title">THE CHAMPIONS VAULT IS LOCKED! 🕵️‍♂️</h3>
+            <p className="mystery-subtitle">
+              The grand jury has sealed the event-wise scorecards... Can you predict which team will dominate the festival? Select a category below and lock in your prediction!
+            </p>
+
+            {/* Interactive Category Selector Chips */}
+            <div className="mystery-challenges">
+              <div
+                className={`mystery-chip ${activePredictionCategory === 'overall' ? 'active' : ''}`}
+                onClick={() => setActivePredictionCategory('overall')}
+              >
+                👑 <span>Predict Overall Champion</span>
+              </div>
+              <div
+                className={`mystery-chip ${activePredictionCategory === 'stage' ? 'active' : ''}`}
+                onClick={() => setActivePredictionCategory('stage')}
+              >
+                🎭 <span>Guess Stage Dominator</span>
+              </div>
+              <div
+                className={`mystery-chip ${activePredictionCategory === 'offstage' ? 'active' : ''}`}
+                onClick={() => setActivePredictionCategory('offstage')}
+              >
+                📝 <span>Predict Off-Stage King</span>
+              </div>
+            </div>
+
+            {/* Interactive Voting Grid for Active Category */}
+            <div className="prediction-game-area">
+              <div className="prediction-category-title">
+                🎯 Vote for {activePredictionCategory === 'overall' ? '🏆 Overall Champion' : activePredictionCategory === 'stage' ? '🎭 Stage Dominator' : '📝 Off-Stage Winner'}
+              </div>
+
+              <div className="prediction-teams-grid">
+                {activeScoresData.map(({ team }) => {
+                  const color = teamColors[team] || '#a855f7';
+                  const catVotes = predictionVotes?.[activePredictionCategory] || {};
+                  const totalVotes = Object.values(catVotes).reduce((sum, v) => sum + Number(v || 0), 0);
+                  const teamVotes = Number(catVotes[team] || 0);
+                  const percentage = totalVotes > 0 ? Math.round((teamVotes / totalVotes) * 100) : 0;
+                  const isSelected = userPredictions[activePredictionCategory] === team;
+
+                  return (
+                    <div
+                      key={team}
+                      className={`prediction-team-card ${isSelected ? 'selected' : ''}`}
+                      style={{
+                        '--team-color': color,
+                        '--team-glow': hexToRgba(color, 0.4)
+                      }}
+                      onClick={() => handleCastVote(team)}
+                    >
+                      <div className="prediction-team-header">
+                        <span className="prediction-team-name">{team}</span>
+                        {isSelected && <span className="prediction-user-badge">✓ YOUR PICK</span>}
+                      </div>
+
+                      <div className="prediction-stat-row">
+                        <span>{teamVotes} {teamVotes === 1 ? 'vote' : 'votes'}</span>
+                        <span style={{ fontWeight: '800', color: color }}>{percentage}%</span>
+                      </div>
+
+                      <div className="prediction-fill-track">
+                        <div
+                          className="prediction-fill-bar"
+                          style={{
+                            width: `${percentage}%`,
+                            background: color,
+                            boxShadow: `0 0 10px ${hexToRgba(color, 0.6)}`
+                          }}
+                        ></div>
+                      </div>
+
+                      <button
+                        className="prediction-vote-btn"
+                        style={{
+                          background: isSelected ? color : 'rgba(255,255,255,0.08)',
+                          color: isSelected ? '#ffffff' : color,
+                          border: `1px solid ${hexToRgba(color, 0.4)}`
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleCastVote(team);
+                        }}
+                      >
+                        {isSelected ? '✓ Prediction Saved' : `Vote ${team}`}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mystery-footer" style={{ marginTop: '16px' }}>
+              <span style={{ fontSize: '1.1rem' }}>🔥</span>
+              <span>
+                {userPredictions[activePredictionCategory]
+                  ? `Your prediction for ${userPredictions[activePredictionCategory]} is locked in! Stay tuned for the Grand Unveiling!`
+                  : `Click any team above to cast your prediction! Live Championship Standings remain updated above.`}
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : filteredEvents.length === 0 ? (
         <div className="empty-results-card">
           <div className="empty-icon">🔍</div>
           <h4>No Results Found</h4>

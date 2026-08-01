@@ -10,6 +10,7 @@ export function useTeamScores() {
     const [showPoints, setShowPoints] = useState(false);
     const [showHomePoints, setShowHomePoints] = useState(false);
     const [showResultsPoints, setShowResultsPoints] = useState(false);
+    const [showEventResults, setShowEventResults] = useState(true);
     const [teamColors, setTeamColors] = useState({});
 
     useEffect(() => {
@@ -34,6 +35,7 @@ export function useTeamScores() {
                 setShowPoints(data.showPoints);
                 setShowHomePoints(data.showHomePoints ?? data.showPoints);
                 setShowResultsPoints(data.showResultsPoints ?? data.showPoints);
+                setShowEventResults(data.showEventResults ?? true);
             }
         });
 
@@ -116,7 +118,7 @@ export function useTeamScores() {
     const champion = scores.length > 0 ? scores[0] : null;
     const runnerUp = scores.length > 1 ? scores[1] : null;
 
-    return { scores, loading, champion, runnerUp, showPoints, showHomePoints, showResultsPoints, teamColors };
+    return { scores, loading, champion, runnerUp, showPoints, showHomePoints, showResultsPoints, showEventResults, teamColors };
 }
 
 

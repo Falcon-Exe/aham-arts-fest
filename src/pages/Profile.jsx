@@ -7,9 +7,11 @@ import { QRCodeSVG } from "qrcode.react";
 import "./Register.css"; // Reuse styling where possible
 import { getEventType } from "../constants/events";
 import { generateCertificate } from "../utils/certificate";
+import { useTeamScores } from "../hooks/useTeamScores";
 import html2canvas from "html2canvas";
 
 export default function Profile() {
+    const { showEventResults } = useTeamScores();
     const [chestNumber, setChestNumber] = useState("");
     const [loading, setLoading] = useState(false);
     const [studentData, setStudentData] = useState(null);
@@ -241,7 +243,14 @@ export default function Profile() {
                             </div>
 
                             {/* 2. ACHIEVEMENTS */}
-                            {resultsData.length > 0 && (
+                            {!showEventResults ? (
+                                <div style={{ marginBottom: '30px', padding: '24px 18px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(236, 72, 153, 0.08), rgba(15, 23, 42, 0.9))', border: '1px solid rgba(168, 85, 247, 0.3)', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
+                                    <div style={{ fontSize: '2.2rem', marginBottom: '8px', filter: 'drop-shadow(0 0 10px rgba(168, 85, 247, 0.6))' }}>🔮</div>
+                                    <div style={{ fontWeight: '800', fontSize: '1.15rem', color: '#ffffff', marginBottom: '6px', letterSpacing: '-0.01em' }}>Mysterious Verdict Locked! 🕵️‍♂️</div>
+                                    <div style={{ fontSize: '0.88rem', color: '#cbd5e1', maxWidth: '440px', margin: '0 auto 12px', lineHeight: '1.5' }}>Candidate scorecards & event achievements are currently inside the Vault! Can you predict their final grades?</div>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f472b6', background: 'rgba(236, 72, 153, 0.15)', border: '1px solid rgba(236, 72, 153, 0.3)', padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>⚡ Unveiling Soon</span>
+                                </div>
+                            ) : resultsData.length > 0 && (
                                 <div style={{ marginBottom: '30px' }}>
                                     <h3 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-main)' }}>
                                         🏆 Achievements

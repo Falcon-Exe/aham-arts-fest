@@ -114,6 +114,7 @@ export default function ManageResults() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showHomePoints, setShowHomePoints] = useState(false);
     const [showResultsPoints, setShowResultsPoints] = useState(false);
+    const [showEventResults, setShowEventResults] = useState(true);
     const [toast, setToast] = useState(null);
     const { confirm, confirmState } = useConfirm();
     const [liveTeams, setLiveTeams] = useState([]);
@@ -127,7 +128,7 @@ export default function ManageResults() {
         setToast(null);
     };
 
-    // Subscribe to settings/publicConfig for Points Visibility
+    // Subscribe to settings/publicConfig for Points & Event Results Visibility
     useEffect(() => {
         const unsubscribe = onSnapshot(doc(db, "settings", "publicConfig"), (doc) => {
             if (doc.exists()) {
@@ -135,6 +136,7 @@ export default function ManageResults() {
                 // Initialize with legacy showPoints if new fields don't exist
                 setShowHomePoints(data.showHomePoints ?? data.showPoints);
                 setShowResultsPoints(data.showResultsPoints ?? data.showPoints);
+                setShowEventResults(data.showEventResults ?? true);
             }
         });
         const unsubscribeScoring = onSnapshot(doc(db, "settings", "scoring"), (doc) => {
@@ -162,6 +164,16 @@ export default function ManageResults() {
             await setDoc(doc(db, "settings", "publicConfig"), { showResultsPoints: !showResultsPoints }, { merge: true });
         } catch (err) {
             console.error("Error toggling results points:", err);
+            showToast("Failed to update settings.", "error");
+        }
+    };
+
+    const toggleEventResults = async () => {
+        try {
+            await setDoc(doc(db, "settings", "publicConfig"), { showEventResults: !showEventResults }, { merge: true });
+            showToast(`Event results are now ${!showEventResults ? 'VISIBLE' : 'HIDDEN'} to the public.`, "success");
+        } catch (err) {
+            console.error("Error toggling event results:", err);
             showToast("Failed to update settings.", "error");
         }
     };
@@ -2250,6 +2262,18 @@ export default function ManageResults() {
                         }}
                     >
                         {showResultsPoints ? "🏆 Result Points: VISIBLE" : "🏆 Result Points: HIDDEN"}
+                    </button>
+                    <button
+                        onClick={toggleEventResults}
+                        className={styles.buttonPrimary}
+                        style={{
+                            padding: '8px 15px',
+                            fontSize: '0.85rem',
+                            background: showEventResults ? '#22c55e' : '#e63946',
+                            boxShadow: showEventResults ? '0 0 15px rgba(34, 197, 94, 0.4)' : 'none'
+                        }}
+                    >
+                        {showEventResults ? "📋 Event Results: VISIBLE" : "📋 Event Results: HIDDEN"}
                     </button>
                     <button
                         onClick={downloadResultsCSV}
