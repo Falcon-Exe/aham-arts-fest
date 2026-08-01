@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "../firebase";
+import { useMasterParticipants } from "../hooks/useMasterParticipants";
+import { getEventType } from "../constants/events";
 
 export default function ManageIndividualPoints() {
+    const { participants: masterParticipants } = useMasterParticipants();
     const [individualScores, setIndividualScores] = useState([]);
+    const [eventsList, setEventsList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [sortConfig, setSortConfig] = useState({ key: 'total', direction: 'desc' });
     const [expandedRow, setExpandedRow] = useState(null);
     const [expandedChampion, setExpandedChampion] = useState(null);
     const [activeCategoryTab, setActiveCategoryTab] = useState("Overall");
+    const [expandedTier, setExpandedTier] = useState(null);
 
     let dynamicCategories = [];
     try {
@@ -20,30 +25,85 @@ export default function ManageIndividualPoints() {
     }
     if (dynamicCategories.length === 0) {
         dynamicCategories = ["Junior", "Senior"];
-    } // 'kala' or 'sarga' or null
-    const [expandedTier, setExpandedTier] = useState(null); // Track which trophy tier is expanded
+    }
+
+    const masterMetaMap = React.useMemo(() => {
+        const catMap = {};
+        const classMap = {};
+        const teamMap = {};
+        const nameMap = {};
+        if (masterParticipants && masterParticipants.length > 0) {
+            masterParticipants.forEach(p => {
+                const chest = p["CHEST NUMBER"];
+                const name = (p["CANDIDATE NAME"] || "").trim();
+                const category = p["CATEGORY"];
+                const studentClass = p["CLASS"];
+                const team = p["TEAM"];
+                if (chest) {
+                    const chestKey = `CHEST_${String(chest).trim().toUpperCase()}`;
+                    catMap[chestKey] = category;
+                    classMap[chestKey] = studentClass;
+                    if (team) teamMap[chestKey] = team;
+                    if (name) nameMap[chestKey] = name;
+                }
+                if (name) {
+                    const nameKey = `NAME_${name.toUpperCase()}`;
+                    catMap[nameKey] = category;
+                    classMap[nameKey] = studentClass;
+                    if (team) teamMap[nameKey] = team;
+                }
+            });
+        }
+        return { catMap, classMap, teamMap, nameMap };
+    }, [masterParticipants]);
+
+    const isThamheediyyaUla = (studentClass) => {
+        if (!studentClass) return false;
+        const upper = String(studentClass).toUpperCase().trim();
+        return upper.includes("THAMHEEDIYYA ULA") ||
+               upper.includes("THAMHIDIYYA ULA") ||
+               upper.includes("THAMHEEDIYA ULA") ||
+               upper.includes("THAMHEEDIYYA 1") ||
+               upper.includes("THAMHIDIYYA 1") ||
+               upper.includes("1 THAMHEEDIYYA") ||
+               (upper.includes("THAMHEEDI") && upper.includes("ULA"));
+    };
 
     useEffect(() => {
+        // Real-time listener for events to resolve types (On Stage vs Off Stage)
+        const unsubEvents = onSnapshot(collection(db, "events"), (snapshot) => {
+            const list = snapshot.docs.map(doc => doc.data());
+            setEventsList(list);
+        });
+
         // Real-time listener for results
         const q = query(collection(db, "results"));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubResults = onSnapshot(q, (snapshot) => {
             const scores = {};
 
             snapshot.docs.forEach((doc) => {
                 const data = doc.data();
 
-                // Skip Team-based General entries (where chestNo might be missing or irrelevant)
-                // If it's a pure General Event team entry, it usually lacks a chestNo or uses a Team name as Name.
-                // We focus on students with Chest Numbers or specific Names.
-
                 const chestNo = data.chestNo ? String(data.chestNo).trim() : null;
-                const name = data.name ? data.name.trim() : "Unknown";
-                const team = data.team || "";
+                const rawName = data.name ? data.name.trim() : "Unknown";
+                const rawTeam = data.team || "";
 
-                // Unique Key: ChestNo is best. If missing, use Name+Team.
+                const chestKey = chestNo ? `CHEST_${chestNo.toUpperCase()}` : null;
+                const nameKey = rawName ? `NAME_${rawName.toUpperCase()}` : null;
+
+                // Priority: Master student roster mapping for Team and Name, fallback to Result entry
+                const masterTeam = (chestKey && masterMetaMap.teamMap[chestKey]) || (nameKey && masterMetaMap.teamMap[nameKey]);
+                const masterName = (chestKey && masterMetaMap.nameMap[chestKey]);
+
+                const team = masterTeam || rawTeam;
+                const name = masterName || rawName;
+
                 const key = chestNo || `${name}_${team}`;
 
-                let studentCategory = data.studentCategory || "General";
+                const masterCat = (chestKey && masterMetaMap.catMap[chestKey]) || (nameKey && masterMetaMap.catMap[nameKey]);
+                const masterClass = (chestKey && masterMetaMap.classMap[chestKey]) || (nameKey && masterMetaMap.classMap[nameKey]);
+
+                let studentCategory = masterCat || data.studentCategory || "General";
                 if (studentCategory === "Common/General" || studentCategory === "Common / General") {
                     studentCategory = "General";
                 }
@@ -55,6 +115,7 @@ export default function ManageIndividualPoints() {
                         chestNo: chestNo || "-",
                         team: team,
                         category: studentCategory,
+                        studentClass: masterClass || data.studentClass || data.class || "",
                         items: [],
                         first: 0,
                         second: 0,
@@ -63,8 +124,17 @@ export default function ManageIndividualPoints() {
                     };
                 }
 
+                // Keep team up to date if resolved from master roster
+                if (masterTeam && scores[key].team !== masterTeam) {
+                    scores[key].team = masterTeam;
+                }
+
                 if (studentCategory && studentCategory !== "General" && studentCategory !== "Junior & Senior") {
                     scores[key].category = studentCategory;
+                }
+
+                if (masterClass && !scores[key].studentClass) {
+                    scores[key].studentClass = masterClass;
                 }
 
                 if (data.place === "First") scores[key].first += 1;
@@ -74,12 +144,10 @@ export default function ManageIndividualPoints() {
                 const pts = Number(data.points) || 0;
                 scores[key].total += pts;
 
-                // Track events for tooltip/detail?
                 if (pts > 0) {
                     scores[key].items.push(`${data.eventName} (${data.place})`);
                 }
 
-                // Store raw results for Championship Logic (Category Checks)
                 if (!scores[key].rawResults) scores[key].rawResults = [];
                 scores[key].rawResults.push(data);
             });
@@ -89,8 +157,11 @@ export default function ManageIndividualPoints() {
             setLoading(false);
         });
 
-        return () => unsubscribe();
-    }, []);
+        return () => {
+            unsubEvents();
+            unsubResults();
+        };
+    }, [masterMetaMap]);
 
     // SORTING LOGIC
     const handleSort = (key) => {
@@ -109,10 +180,15 @@ export default function ManageIndividualPoints() {
         }
     };
 
-    // Filter out team entries (those without chest numbers)
-    const individualOnlyScores = individualScores.filter(student =>
-        student.chestNo && student.chestNo !== '-'
-    );
+    // Filter out team entries (those without chest numbers or where chest number matches a team name)
+    const individualOnlyScores = individualScores.filter(student => {
+        if (!student.chestNo || student.chestNo === '-') return false;
+        const chestUpper = String(student.chestNo).toUpperCase().trim();
+        const teamUpper = String(student.team).toUpperCase().trim();
+        // Ignore if chest number is literally a team name (e.g. TEAM A)
+        if (chestUpper.startsWith("TEAM") || chestUpper === teamUpper) return false;
+        return true;
+    });
 
     const filteredByCategoryScores = individualOnlyScores.filter(student => {
         if (activeCategoryTab === "Overall") return true;
@@ -129,49 +205,237 @@ export default function ManageIndividualPoints() {
         return 0;
     });
 
-    // CHAMPIONSHIP LOGIC
+    const isCategoryA = (r) => {
+        const cat = (r.category || "").trim().toUpperCase();
+        return cat === "A" || cat === "CAT A" || cat === "CATEGORY A";
+    };
+
+    // CHAMPIONSHIP LOGIC PER CATEGORY
     const calculateChampions = (scores) => {
-        // First, find Kalaprathibha (most restrictive criteria)
-        let kalaWinner = null;
-        let kalaMax = -1;
+        const eventTypeMap = {};
+        eventsList.forEach(ev => {
+            if (ev.name) eventTypeMap[ev.name.trim().toUpperCase()] = ev.type;
+        });
+
+        const getResultType = (r) => {
+            if (r.type) return r.type;
+            if (r.eventType) return r.eventType;
+            const norm = (r.eventName || "").trim().toUpperCase();
+            const mapped = eventTypeMap[norm];
+            if (mapped) return mapped;
+            const staticType = getEventType(r.eventName);
+            return staticType !== "Unknown" ? staticType : "On Stage";
+        };
+
+        const kalaEligibleCandidates = [];
 
         scores.forEach(student => {
-            // Kalaprathibha: Must have 1st Place with A+ in Category "A"
-            const isEligible = student.rawResults && student.rawResults.some(r =>
-                (r.category === "A" || r.category === "a") &&
-                r.place === "First" &&
+            const raw = student.rawResults || [];
+
+            // 1. Must have at least one 1st Place with A+ in a Category A event
+            const hasCatAFirstWithAPlus = raw.some(r =>
+                isCategoryA(r) &&
+                (r.place === "First" || r.place === "1") &&
                 r.grade === "A+"
             );
 
+            // 2. Must have earned an A+ grade in an On-Stage event
+            const hasOnStageAPlus = raw.some(r =>
+                getResultType(r) === "On Stage" &&
+                r.grade === "A+"
+            );
+
+            // 3. Must have earned an A+ grade in an Off-Stage event
+            const hasOffStageAPlus = raw.some(r =>
+                getResultType(r) === "Off Stage" &&
+                r.grade === "A+"
+            );
+
+            const isEligible = hasCatAFirstWithAPlus && hasOnStageAPlus && hasOffStageAPlus;
+
+            // Count total Category A events participated in & A+ grades secured for tie-breakers
+            const catAEventsCount = raw.filter(r => isCategoryA(r)).length;
+            const aPlusCount = raw.filter(r => (r.grade || "").trim() === "A+").length;
+
             if (isEligible) {
-                if (student.total > kalaMax) {
-                    kalaMax = student.total;
-                    kalaWinner = student;
-                }
+                kalaEligibleCandidates.push({
+                    student,
+                    total: student.total,
+                    catAEventsCount,
+                    aPlusCount
+                });
             }
         });
 
-        // Then find Sargaprathibha (highest points, but exclude Kalaprathibha winner)
-        let sargaWinner = null;
-        let sargaMax = -1;
+        // Sort Kalaprathibha candidates:
+        // Priority 1: Highest Total Points | Priority 2: Highest Category A Event Count | Priority 3: Highest A+ Grade Count
+        kalaEligibleCandidates.sort((a, b) => {
+            if (b.total !== a.total) return b.total - a.total;
+            if (b.catAEventsCount !== a.catAEventsCount) return b.catAEventsCount - a.catAEventsCount;
+            return b.aPlusCount - a.aPlusCount;
+        });
+
+        const kalaWinner = kalaEligibleCandidates.length > 0 ? kalaEligibleCandidates[0].student : null;
+
+        // Sargaprathibha: Highest points excluding Kalaprathibha winner
+        const sargaCandidates = [];
 
         scores.forEach(student => {
-            // Skip if this is the Kalaprathibha winner
-            if (kalaWinner && student.key === kalaWinner.key) {
-                return;
-            }
+            if (kalaWinner && student.key === kalaWinner.key) return;
 
-            // Sargaprathibha: Highest points (excluding Kalaprathibha)
-            if (student.total > sargaMax) {
-                sargaMax = student.total;
-                sargaWinner = student;
-            }
+            const raw = student.rawResults || [];
+            const catAEventsCount = raw.filter(r => isCategoryA(r)).length;
+            const aPlusCount = raw.filter(r => (r.grade || "").trim() === "A+").length;
+
+            sargaCandidates.push({
+                student,
+                total: student.total,
+                catAEventsCount,
+                aPlusCount
+            });
         });
+
+        // Sort Sargaprathibha candidates:
+        // Priority 1: Highest Total Points | Priority 2: Highest Category A Event Count | Priority 3: Highest A+ Grade Count
+        sargaCandidates.sort((a, b) => {
+            if (b.total !== a.total) return b.total - a.total;
+            if (b.catAEventsCount !== a.catAEventsCount) return b.catAEventsCount - a.catAEventsCount;
+            return b.aPlusCount - a.aPlusCount;
+        });
+
+        const sargaWinner = sargaCandidates.length > 0 ? sargaCandidates[0].student : null;
 
         return { sargaWinner, kalaWinner };
     };
 
-    const champions = calculateChampions(filteredByCategoryScores);
+    // Emerging Star Award calculation (Thamheediyya Ula highest points with Cat A & A+ tie breaker)
+    const getEmergingStarWinner = (scores) => {
+        const ulaCandidates = [];
+        scores.forEach(student => {
+            const raw = student.rawResults || [];
+            const stClass = student.studentClass || "";
+            const isUla = isThamheediyyaUla(stClass) || raw.some(r => isThamheediyyaUla(r.studentClass || r.class));
+
+            if (isUla) {
+                const catAEventsCount = raw.filter(r => isCategoryA(r)).length;
+                const aPlusCount = raw.filter(r => (r.grade || "").trim() === "A+").length;
+                ulaCandidates.push({
+                    student,
+                    total: student.total,
+                    catAEventsCount,
+                    aPlusCount
+                });
+            }
+        });
+
+        ulaCandidates.sort((a, b) => {
+            if (b.total !== a.total) return b.total - a.total;
+            if (b.catAEventsCount !== a.catAEventsCount) return b.catAEventsCount - a.catAEventsCount;
+            return b.aPlusCount - a.aPlusCount;
+        });
+
+        return ulaCandidates.length > 0 ? ulaCandidates[0].student : null;
+    };
+
+    const isLStarArabicEvent = (eventName) => {
+        if (!eventName) return false;
+        const upper = String(eventName).toUpperCase().trim();
+        const targets = [
+            "SPEECH ARABIC", "TABLE TALK ARABIC", "LISTENING ARABIC",
+            "REPORT WRITING ARABIC", "REPORT ARABIC", "STORY ARABIC",
+            "MINI STORY ARABIC", "MINISTORY ARABIC", "INSPIRING TALK ARABIC",
+            "SPIRITUAL TALK ARABIC"
+        ];
+        return targets.some(t => upper.includes(t)) ||
+               (upper.includes("ARABIC") && (upper.includes("SPEECH") || upper.includes("TABLE TALK") || upper.includes("LISTENING") || upper.includes("REPORT") || upper.includes("STORY") || upper.includes("INSPIRING") || upper.includes("SPIRITUAL")));
+    };
+
+    const isLStarEnglishEvent = (eventName) => {
+        if (!eventName) return false;
+        const upper = String(eventName).toUpperCase().trim();
+        const targets = [
+            "SPEECH ENGLISH", "TABLE TALK ENGLISH", "DISCUSSION ENGLISH",
+            "MINI STORY ENGLISH", "MINISTORY ENGLISH", "REPORT WRITING ENGLISH",
+            "REPORT ENGLISH", "STORY ENGLISH", "INSPIRING TALK ENGLISH"
+        ];
+        return targets.some(t => upper.includes(t)) ||
+               (upper.includes("ENGLISH") && (upper.includes("SPEECH") || upper.includes("TABLE TALK") || upper.includes("DISCUSSION") || upper.includes("MINI STORY") || upper.includes("REPORT") || upper.includes("STORY") || upper.includes("INSPIRING")));
+    };
+
+    const getLStarArabicWinner = (scores) => {
+        const candidates = [];
+        scores.forEach(student => {
+            if (student.category !== "Junior") return;
+            const raw = student.rawResults || [];
+            let arabicPts = 0;
+            raw.forEach(r => {
+                if (isLStarArabicEvent(r.eventName)) {
+                    arabicPts += (Number(r.points) || 0);
+                }
+            });
+
+            if (arabicPts > 0) {
+                const catAEventsCount = raw.filter(r => isCategoryA(r)).length;
+                const aPlusCount = raw.filter(r => (r.grade || "").trim() === "A+").length;
+                candidates.push({
+                    student: { ...student, totalInCategory: arabicPts },
+                    total: arabicPts,
+                    catAEventsCount,
+                    aPlusCount
+                });
+            }
+        });
+
+        candidates.sort((a, b) => {
+            if (b.total !== a.total) return b.total - a.total;
+            if (b.catAEventsCount !== a.catAEventsCount) return b.catAEventsCount - a.catAEventsCount;
+            return b.aPlusCount - a.aPlusCount;
+        });
+
+        return candidates.length > 0 ? candidates[0].student : null;
+    };
+
+    const getLStarEnglishWinner = (scores) => {
+        const candidates = [];
+        scores.forEach(student => {
+            if (student.category !== "Junior") return;
+            const raw = student.rawResults || [];
+            let englishPts = 0;
+            raw.forEach(r => {
+                if (isLStarEnglishEvent(r.eventName)) {
+                    englishPts += (Number(r.points) || 0);
+                }
+            });
+
+            if (englishPts > 0) {
+                const catAEventsCount = raw.filter(r => isCategoryA(r)).length;
+                const aPlusCount = raw.filter(r => (r.grade || "").trim() === "A+").length;
+                candidates.push({
+                    student: { ...student, totalInCategory: englishPts },
+                    total: englishPts,
+                    catAEventsCount,
+                    aPlusCount
+                });
+            }
+        });
+
+        candidates.sort((a, b) => {
+            if (b.total !== a.total) return b.total - a.total;
+            if (b.catAEventsCount !== a.catAEventsCount) return b.catAEventsCount - a.catAEventsCount;
+            return b.aPlusCount - a.aPlusCount;
+        });
+
+        return candidates.length > 0 ? candidates[0].student : null;
+    };
+
+    const juniorScores = individualOnlyScores.filter(student => student.category === "Junior");
+    const seniorScores = individualOnlyScores.filter(student => student.category === "Senior");
+
+    const juniorChampions = calculateChampions(juniorScores);
+    const seniorChampions = calculateChampions(seniorScores);
+    const emergingStarWinner = getEmergingStarWinner(individualOnlyScores);
+    const lStarArabicWinner = getLStarArabicWinner(individualOnlyScores);
+    const lStarEnglishWinner = getLStarEnglishWinner(individualOnlyScores);
 
     // TROPHY TIER LOGIC
     const getTrophyTier = (points) => {
@@ -190,161 +454,142 @@ export default function ManageIndividualPoints() {
         s.team.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const renderChampionCard = (title, winner, badgeEmoji, gradientBg, keyPrefix) => (
+        <div className="stat-card" style={{ background: gradientBg, color: '#000', border: 'none', borderRadius: '12px', padding: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                <div style={{ width: '100%' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: '800', textTransform: 'uppercase', opacity: 0.8 }}>{badgeEmoji} {title}</span>
+                    {winner ? (
+                        <>
+                            <h2 style={{ fontSize: '1.7rem', margin: '8px 0 4px 0', fontWeight: '900' }}>{winner.name}</h2>
+                            <div style={{ fontSize: '0.95rem', fontWeight: '600' }}>Chest No: {winner.chestNo}</div>
+
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
+                                <div style={{ background: 'rgba(0,0,0,0.1)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600' }}>
+                                    {winner.team} • {winner.total} Pts
+                                </div>
+                                <div style={{ background: 'rgba(255,255,255,0.3)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>🥇{winner.first}</span>
+                                    <span>🥈{winner.second}</span>
+                                    <span>🥉{winner.third}</span>
+                                </div>
+                            </div>
+
+                            {/* Grades Summary */}
+                            <div style={{ marginTop: '8px', fontSize: '0.8rem', opacity: 0.9, marginBottom: '10px' }}>
+                                {(() => {
+                                    const grades = {};
+                                    winner.rawResults?.forEach(r => { if (r.grade) grades[r.grade] = (grades[r.grade] || 0) + 1; });
+                                    return Object.entries(grades).map(([g, c]) => <span key={g} style={{ marginRight: '8px' }}>{g}: <strong>{c}</strong></span>);
+                                })()}
+                            </div>
+
+                            <button
+                                onClick={() => setExpandedChampion(expandedChampion === keyPrefix ? null : keyPrefix)}
+                                style={{ background: 'rgba(0,0,0,0.2)', color: '#000', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            >
+                                {expandedChampion === keyPrefix ? 'Hide Details' : 'View Full Details'}
+                            </button>
+
+                            {expandedChampion === keyPrefix && (
+                                <div className="admin-table-container" style={{ marginTop: '15px', background: 'var(--bg-main)', padding: '10px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+                                    <table className="admin-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ textAlign: 'left', padding: '8px' }}>Event</th>
+                                                <th style={{ padding: '8px' }}>Prize</th>
+                                                <th style={{ padding: '8px' }}>Grd</th>
+                                                <th style={{ padding: '8px' }}>Pts</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {winner.rawResults.map((r, i) => (
+                                                <tr key={i}>
+                                                    <td style={{ padding: '8px' }}>{r.eventName}</td>
+                                                    <td style={{ padding: '8px', fontWeight: 'bold' }}>{r.place}</td>
+                                                    <td style={{ padding: '8px' }}>{r.grade}</td>
+                                                    <td style={{ padding: '8px' }}>{r.points}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <h3 style={{ marginTop: '15px', opacity: 0.6 }}>No Eligible Winner Yet</h3>
+                    )}
+                </div>
+                <div style={{ fontSize: '2.5rem', opacity: 0.2 }}>{badgeEmoji}</div>
+            </div>
+        </div>
+    );
+
     return (
         <div className="manage-individual">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
                 <h3 className="section-title" style={{ margin: 0 }}>🎖️ Individual Points</h3>
                 <div className="tab-container" style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
-                    <button className="tab-btn" style={{ background: activeCategoryTab === "Overall" ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 600 }} onClick={() => setActiveCategoryTab("Overall")}>🏆 Overall</button>
+                    <button className="tab-btn" style={{ background: activeCategoryTab === "Overall" ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 600 }} onClick={() => setActiveCategoryTab("Overall")}>🏆 Overall Table</button>
                     {dynamicCategories.map(cat => (
                         <button key={cat} className="tab-btn" style={{ background: activeCategoryTab === cat ? "var(--primary)" : "var(--surface)", color: "white", border: "1px solid var(--border-soft)", padding: "8px 16px", borderRadius: "8px", cursor: "pointer", whiteSpace: "nowrap", fontWeight: 600 }} onClick={() => setActiveCategoryTab(cat)}>👤 {cat}</button>
                     ))}
                 </div>
             </div>
-            {/* CHAMPIONSHIP CARDS */}
+
+            {/* CHAMPIONSHIP CARDS (JUNIOR & SENIOR PRATHIBHA AWARDS) */}
             {!loading && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-
-                    {/* KALAPRATHIBHA */}
-                    <div className="stat-card" style={{ background: 'linear-gradient(135deg, #ffd700 0%, #ffb900 100%)', color: '#000', border: 'none' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                            <div style={{ width: '100%' }}>
-                                <span style={{ fontSize: '0.9rem', fontWeight: '800', textTransform: 'uppercase', opacity: 0.8 }}>👑 Kalaprathibha</span>
-                                {champions.kalaWinner ? (
-                                    <>
-                                        <h2 style={{ fontSize: '1.8rem', margin: '10px 0 5px 0', fontWeight: '900' }}>{champions.kalaWinner.name}</h2>
-                                        <div style={{ fontSize: '1rem', fontWeight: '600' }}>Chest No: {champions.kalaWinner.chestNo}</div>
-
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
-                                            <div style={{ background: 'rgba(0,0,0,0.1)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600' }}>
-                                                {champions.kalaWinner.team} • {champions.kalaWinner.total} Pts
-                                            </div>
-                                            <div style={{ background: 'rgba(255,255,255,0.3)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <span>🥇{champions.kalaWinner.first}</span>
-                                                <span>🥈{champions.kalaWinner.second}</span>
-                                                <span>🥉{champions.kalaWinner.third}</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Grades Summary */}
-                                        <div style={{ marginTop: '8px', fontSize: '0.8rem', opacity: 0.9, marginBottom: '10px' }}>
-                                            {(() => {
-                                                const grades = {};
-                                                champions.kalaWinner.rawResults?.forEach(r => { if (r.grade) grades[r.grade] = (grades[r.grade] || 0) + 1; });
-                                                return Object.entries(grades).map(([g, c]) => <span key={g} style={{ marginRight: '8px' }}>{g}: <strong>{c}</strong></span>);
-                                            })()}
-                                        </div>
-
-                                        <button
-                                            onClick={() => setExpandedChampion(expandedChampion === 'kala' ? null : 'kala')}
-                                            style={{ background: 'rgba(0,0,0,0.2)', color: '#000', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
-                                        >
-                                            {expandedChampion === 'kala' ? 'Hide Details' : 'View Full Details'}
-                                        </button>
-
-                                        {expandedChampion === 'kala' && (
-                                            <div className="admin-table-container" style={{ marginTop: '15px', background: 'var(--bg-main)', padding: '10px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                                                <table className="admin-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th style={{ textAlign: 'left', padding: '10px' }}>Event</th>
-                                                            <th style={{ padding: '10px' }}>Prize</th>
-                                                            <th style={{ padding: '10px' }}>Grd</th>
-                                                            <th style={{ padding: '10px' }}>Pts</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {champions.kalaWinner.rawResults.map((r, i) => (
-                                                            <tr key={i}>
-                                                                <td style={{ padding: '10px' }}>{r.eventName}</td>
-                                                                <td style={{ padding: '10px', fontWeight: 'bold' }}>{r.place}</td>
-                                                                <td style={{ padding: '10px' }}>{r.grade}</td>
-                                                                <td style={{ padding: '10px' }}>{r.points}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <h3 style={{ marginTop: '15px', opacity: 0.6 }}>No Eligible Winner Yet</h3>
-                                )}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', marginBottom: '30px' }}>
+                    {/* JUNIOR SECTION */}
+                    {(activeCategoryTab === "Overall" || activeCategoryTab === "Junior") && (
+                        <div>
+                            <h4 style={{ margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', color: '#ffd700' }}>
+                                👦 Junior Category Champions
+                            </h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                                {renderChampionCard("Junior Kalaprathibha", juniorChampions.kalaWinner, "👑", "linear-gradient(135deg, #ffd700 0%, #ffb900 100%)", "jun_kala")}
+                                {renderChampionCard("Junior Sargaprathibha", juniorChampions.sargaWinner, "🌟", "linear-gradient(135deg, #e0e0e0 0%, #ffffff 100%)", "jun_sarga")}
                             </div>
-                            <div style={{ fontSize: '3rem', opacity: 0.2 }}>🤴</div>
                         </div>
-                    </div>
+                    )}
 
-                    {/* SARGAPRATHIBHA */}
-                    <div className="stat-card" style={{ background: 'linear-gradient(135deg, #e0e0e0 0%, #ffffff 100%)', color: '#000', border: 'none' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                            <div style={{ width: '100%' }}>
-                                <span style={{ fontSize: '0.9rem', fontWeight: '800', textTransform: 'uppercase', opacity: 0.6 }}>🌟 Sargaprathibha</span>
-                                {champions.sargaWinner ? (
-                                    <>
-                                        <h2 style={{ fontSize: '1.8rem', margin: '10px 0 5px 0', fontWeight: '900' }}>{champions.sargaWinner.name}</h2>
-                                        <div style={{ fontSize: '1rem', fontWeight: '600' }}>Chest No: {champions.sargaWinner.chestNo}</div>
-
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
-                                            <div style={{ background: 'rgba(0,0,0,0.05)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600' }}>
-                                                {champions.sargaWinner.team} • {champions.sargaWinner.total} Pts
-                                            </div>
-                                            <div style={{ background: 'rgba(0,0,0,0.05)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <span>🥇{champions.sargaWinner.first}</span>
-                                                <span>🥈{champions.sargaWinner.second}</span>
-                                                <span>🥉{champions.sargaWinner.third}</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Grades Summary */}
-                                        <div style={{ marginTop: '8px', fontSize: '0.8rem', opacity: 0.8, marginBottom: '10px' }}>
-                                            {(() => {
-                                                const grades = {};
-                                                champions.sargaWinner.rawResults?.forEach(r => { if (r.grade) grades[r.grade] = (grades[r.grade] || 0) + 1; });
-                                                return Object.entries(grades).map(([g, c]) => <span key={g} style={{ marginRight: '8px' }}>{g}: <strong>{c}</strong></span>);
-                                            })()}
-                                        </div>
-
-                                        <button
-                                            onClick={() => setExpandedChampion(expandedChampion === 'sarga' ? null : 'sarga')}
-                                            style={{ background: 'rgba(0,0,0,0.1)', color: '#000', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
-                                        >
-                                            {expandedChampion === 'sarga' ? 'Hide Details' : 'View Full Details'}
-                                        </button>
-
-                                        {expandedChampion === 'sarga' && (
-                                            <div className="admin-table-container" style={{ marginTop: '15px', background: 'var(--bg-main)', padding: '10px', borderRadius: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-                                                <table className="admin-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th style={{ textAlign: 'left', padding: '10px' }}>Event</th>
-                                                            <th style={{ padding: '10px' }}>Prize</th>
-                                                            <th style={{ padding: '10px' }}>Grd</th>
-                                                            <th style={{ padding: '10px' }}>Pts</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {champions.sargaWinner.rawResults.map((r, i) => (
-                                                            <tr key={i}>
-                                                                <td style={{ padding: '10px' }}>{r.eventName}</td>
-                                                                <td style={{ padding: '10px', fontWeight: 'bold' }}>{r.place}</td>
-                                                                <td style={{ padding: '10px' }}>{r.grade}</td>
-                                                                <td style={{ padding: '10px' }}>{r.points}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <h3 style={{ marginTop: '15px', opacity: 0.5 }}>No Data Yet</h3>
-                                )}
+                    {/* JUNIOR LANGUAGE CHAMPIONS SECTION */}
+                    {(activeCategoryTab === "Overall" || activeCategoryTab === "Junior") && (
+                        <div>
+                            <h4 style={{ margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', color: '#38ef7d' }}>
+                                🌐 Junior Language Champions (L-Star Awards)
+                            </h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                                {renderChampionCard("L-Star Arabic Award (Junior)", lStarArabicWinner, "🌙", "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)", "lstar_arabic")}
+                                {renderChampionCard("L-Star English Award (Junior)", lStarEnglishWinner, "🇬🇧", "linear-gradient(135deg, #6a11cb 0%, #2575fc 100%)", "lstar_english")}
                             </div>
-                            <div style={{ fontSize: '3rem', opacity: 0.2 }}>✨</div>
                         </div>
-                    </div>
+                    )}
 
+                    {/* SENIOR SECTION */}
+                    {(activeCategoryTab === "Overall" || activeCategoryTab === "Senior") && (
+                        <div>
+                            <h4 style={{ margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', color: '#fda085' }}>
+                                🧑 Senior Category Champions
+                            </h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                                {renderChampionCard("Senior Kalaprathibha", seniorChampions.kalaWinner, "👑", "linear-gradient(135deg, #f6d365 0%, #fda085 100%)", "sen_kala")}
+                                {renderChampionCard("Senior Sargaprathibha", seniorChampions.sargaWinner, "🌟", "linear-gradient(135deg, #e2ebf0 0%, #cfd9df 100%)", "sen_sarga")}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* EMERGING STAR SECTION */}
+                    {activeCategoryTab === "Overall" && (
+                        <div>
+                            <h4 style={{ margin: '0 0 12px 0', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.1rem', color: '#00f2fe' }}>
+                                ⭐ Special Award Champion
+                            </h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                                {renderChampionCard("Emerging Star (Thamheediyya Ula)", emergingStarWinner, "⭐", "linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)", "emerging_star")}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

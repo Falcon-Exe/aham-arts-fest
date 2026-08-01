@@ -382,15 +382,50 @@ export default function ManageStudents() {
         };
 
         if (editId) {
+            const existingStudent = students.find(s => s.id === editId);
+            const oldChest = existingStudent?.chestNumber;
+            const oldName = existingStudent?.fullName;
+
             // Optimistically update local state
             setStudents(prev => prev.map(s => s.id === editId ? { id: editId, ...studentData } : s));
             showToast("Student updated successfully!");
 
-            // Sync to server in background
-            updateDoc(doc(db, "students", editId), studentData).catch(err => {
-                console.error("Background save failed:", err);
-                showToast("Failed to sync updates to server.", "error");
-            });
+            // Sync to server in background + cascade to registrations
+            (async () => {
+                try {
+                    await updateDoc(doc(db, "students", editId), studentData);
+
+                    // Find and update linked registration documents
+                    const regBatch = writeBatch(db);
+                    const matchingRegs = registrations.filter(r => {
+                        const rChest = String(r.chestNumber || r.chestNo || '').trim().toUpperCase();
+                        const rName = String(r.fullName || r.name || '').trim().toUpperCase();
+                        if (oldChest && rChest === oldChest.trim().toUpperCase()) return true;
+                        if (studentData.chestNumber && rChest === studentData.chestNumber.trim().toUpperCase()) return true;
+                        if (oldName && rName === oldName.trim().toUpperCase()) return true;
+                        return false;
+                    });
+
+                    if (matchingRegs.length > 0) {
+                        matchingRegs.forEach(reg => {
+                            const regRef = doc(db, "registrations", reg.id);
+                            regBatch.update(regRef, {
+                                fullName: studentData.fullName,
+                                chestNumber: studentData.chestNumber,
+                                chestNo: studentData.chestNumber,
+                                cicNumber: studentData.cicNumber,
+                                studentClass: studentData.studentClass,
+                                studentCategory: studentData.category,
+                                team: studentData.team
+                            });
+                        });
+                        await regBatch.commit();
+                    }
+                } catch (err) {
+                    console.error("Background save/cascade failed:", err);
+                    showToast("Failed to sync updates to server.", "error");
+                }
+            })();
         } else {
             studentData.createdAt = new Date().toISOString();
 

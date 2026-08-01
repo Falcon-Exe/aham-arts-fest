@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTeamScores } from "../hooks/useTeamScores";
 import { collection, getDocs, onSnapshot, doc, setDoc, increment } from "firebase/firestore";
 import { db } from "../firebase";
@@ -232,6 +232,260 @@ function Results() {
   const isDev = import.meta.env.DEV;
   const shouldShowPoints = showResultsPoints || isDev;
 
+  const individualChampions = useMemo(() => {
+    if (!rows || rows.length === 0) return { junior: {}, senior: {} };
+
+    const masterCategoryMap = {};
+    if (masterParticipants && masterParticipants.length > 0) {
+      masterParticipants.forEach(p => {
+        const chest = p["CHEST NUMBER"];
+        const name = (p["CANDIDATE NAME"] || "").trim().toUpperCase();
+        const category = p["CATEGORY"];
+        if (chest) masterCategoryMap[`CHEST_${String(chest).trim()}`] = category;
+        if (name) masterCategoryMap[`NAME_${name}`] = category;
+      });
+    }
+
+    const scores = {};
+    rows.forEach(data => {
+      const chestNo = data.chestNo ? String(data.chestNo).trim() : null;
+      const name = data.name ? data.name.trim() : "Unknown";
+      const team = data.team || "";
+      if (!chestNo && (!name || name === "Unknown")) return;
+
+      const key = chestNo || `${name}_${team}`;
+      const chestKey = chestNo ? `CHEST_${chestNo}` : null;
+      const nameKey = name ? `NAME_${name.toUpperCase()}` : null;
+      const masterCat = (chestKey && masterCategoryMap[chestKey]) || (nameKey && masterCategoryMap[nameKey]);
+
+      let studentCategory = masterCat || data.studentCategory || "General";
+      if (studentCategory === "Common/General" || studentCategory === "Common / General") {
+        studentCategory = "General";
+      }
+
+      if (!scores[key]) {
+        scores[key] = {
+          key,
+          name,
+          chestNo: chestNo || "-",
+          team,
+          category: studentCategory,
+          first: 0,
+          second: 0,
+          third: 0,
+          total: 0,
+          rawResults: []
+        };
+      }
+
+      if (studentCategory && studentCategory !== "General" && studentCategory !== "Junior & Senior") {
+        scores[key].category = studentCategory;
+      }
+
+      if (data.place === "First") scores[key].first += 1;
+      else if (data.place === "Second") scores[key].second += 1;
+      else if (data.place === "Third") scores[key].third += 1;
+
+      const pts = Number(data.points) || 0;
+      scores[key].total += pts;
+      scores[key].rawResults.push(data);
+    });
+
+    const individualOnly = Object.values(scores).filter(s => s.chestNo && s.chestNo !== "-");
+
+    const getResultType = (r) => {
+      if (r.type) return r.type;
+      if (r.eventType) return r.eventType;
+      const norm = (r.eventName || "").trim().toUpperCase();
+      const mapped = eventTypes[norm];
+      if (mapped) return mapped;
+      const staticType = getEventType(r.eventName);
+      return staticType !== "Unknown" ? staticType : "On Stage";
+    };
+
+    const isCategoryA = (r) => {
+      const cat = (r.category || "").trim().toUpperCase();
+      return cat === "A" || cat === "CAT A" || cat === "CATEGORY A";
+    };
+
+    const calcChamps = (scoreList) => {
+      const kalaEligible = [];
+      scoreList.forEach(student => {
+        const raw = student.rawResults || [];
+        const hasCatAFirstWithAPlus = raw.some(r => isCategoryA(r) && (r.place === "First" || r.place === "1") && r.grade === "A+");
+        const hasOnStageAPlus = raw.some(r => getResultType(r) === "On Stage" && r.grade === "A+");
+        const hasOffStageAPlus = raw.some(r => getResultType(r) === "Off Stage" && r.grade === "A+");
+
+        if (hasCatAFirstWithAPlus && hasOnStageAPlus && hasOffStageAPlus) {
+          const catAEventsCount = raw.filter(r => isCategoryA(r)).length;
+          const aPlusCount = raw.filter(r => (r.grade || "").trim() === "A+").length;
+          kalaEligible.push({ student, total: student.total, catAEventsCount, aPlusCount });
+        }
+      });
+
+      kalaEligible.sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        if (b.catAEventsCount !== a.catAEventsCount) return b.catAEventsCount - a.catAEventsCount;
+        return b.aPlusCount - a.aPlusCount;
+      });
+
+      const kalaWinner = kalaEligible.length > 0 ? kalaEligible[0].student : null;
+
+      const sargaCandidates = [];
+      scoreList.forEach(student => {
+        if (kalaWinner && student.key === kalaWinner.key) return;
+        const raw = student.rawResults || [];
+        const catAEventsCount = raw.filter(r => isCategoryA(r)).length;
+        const aPlusCount = raw.filter(r => (r.grade || "").trim() === "A+").length;
+        sargaCandidates.push({ student, total: student.total, catAEventsCount, aPlusCount });
+      });
+
+      sargaCandidates.sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        if (b.catAEventsCount !== a.catAEventsCount) return b.catAEventsCount - a.catAEventsCount;
+        return b.aPlusCount - a.aPlusCount;
+      });
+
+      const sargaWinner = sargaCandidates.length > 0 ? sargaCandidates[0].student : null;
+
+      return { kalaWinner, sargaWinner };
+    };
+
+    const isThamheediyyaUla = (studentClass) => {
+      if (!studentClass) return false;
+      const upper = String(studentClass).toUpperCase().trim();
+      return upper.includes("THAMHEEDIYYA ULA") ||
+             upper.includes("THAMHIDIYYA ULA") ||
+             upper.includes("THAMHEEDIYA ULA") ||
+             upper.includes("THAMHEEDIYYA 1") ||
+             upper.includes("THAMHIDIYYA 1") ||
+             upper.includes("1 THAMHEEDIYYA") ||
+             (upper.includes("THAMHEEDI") && upper.includes("ULA"));
+    };
+
+    const calcEmergingStar = (scoreList) => {
+      const ulaCandidates = [];
+      scoreList.forEach(student => {
+        const raw = student.rawResults || [];
+        const stClass = student.studentClass || "";
+        const isUla = isThamheediyyaUla(stClass) || raw.some(r => isThamheediyyaUla(r.studentClass || r.class));
+
+        if (isUla) {
+          const catAEventsCount = raw.filter(r => isCategoryA(r)).length;
+          const aPlusCount = raw.filter(r => (r.grade || "").trim() === "A+").length;
+          ulaCandidates.push({ student, total: student.total, catAEventsCount, aPlusCount });
+        }
+      });
+
+      ulaCandidates.sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        if (b.catAEventsCount !== a.catAEventsCount) return b.catAEventsCount - a.catAEventsCount;
+        return b.aPlusCount - a.aPlusCount;
+      });
+
+      return ulaCandidates.length > 0 ? ulaCandidates[0].student : null;
+    };
+
+    const isLStarArabicEvent = (eventName) => {
+      if (!eventName) return false;
+      const upper = String(eventName).toUpperCase().trim();
+      const targets = [
+        "SPEECH ARABIC", "TABLE TALK ARABIC", "LISTENING ARABIC",
+        "REPORT WRITING ARABIC", "REPORT ARABIC", "STORY ARABIC",
+        "MINI STORY ARABIC", "MINISTORY ARABIC", "INSPIRING TALK ARABIC",
+        "SPIRITUAL TALK ARABIC"
+      ];
+      return targets.some(t => upper.includes(t)) ||
+             (upper.includes("ARABIC") && (upper.includes("SPEECH") || upper.includes("TABLE TALK") || upper.includes("LISTENING") || upper.includes("REPORT") || upper.includes("STORY") || upper.includes("INSPIRING") || upper.includes("SPIRITUAL")));
+    };
+
+    const isLStarEnglishEvent = (eventName) => {
+      if (!eventName) return false;
+      const upper = String(eventName).toUpperCase().trim();
+      const targets = [
+        "SPEECH ENGLISH", "TABLE TALK ENGLISH", "DISCUSSION ENGLISH",
+        "MINI STORY ENGLISH", "MINISTORY ENGLISH", "REPORT WRITING ENGLISH",
+        "REPORT ENGLISH", "STORY ENGLISH", "INSPIRING TALK ENGLISH"
+      ];
+      return targets.some(t => upper.includes(t)) ||
+             (upper.includes("ENGLISH") && (upper.includes("SPEECH") || upper.includes("TABLE TALK") || upper.includes("DISCUSSION") || upper.includes("MINI STORY") || upper.includes("REPORT") || upper.includes("STORY") || upper.includes("INSPIRING")));
+    };
+
+    const calcLStarArabic = (scoreList) => {
+      const candidates = [];
+      scoreList.forEach(student => {
+        if (student.category !== "Junior") return;
+        const raw = student.rawResults || [];
+        let arabicPts = 0;
+        raw.forEach(r => {
+          if (isLStarArabicEvent(r.eventName)) {
+            arabicPts += (Number(r.points) || 0);
+          }
+        });
+
+        if (arabicPts > 0) {
+          const catAEventsCount = raw.filter(r => isCategoryA(r)).length;
+          const aPlusCount = raw.filter(r => (r.grade || "").trim() === "A+").length;
+          candidates.push({
+            student: { ...student, totalInCategory: arabicPts },
+            total: arabicPts,
+            catAEventsCount,
+            aPlusCount
+          });
+        }
+      });
+
+      candidates.sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        if (b.catAEventsCount !== a.catAEventsCount) return b.catAEventsCount - a.catAEventsCount;
+        return b.aPlusCount - a.aPlusCount;
+      });
+
+      return candidates.length > 0 ? candidates[0].student : null;
+    };
+
+    const calcLStarEnglish = (scoreList) => {
+      const candidates = [];
+      scoreList.forEach(student => {
+        if (student.category !== "Junior") return;
+        const raw = student.rawResults || [];
+        let englishPts = 0;
+        raw.forEach(r => {
+          if (isLStarEnglishEvent(r.eventName)) {
+            englishPts += (Number(r.points) || 0);
+          }
+        });
+
+        if (englishPts > 0) {
+          const catAEventsCount = raw.filter(r => isCategoryA(r)).length;
+          const aPlusCount = raw.filter(r => (r.grade || "").trim() === "A+").length;
+          candidates.push({
+            student: { ...student, totalInCategory: englishPts },
+            total: englishPts,
+            catAEventsCount,
+            aPlusCount
+          });
+        }
+      });
+
+      candidates.sort((a, b) => {
+        if (b.total !== a.total) return b.total - a.total;
+        if (b.catAEventsCount !== a.catAEventsCount) return b.catAEventsCount - a.catAEventsCount;
+        return b.aPlusCount - a.aPlusCount;
+      });
+
+      return candidates.length > 0 ? candidates[0].student : null;
+    };
+
+    return {
+      junior: calcChamps(individualOnly.filter(s => s.category === "Junior")),
+      senior: calcChamps(individualOnly.filter(s => s.category === "Senior")),
+      emergingStar: calcEmergingStar(individualOnly),
+      lStarArabic: calcLStarArabic(individualOnly),
+      lStarEnglish: calcLStarEnglish(individualOnly)
+    };
+  }, [rows, masterParticipants, eventTypes]);
+
   /* ===============================
      GROUP BY EVENT & CATEGORY
      =============================== */
@@ -433,6 +687,137 @@ function Results() {
             )}
           </div>
         </section>
+      )}
+
+      {/* INDIVIDUAL CHAMPIONS (JUNIOR & SENIOR PRATHIBHA AWARDS) */}
+      {shouldShowPoints && (
+        <div style={{ marginBottom: '35px' }}>
+          <h3 style={{ textAlign: 'center', marginBottom: '20px', color: 'var(--text-secondary)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.9rem' }}>
+            🎖️ Individual Champions
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* JUNIOR SECTION */}
+            <div style={{ background: 'var(--surface, #1e1e24)', borderRadius: '16px', padding: '20px', border: '1px solid var(--border-soft, #333)' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#ffd700', fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                👦 Junior Category Champions
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '15px' }}>
+                {/* Junior Kalaprathibha */}
+                <div style={{ background: 'linear-gradient(135deg, #ffd700 0%, #ffb900 100%)', color: '#000', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', opacity: 0.8 }}>👑 Junior Kalaprathibha</div>
+                  {individualChampions.junior.kalaWinner ? (
+                    <>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.junior.kalaWinner.name}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '700', opacity: 0.9 }}>Chest No: {individualChampions.junior.kalaWinner.chestNo} • {individualChampions.junior.kalaWinner.team}</div>
+                      <div style={{ fontSize: '1rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.junior.kalaWinner.total} Points</div>
+                    </>
+                  ) : (
+                    <div style={{ marginTop: '8px', fontSize: '0.85rem', fontWeight: '600', opacity: 0.7 }}>No Eligible Winner Yet</div>
+                  )}
+                </div>
+
+                {/* Junior Sargaprathibha */}
+                <div style={{ background: 'linear-gradient(135deg, #e0e0e0 0%, #ffffff 100%)', color: '#000', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', opacity: 0.7 }}>🌟 Junior Sargaprathibha</div>
+                  {individualChampions.junior.sargaWinner ? (
+                    <>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.junior.sargaWinner.name}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '700', opacity: 0.9 }}>Chest No: {individualChampions.junior.sargaWinner.chestNo} • {individualChampions.junior.sargaWinner.team}</div>
+                      <div style={{ fontSize: '1rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.junior.sargaWinner.total} Points</div>
+                    </>
+                  ) : (
+                    <div style={{ marginTop: '8px', fontSize: '0.85rem', fontWeight: '600', opacity: 0.7 }}>No Data Yet</div>
+                  )}
+                </div>
+
+                {/* L-Star Arabic (Junior) */}
+                <div style={{ background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', color: '#000', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', opacity: 0.8 }}>🌙 L-Star Arabic Award (Junior)</div>
+                  {individualChampions.lStarArabic ? (
+                    <>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.lStarArabic.name}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '700', opacity: 0.9 }}>Chest No: {individualChampions.lStarArabic.chestNo} • {individualChampions.lStarArabic.team}</div>
+                      <div style={{ fontSize: '1rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.lStarArabic.totalInCategory} Points</div>
+                    </>
+                  ) : (
+                    <div style={{ marginTop: '8px', fontSize: '0.85rem', fontWeight: '600', opacity: 0.7 }}>No Data Yet</div>
+                  )}
+                </div>
+
+                {/* L-Star English (Junior) */}
+                <div style={{ background: 'linear-gradient(135deg, #6a11cb 0%, #2575fc 100%)', color: '#fff', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', opacity: 0.9 }}>🇬🇧 L-Star English Award (Junior)</div>
+                  {individualChampions.lStarEnglish ? (
+                    <>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.lStarEnglish.name}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '700', opacity: 0.9 }}>Chest No: {individualChampions.lStarEnglish.chestNo} • {individualChampions.lStarEnglish.team}</div>
+                      <div style={{ fontSize: '1rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.lStarEnglish.totalInCategory} Points</div>
+                    </>
+                  ) : (
+                    <div style={{ marginTop: '8px', fontSize: '0.85rem', fontWeight: '600', opacity: 0.7 }}>No Data Yet</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* SENIOR SECTION */}
+            <div style={{ background: 'var(--surface, #1e1e24)', borderRadius: '16px', padding: '20px', border: '1px solid var(--border-soft, #333)' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#fda085', fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🧑 Senior Category Champions
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '15px' }}>
+                {/* Senior Kalaprathibha */}
+                <div style={{ background: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', color: '#000', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', opacity: 0.8 }}>👑 Senior Kalaprathibha</div>
+                  {individualChampions.senior.kalaWinner ? (
+                    <>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.senior.kalaWinner.name}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '700', opacity: 0.9 }}>Chest No: {individualChampions.senior.kalaWinner.chestNo} • {individualChampions.senior.kalaWinner.team}</div>
+                      <div style={{ fontSize: '1rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.senior.kalaWinner.total} Points</div>
+                    </>
+                  ) : (
+                    <div style={{ marginTop: '8px', fontSize: '0.85rem', fontWeight: '600', opacity: 0.7 }}>No Eligible Winner Yet</div>
+                  )}
+                </div>
+
+                {/* Senior Sargaprathibha */}
+                <div style={{ background: 'linear-gradient(135deg, #e2ebf0 0%, #cfd9df 100%)', color: '#000', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', opacity: 0.7 }}>🌟 Senior Sargaprathibha</div>
+                  {individualChampions.senior.sargaWinner ? (
+                    <>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.senior.sargaWinner.name}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '700', opacity: 0.9 }}>Chest No: {individualChampions.senior.sargaWinner.chestNo} • {individualChampions.senior.sargaWinner.team}</div>
+                      <div style={{ fontSize: '1rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.senior.sargaWinner.total} Points</div>
+                    </>
+                  ) : (
+                    <div style={{ marginTop: '8px', fontSize: '0.85rem', fontWeight: '600', opacity: 0.7 }}>No Data Yet</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* EMERGING STAR SECTION */}
+            <div style={{ background: 'var(--surface, #1e1e24)', borderRadius: '16px', padding: '20px', border: '1px solid var(--border-soft, #333)' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#00f2fe', fontSize: '1rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                ⭐ Special Award Champion
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '15px' }}>
+                <div style={{ background: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)', color: '#000', borderRadius: '12px', padding: '16px' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', textTransform: 'uppercase', opacity: 0.8 }}>⭐ Emerging Star (Thamheediyya Ula)</div>
+                  {individualChampions.emergingStar ? (
+                    <>
+                      <div style={{ fontSize: '1.4rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.emergingStar.name}</div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '700', opacity: 0.9 }}>Chest No: {individualChampions.emergingStar.chestNo} • {individualChampions.emergingStar.team}</div>
+                      <div style={{ fontSize: '1rem', fontWeight: '900', marginTop: '6px' }}>{individualChampions.emergingStar.total} Points</div>
+                    </>
+                  ) : (
+                    <div style={{ marginTop: '8px', fontSize: '0.85rem', fontWeight: '600', opacity: 0.7 }}>No Data Yet</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
 
