@@ -279,6 +279,23 @@ export const ON_STAGE_EVENTS = ALL_EVENTS.filter(evt => EVENT_MAP[evt] === "On S
 export const OFF_STAGE_EVENTS = ALL_EVENTS.filter(evt => EVENT_MAP[evt] === "Off Stage" || (EVENT_MAP[evt] === "General" && GENERAL_SUBTYPE_MAP[evt] === "Off Stage"));
 export const GENERAL_EVENTS = ALL_EVENTS.filter(evt => GENERAL_LIST.includes(evt.toUpperCase()));
 
+export const GROUP_EVENTS = [
+    "MASH UP",
+    "PHOTO FEATURE",
+    "COLLAGE",
+    "ESCAPE ROOM",
+    "AMBIENCE SETTING",
+    "AI VIDEO CREATION",
+    "MORAL VIDEO CREATION",
+    "DIGITAL MAGAZINE",
+    "PROJECT SUBMISSION"
+];
+
+export const isGroupEvent = (eventName) => {
+    if (!eventName) return false;
+    return GROUP_EVENTS.includes(eventName.trim().toUpperCase());
+};
+
 export const getEventType = (eventName) => {
     if (!eventName) return "Unknown";
     const name = eventName.trim().toUpperCase();

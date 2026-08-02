@@ -235,51 +235,67 @@ function Results() {
   const individualChampions = useMemo(() => {
     if (!rows || rows.length === 0) return { junior: {}, senior: {} };
 
-    const masterCategoryMap = {};
+    const masterCatMap = {};
+    const masterClassMap = {};
     if (masterParticipants && masterParticipants.length > 0) {
       masterParticipants.forEach(p => {
         const chest = p["CHEST NUMBER"];
         const name = (p["CANDIDATE NAME"] || "").trim().toUpperCase();
         const category = p["CATEGORY"];
-        if (chest) masterCategoryMap[`CHEST_${String(chest).trim()}`] = category;
-        if (name) masterCategoryMap[`NAME_${name}`] = category;
+        const studentClass = p["CLASS"];
+        if (chest) {
+          const cKey = `CHEST_${String(chest).trim().toUpperCase()}`;
+          masterCatMap[cKey] = category;
+          masterClassMap[cKey] = studentClass;
+        }
+        if (name) {
+          const nKey = `NAME_${name}`;
+          masterCatMap[nKey] = category;
+          masterClassMap[nKey] = studentClass;
+        }
       });
     }
 
     const scores = {};
     rows.forEach(data => {
       const chestNo = data.chestNo ? String(data.chestNo).trim() : null;
-      const name = data.name ? data.name.trim() : "Unknown";
-      const team = data.team || "";
-      if (!chestNo && (!name || name === "Unknown")) return;
+      const rawName = data.name ? data.name.trim() : "Unknown";
+      const rawTeam = data.team || "";
 
-      const key = chestNo || `${name}_${team}`;
-      const chestKey = chestNo ? `CHEST_${chestNo}` : null;
-      const nameKey = name ? `NAME_${name.toUpperCase()}` : null;
-      const masterCat = (chestKey && masterCategoryMap[chestKey]) || (nameKey && masterCategoryMap[nameKey]);
+      // Skip team/group entries without a chest number (e.g. POLARIS Team in AI VIDEO CREATION)
+      const isGroupTeamEntry = (!chestNo || chestNo === '-' || chestNo === 'null') &&
+        (rawName.toUpperCase().includes("TEAM") || rawName.toUpperCase() === rawTeam.toUpperCase() || rawName === "Unknown");
+      if (isGroupTeamEntry) return;
 
-      let studentCategory = masterCat || data.studentCategory || "General";
-      if (studentCategory === "Common/General" || studentCategory === "Common / General") {
-        studentCategory = "General";
-      }
+      const key = chestNo || `${rawName}_${rawTeam}`;
+      const chestKey = chestNo ? `CHEST_${chestNo.toUpperCase()}` : null;
+      const nameKey = rawName ? `NAME_${rawName.toUpperCase()}` : null;
+
+      const masterCat = (chestKey && masterCatMap[chestKey]) || (nameKey && masterCatMap[nameKey]);
+      const masterClass = (chestKey && masterClassMap[chestKey]) || (nameKey && masterClassMap[nameKey]);
+
+      const studentClass = masterClass || data.studentClass || data.class || "";
+      const rawCategory = masterCat || data.studentCategory || "General";
+      const studentCategory = resolveClassCategory(studentClass, rawCategory);
 
       if (!scores[key]) {
         scores[key] = {
           key,
-          name,
+          name: rawName,
           chestNo: chestNo || "-",
-          team,
+          team: rawTeam,
           category: studentCategory,
+          studentClass: studentClass,
           first: 0,
           second: 0,
           third: 0,
           total: 0,
           rawResults: []
         };
-      }
-
-      if (studentCategory && studentCategory !== "General" && studentCategory !== "Junior & Senior") {
-        scores[key].category = studentCategory;
+      } else {
+        if (studentCategory && studentCategory !== "General") {
+          scores[key].category = studentCategory;
+        }
       }
 
       if (data.place === "First") scores[key].first += 1;
@@ -1010,18 +1026,27 @@ function Results() {
                         {prize === "Third" && "🥉"} {prize}
                       </strong>
                     </div>
-                    {winners.map((w, i) => (
-                      <div key={i} className={`winner-box prize-${prize.toLowerCase()} team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>
-                        <div style={{ flex: 1 }}>
-                          <div className="winner-name">{formatName(w.name)}</div>
-                          <div className="winner-meta">
-                            {w.chestNo && <span className="winner-chest">{w.chestNo}</span>}
-                            <span className={`winner-team team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>{w.team}</span>
-                            {w.grade && <span className={`winner-grade ${gradeClass(w.grade)}`}>{w.grade}</span>}
+                    {winners.map((w, i) => {
+                      const matchStudent = masterParticipants.find(p =>
+                        (w.chestNo && String(p["CHEST NUMBER"] || p["CHEST NO"] || "").trim() === String(w.chestNo).trim())
+                      );
+                      const displayName = (w.name && w.name.toUpperCase().includes("TEAM") && matchStudent)
+                        ? (matchStudent["CANDIDATE NAME"] || matchStudent["CANDIDATE  FULL NAME"] || w.name)
+                        : w.name;
+
+                      return (
+                        <div key={i} className={`winner-box prize-${prize.toLowerCase()} team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>
+                          <div style={{ flex: 1 }}>
+                            <div className="winner-name">{formatName(displayName)}</div>
+                            <div className="winner-meta">
+                              {w.chestNo && <span className="winner-chest">{w.chestNo}</span>}
+                              <span className={`winner-team team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>{w.team}</span>
+                              {w.grade && <span className={`winner-grade ${gradeClass(w.grade)}`}>{w.grade}</span>}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -1065,22 +1090,31 @@ function Results() {
 
                     {isExpanded && (
                       <div className="non-place-list" style={{ marginTop: '10px' }}>
-                        {nonPlaceStudents.map((w, i) => (
-                          <div key={i} className={`winner-box prize-none team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>
-                            <div style={{ flex: 1 }}>
-                              <div className="winner-name">{formatName(w.name)}</div>
-                              <div className="winner-meta">
-                                {w.chestNo && <span className="winner-chest">{w.chestNo}</span>}
-                                <span className={`winner-team team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>{w.team}</span>
-                                {w.grade ? (
-                                  <span className={`winner-grade ${gradeClass(w.grade)}`}>{w.grade}</span>
-                                ) : (
-                                  <span className="winner-grade grade-c">Participant</span>
-                                )}
+                        {nonPlaceStudents.map((w, i) => {
+                          const matchStudent = masterParticipants.find(p =>
+                            (w.chestNo && String(p["CHEST NUMBER"] || p["CHEST NO"] || "").trim() === String(w.chestNo).trim())
+                          );
+                          const displayName = (w.name && w.name.toUpperCase().includes("TEAM") && matchStudent)
+                            ? (matchStudent["CANDIDATE NAME"] || matchStudent["CANDIDATE  FULL NAME"] || w.name)
+                            : w.name;
+
+                          return (
+                            <div key={i} className={`winner-box prize-none team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>
+                              <div style={{ flex: 1 }}>
+                                <div className="winner-name">{formatName(displayName)}</div>
+                                <div className="winner-meta">
+                                  {w.chestNo && <span className="winner-chest">{w.chestNo}</span>}
+                                  <span className={`winner-team team-${w.team.replace(/\s+/g, '-').toUpperCase()}`}>{w.team}</span>
+                                  {w.grade ? (
+                                    <span className={`winner-grade ${gradeClass(w.grade)}`}>{w.grade}</span>
+                                  ) : (
+                                    <span className="winner-grade grade-c">Participant</span>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

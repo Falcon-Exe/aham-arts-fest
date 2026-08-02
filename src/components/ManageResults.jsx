@@ -6,7 +6,7 @@ import Toast from "./Toast";
 import ConfirmDialog from "./ConfirmDialog";
 import { useConfirm } from "../hooks/useConfirm";
 import { useMasterParticipants } from "../hooks/useMasterParticipants";
-import { isGeneralEvent, getEventType, resolveClassCategory, getEventScope } from "../constants/events";
+import { isGeneralEvent, isGroupEvent, getEventType, resolveClassCategory, getEventScope } from "../constants/events";
 import { calculatePoints } from "../utils/scoringRules";
 import { compressImage } from "../utils/imageOptimizer";
 import { logAppEvent } from "../utils/analytics";
@@ -756,13 +756,18 @@ export default function ManageResults() {
 
             let expectedStudentCategory = r.studentCategory;
             let expectedStudentClass = r.studentClass || r.class || "";
+            let expectedName = r.name;
 
             const candidateMatch = masterParticipants.find(p =>
-                (r.chestNo && String(p["CHEST NUMBER"] || p["CHEST NO"]).trim() === String(r.chestNo).trim()) ||
+                (r.chestNo && String(p["CHEST NUMBER"] || p["CHEST NO"] || "").trim() === String(r.chestNo).trim()) ||
                 ((p["CANDIDATE NAME"] || p["CANDIDATE  FULL NAME"])?.trim().toLowerCase() === r.name?.trim().toLowerCase())
             );
 
             if (candidateMatch) {
+                const realName = candidateMatch["CANDIDATE NAME"] || candidateMatch["CANDIDATE  FULL NAME"];
+                if (realName && (r.name?.toUpperCase().includes("TEAM") || r.name !== realName)) {
+                    expectedName = realName;
+                }
                 if (!expectedStudentClass) {
                     expectedStudentClass = candidateMatch["CLASS"] || candidateMatch["STUDENT CLASS"] || candidateMatch["class"] || "";
                 }
@@ -777,17 +782,21 @@ export default function ManageResults() {
                 expectedStudentCategory = resolveClassCategory(expectedStudentClass, ev?.studentCategory && ev.studentCategory !== "Junior & Senior" ? ev.studentCategory : "General");
             }
 
-            if (r.points !== totalPoints || r.studentCategory !== expectedStudentCategory || r.studentClass !== expectedStudentClass) {
-                await updateDoc(doc(db, "results", r.id), {
+            if (r.points !== totalPoints || r.studentCategory !== expectedStudentCategory || r.studentClass !== expectedStudentClass || r.name !== expectedName) {
+                const updatePayload = {
                     points: totalPoints,
                     category: isGeneral ? "General" : category,
                     studentCategory: expectedStudentCategory,
                     studentClass: expectedStudentClass
-                });
+                };
+                if (expectedName && expectedName !== r.name) {
+                    updatePayload.name = expectedName;
+                }
+                await updateDoc(doc(db, "results", r.id), updatePayload);
                 updated++;
             }
         }
-        showToast(`Recalculation & Category Sync Complete! Updated ${updated} results.`, "success");
+        showToast(`Recalculation & Candidate Sync Complete! Updated ${updated} results.`, "success");
         fetchResults();
     };
 
@@ -1741,7 +1750,7 @@ export default function ManageResults() {
                                         <thead>
                                             <tr>
                                                 <th style={{ width: '140px' }}>Prize Position</th>
-                                                <th>{isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) ? "Winning Team" : "Student Winner"}</th>
+                                                <th>{isGroupEvent(events.find(e => e.id === formData.eventId)?.name) ? "Winning Team" : "Student Winner"}</th>
                                                 <th style={{ width: '100px' }}>Grade</th>
                                                 <th style={{ width: '110px' }}>Chest No</th>
                                                 <th style={{ width: '120px' }}>Team</th>
@@ -1765,7 +1774,7 @@ export default function ManageResults() {
                                                         </select>
                                                     </td>
                                                     <td>
-                                                        {isGeneralEvent(events.find(e => e.id === formData.eventId)?.name) ? (
+                                                        {isGroupEvent(events.find(e => e.id === formData.eventId)?.name) ? (
                                                             <select
                                                                 className="admin-select"
                                                                 style={{ padding: '6px', fontSize: '0.8rem', width: '100%' }}

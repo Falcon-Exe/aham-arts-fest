@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "../firebase";
 import { useMasterParticipants } from "../hooks/useMasterParticipants";
-import { getEventType } from "../constants/events";
+import { getEventType, resolveClassCategory } from "../constants/events";
 
 export default function ManageIndividualPoints() {
     const { participants: masterParticipants } = useMasterParticipants();
@@ -88,6 +88,11 @@ export default function ManageIndividualPoints() {
                 const rawName = data.name ? data.name.trim() : "Unknown";
                 const rawTeam = data.team || "";
 
+                // Skip team/group entries without a chest number (e.g. POLARIS Team in AI VIDEO CREATION)
+                const isGroupTeamEntry = (!chestNo || chestNo === '-' || chestNo === 'null') &&
+                    (rawName.toUpperCase().includes("TEAM") || rawName.toUpperCase() === rawTeam.toUpperCase() || rawName === "Unknown");
+                if (isGroupTeamEntry) return;
+
                 const chestKey = chestNo ? `CHEST_${chestNo.toUpperCase()}` : null;
                 const nameKey = rawName ? `NAME_${rawName.toUpperCase()}` : null;
 
@@ -103,10 +108,9 @@ export default function ManageIndividualPoints() {
                 const masterCat = (chestKey && masterMetaMap.catMap[chestKey]) || (nameKey && masterMetaMap.catMap[nameKey]);
                 const masterClass = (chestKey && masterMetaMap.classMap[chestKey]) || (nameKey && masterMetaMap.classMap[nameKey]);
 
-                let studentCategory = masterCat || data.studentCategory || "General";
-                if (studentCategory === "Common/General" || studentCategory === "Common / General") {
-                    studentCategory = "General";
-                }
+                const studentClass = masterClass || data.studentClass || data.class || "";
+                const rawCategory = masterCat || data.studentCategory || "General";
+                const studentCategory = resolveClassCategory(studentClass, rawCategory);
 
                 if (!scores[key]) {
                     scores[key] = {
@@ -115,13 +119,20 @@ export default function ManageIndividualPoints() {
                         chestNo: chestNo || "-",
                         team: team,
                         category: studentCategory,
-                        studentClass: masterClass || data.studentClass || data.class || "",
+                        studentClass: studentClass,
                         items: [],
                         first: 0,
                         second: 0,
                         third: 0,
                         total: 0
                     };
+                } else {
+                    if (studentCategory && studentCategory !== "General") {
+                        scores[key].category = studentCategory;
+                    }
+                    if (studentClass && !scores[key].studentClass) {
+                        scores[key].studentClass = studentClass;
+                    }
                 }
 
                 // Keep team up to date if resolved from master roster
