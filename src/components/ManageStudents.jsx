@@ -616,6 +616,8 @@ export default function ManageStudents() {
 
         const rows = sortedStudents.map(student => {
             const reg = getStudentRegistration(student);
+            const studentClass = student.studentClass || student.class || reg?.studentClass || reg?.class || reg?.CLASS || "";
+            const category = student.category || student.studentCategory || reg?.category || reg?.studentCategory || reg?.CATEGORY || "";
             const onStage = (reg?.onStageEvents || []).join("; ");
             const offStage = (reg?.offStageEvents || []).join("; ");
             const general = (reg?.generalEvents || []).join("; ");
@@ -625,11 +627,11 @@ export default function ManageStudents() {
             const submittedAt = reg?.submittedAt ? new Date(reg.submittedAt).toLocaleDateString() : "";
 
             return [
-                `"${student.chestNumber || ''}"`,
-                `"${(student.fullName || '').replace(/"/g, '""')}"`,
-                `"${(student.cicNumber || '').replace(/"/g, '""')}"`,
-                `"${(student.studentClass || '').replace(/"/g, '""')}"`,
-                `"${(student.category || '').replace(/"/g, '""')}"`,
+                `"${student.chestNumber || student.chestNo || ''}"`,
+                `"${(student.fullName || student.name || '').replace(/"/g, '""')}"`,
+                `"${(student.cicNumber || student.cicNo || '').replace(/"/g, '""')}"`,
+                `"${(studentClass || '').replace(/"/g, '""')}"`,
+                `"${(category || '').replace(/"/g, '""')}"`,
                 `"${(student.team || '').replace(/"/g, '""')}"`,
                 `"${onStage.replace(/"/g, '""')}"`,
                 `"${offStage.replace(/"/g, '""')}"`,

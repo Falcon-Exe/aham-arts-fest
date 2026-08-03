@@ -228,7 +228,7 @@ export default function ManageStudentProfiles() {
     const handleExportCSV = () => {
         const csvRows = [];
         // Header
-        csvRows.push(["Chest No", "Name", "Team", "Event", "Category", "Prize", "Grade", "Points", "Total Points", "Medals Summary"]);
+        csvRows.push(["Chest No", "Name", "Class", "Team", "Event", "Category", "Prize", "Grade", "Points", "Total Points", "Medals Summary"]);
 
         filteredList.forEach(student => {
             const rows = generateStudentRows(student);
@@ -236,6 +236,7 @@ export default function ManageStudentProfiles() {
                 csvRows.push([
                     student.chestNo,
                     student.name,
+                    student.studentClass || student.class || "",
                     student.team,
                     row.eventName,
                     row.category,

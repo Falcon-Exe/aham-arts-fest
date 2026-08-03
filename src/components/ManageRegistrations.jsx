@@ -281,22 +281,35 @@ export default function ManageRegistrations() {
             "Name",
             "CIC No",
             "Chest No",
+            "Class",
+            "Category",
             "Team",
             "On Stage Events",
             "Off Stage Events",
             "General Events"
         ];
 
-        const rows = registrations.map(reg => [
-            `"${reg._source}"`,
-            `"${reg["CANDIDATE NAME"] || reg["CANDIDATE  FULL NAME"] || ""}"`,
-            `"${reg["CIC NUMBER"] || reg["CIC NO"] || ""}"`,
-            `"${reg["CHEST NUMBER"] || reg["CHEST NO"] || ""}"`,
-            `"${reg["TEAM"] || reg["TEAM NAME"] || ""}"`,
-            `"${reg["ON STAGE EVENTS"] || ""}"`,
-            `"${reg["OFF STAGE EVENTS"] || ""}"`,
-            `"${reg["GENERAL EVENTS"] || ""}"`
-        ]);
+        const rows = registrations.map(reg => {
+            const chestNo = reg["CHEST NUMBER"] || reg["CHEST NO"] || "";
+            const matchedStudent = studentsList.find(s =>
+                chestNo && String(s.chestNumber || s.chestNo || "").trim().toUpperCase() === String(chestNo).trim().toUpperCase()
+            );
+            const studentClass = reg["CLASS"] || reg["STUDENT CLASS"] || matchedStudent?.studentClass || matchedStudent?.class || "";
+            const category = reg["CATEGORY"] || reg["STUDENT CATEGORY"] || matchedStudent?.category || matchedStudent?.studentCategory || "";
+
+            return [
+                `"${reg._source || ''}"`,
+                `"${(reg["CANDIDATE NAME"] || reg["CANDIDATE  FULL NAME"] || "").replace(/"/g, '""')}"`,
+                `"${(reg["CIC NUMBER"] || reg["CIC NO"] || "").replace(/"/g, '""')}"`,
+                `"${(chestNo || "").replace(/"/g, '""')}"`,
+                `"${(studentClass || "").replace(/"/g, '""')}"`,
+                `"${(category || "").replace(/"/g, '""')}"`,
+                `"${(reg["TEAM"] || reg["TEAM NAME"] || "").replace(/"/g, '""')}"`,
+                `"${(reg["ON STAGE EVENTS"] || "").replace(/"/g, '""')}"`,
+                `"${(reg["OFF STAGE EVENTS"] || "").replace(/"/g, '""')}"`,
+                `"${(reg["GENERAL EVENTS"] || "").replace(/"/g, '""')}"`
+            ];
+        });
 
         const csvContent = [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
