@@ -450,11 +450,11 @@ export default function ManageIndividualPoints() {
 
     // TROPHY TIER LOGIC
     const getTrophyTier = (points) => {
-        if (points >= 71 && points <= 84) return '⭐⭐⭐⭐⭐';
-        if (points >= 56 && points <= 70) return '⭐⭐⭐⭐';
-        if (points >= 39 && points <= 55) return '⭐⭐⭐';
-        if (points >= 22 && points <= 38) return '⭐⭐';
-        if (points >= 5 && points <= 21) return '⭐';
+        if (points >= 90 && points <= 112) return '⭐⭐⭐⭐⭐';
+        if (points >= 77 && points <= 89) return '⭐⭐⭐⭐';
+        if (points >= 50 && points <= 76) return '⭐⭐⭐';
+        if (points >= 28 && points <= 49) return '⭐⭐';
+        if (points >= 13 && points <= 27) return '⭐';
         return '-';
     };
 
@@ -689,21 +689,21 @@ export default function ManageIndividualPoints() {
             {/* TROPHY TIER STATISTICS */}
             {!loading && filteredScores.length > 0 && (() => {
                 const tierCounts = {
-                    '5star': filteredScores.filter(s => s.total >= 71 && s.total <= 84).length,
-                    '4star': filteredScores.filter(s => s.total >= 56 && s.total <= 70).length,
-                    '3star': filteredScores.filter(s => s.total >= 39 && s.total <= 55).length,
-                    '2star': filteredScores.filter(s => s.total >= 22 && s.total <= 38).length,
-                    '1star': filteredScores.filter(s => s.total >= 5 && s.total <= 21).length,
-                    'none': filteredScores.filter(s => s.total < 5).length
+                    '5star': filteredScores.filter(s => s.total >= 90 && s.total <= 112).length,
+                    '4star': filteredScores.filter(s => s.total >= 77 && s.total <= 89).length,
+                    '3star': filteredScores.filter(s => s.total >= 50 && s.total <= 76).length,
+                    '2star': filteredScores.filter(s => s.total >= 28 && s.total <= 49).length,
+                    '1star': filteredScores.filter(s => s.total >= 13 && s.total <= 27).length,
+                    'none': filteredScores.filter(s => s.total < 13).length
                 };
 
                 const tierStudents = {
-                    '5star': filteredScores.filter(s => s.total >= 71 && s.total <= 84),
-                    '4star': filteredScores.filter(s => s.total >= 56 && s.total <= 70),
-                    '3star': filteredScores.filter(s => s.total >= 39 && s.total <= 55),
-                    '2star': filteredScores.filter(s => s.total >= 22 && s.total <= 38),
-                    '1star': filteredScores.filter(s => s.total >= 5 && s.total <= 21),
-                    'none': filteredScores.filter(s => s.total < 5)
+                    '5star': filteredScores.filter(s => s.total >= 90 && s.total <= 112),
+                    '4star': filteredScores.filter(s => s.total >= 77 && s.total <= 89),
+                    '3star': filteredScores.filter(s => s.total >= 50 && s.total <= 76),
+                    '2star': filteredScores.filter(s => s.total >= 28 && s.total <= 49),
+                    '1star': filteredScores.filter(s => s.total >= 13 && s.total <= 27),
+                    'none': filteredScores.filter(s => s.total < 13)
                 };
 
                 const handleDownloadTier = (tierName, students, stars) => {
@@ -839,7 +839,7 @@ export default function ManageIndividualPoints() {
                                 tier="5star"
                                 stars="⭐⭐⭐⭐⭐"
                                 count={tierCounts['5star']}
-                                pointRange="71-84 pts"
+                                pointRange="90-112 pts"
                                 color="#ffd700"
                                 students={tierStudents['5star']}
                             />
@@ -847,7 +847,7 @@ export default function ManageIndividualPoints() {
                                 tier="4star"
                                 stars="⭐⭐⭐⭐"
                                 count={tierCounts['4star']}
-                                pointRange="56-70 pts"
+                                pointRange="77-89 pts"
                                 color="#22c55e"
                                 students={tierStudents['4star']}
                             />
@@ -855,7 +855,7 @@ export default function ManageIndividualPoints() {
                                 tier="3star"
                                 stars="⭐⭐⭐"
                                 count={tierCounts['3star']}
-                                pointRange="39-55 pts"
+                                pointRange="50-76 pts"
                                 color="#3b82f6"
                                 students={tierStudents['3star']}
                             />
@@ -863,7 +863,7 @@ export default function ManageIndividualPoints() {
                                 tier="2star"
                                 stars="⭐⭐"
                                 count={tierCounts['2star']}
-                                pointRange="22-38 pts"
+                                pointRange="28-49 pts"
                                 color="#a855f7"
                                 students={tierStudents['2star']}
                             />
@@ -871,7 +871,7 @@ export default function ManageIndividualPoints() {
                                 tier="1star"
                                 stars="⭐"
                                 count={tierCounts['1star']}
-                                pointRange="5-21 pts"
+                                pointRange="13-27 pts"
                                 color="#f97316"
                                 students={tierStudents['1star']}
                             />
@@ -880,7 +880,7 @@ export default function ManageIndividualPoints() {
                                     tier="none"
                                     stars="-"
                                     count={tierCounts['none']}
-                                    pointRange="< 5 pts"
+                                    pointRange="< 13 pts"
                                     color="#666"
                                     students={tierStudents['none']}
                                 />

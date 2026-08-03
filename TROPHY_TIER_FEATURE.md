@@ -10,12 +10,12 @@ Added a **Trophy Tier** column to the Individual Points dashboard that displays 
 
 | Points Range | Trophy Tier | Stars |
 |-------------|-------------|-------|
-| **71-84** | 5-Star | ⭐⭐⭐⭐⭐ |
-| **56-70** | 4-Star | ⭐⭐⭐⭐ |
-| **39-55** | 3-Star | ⭐⭐⭐ |
-| **22-38** | 2-Star | ⭐⭐ |
-| **5-21** | 1-Star | ⭐ |
-| **Below 5** | No Trophy | - |
+| **90-112** | 5-Star | ⭐⭐⭐⭐⭐ |
+| **77-89** | 4-Star | ⭐⭐⭐⭐ |
+| **50-76** | 3-Star | ⭐⭐⭐ |
+| **28-49** | 2-Star | ⭐⭐ |
+| **13-27** | 1-Star | ⭐ |
+| **Below 13** | No Trophy | - |
 
 ---
 
@@ -39,12 +39,12 @@ The trophy tier is **automatically calculated** based on the student's total poi
 
 ```javascript
 getTrophyTier(points):
-  - 71-84 points → ⭐⭐⭐⭐⭐
-  - 56-70 points → ⭐⭐⭐⭐
-  - 39-55 points → ⭐⭐⭐
-  - 22-38 points → ⭐⭐
-  - 5-21 points  → ⭐
-  - < 5 points   → -
+  - 90-112 points → ⭐⭐⭐⭐⭐
+  - 77-89 points  → ⭐⭐⭐⭐
+  - 50-76 points  → ⭐⭐⭐
+  - 28-49 points  → ⭐⭐
+  - 13-27 points  → ⭐
+  - < 13 points   → -
 ```
 
 ---

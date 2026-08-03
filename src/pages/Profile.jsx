@@ -10,6 +10,15 @@ import { generateCertificate } from "../utils/certificate";
 import { useTeamScores } from "../hooks/useTeamScores";
 import html2canvas from "html2canvas";
 
+const getTrophyTier = (points) => {
+    if (points >= 90 && points <= 112) return '⭐⭐⭐⭐⭐';
+    if (points >= 77 && points <= 89) return '⭐⭐⭐⭐';
+    if (points >= 50 && points <= 76) return '⭐⭐⭐';
+    if (points >= 28 && points <= 49) return '⭐⭐';
+    if (points >= 13 && points <= 27) return '⭐';
+    return '-';
+};
+
 export default function Profile() {
     const { showEventResults } = useTeamScores();
     const [chestNumber, setChestNumber] = useState("");
@@ -242,7 +251,7 @@ export default function Profile() {
                                 </div>
                             </div>
 
-                            {/* 2. ACHIEVEMENTS */}
+                            {/* 2. ACHIEVEMENTS & STATS */}
                             {!showEventResults ? (
                                 <div style={{ marginBottom: '30px', padding: '24px 18px', borderRadius: '16px', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(236, 72, 153, 0.08), rgba(15, 23, 42, 0.9))', border: '1px solid rgba(168, 85, 247, 0.3)', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.3)' }}>
                                     <div style={{ fontSize: '2.2rem', marginBottom: '8px', filter: 'drop-shadow(0 0 10px rgba(168, 85, 247, 0.6))' }}>🔮</div>
@@ -250,55 +259,127 @@ export default function Profile() {
                                     <div style={{ fontSize: '0.88rem', color: '#cbd5e1', maxWidth: '440px', margin: '0 auto 12px', lineHeight: '1.5' }}>Candidate scorecards & event achievements are currently inside the Vault! Can you predict their final grades?</div>
                                     <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#f472b6', background: 'rgba(236, 72, 153, 0.15)', border: '1px solid rgba(236, 72, 153, 0.3)', padding: '4px 12px', borderRadius: '20px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>⚡ Unveiling Soon</span>
                                 </div>
-                            ) : resultsData.length > 0 && (
-                                <div style={{ marginBottom: '30px' }}>
-                                    <h3 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-main)' }}>
-                                        🏆 Achievements
-                                    </h3>
-                                    <div style={{ display: 'grid', gap: '12px' }}>
-                                        {resultsData.map(res => (
-                                            <div key={res.id} style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.05), transparent)', padding: '16px', borderRadius: '12px', borderLeft: `4px solid ${res.place === '1st' ? '#F59E0B' : res.place === '2nd' ? '#94A3B8' : res.place === '3rd' ? '#B45309' : 'var(--border-soft)'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div>
-                                                    <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '1.1rem' }}>{res.eventName}</div>
-                                                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Score: {res.points || 0} pts | Grade: {res.grade || 'N/A'}</div>
+                            ) : resultsData.length > 0 && (() => {
+                                const totalPoints = resultsData.reduce((sum, res) => sum + (Number(res.points) || 0), 0);
+                                const firstCount = resultsData.filter(r => r.place === "First" || r.place === "1" || r.place === "1st").length;
+                                const secondCount = resultsData.filter(r => r.place === "Second" || r.place === "2" || r.place === "2nd").length;
+                                const thirdCount = resultsData.filter(r => r.place === "Third" || r.place === "3" || r.place === "3rd").length;
+                                const gradeOnlyCount = resultsData.filter(r => r.place === "None" || !r.place).length;
+
+                                return (
+                                    <>
+                                        {/* Performance Summary Card */}
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))',
+                                            borderRadius: '16px',
+                                            padding: '20px',
+                                            border: '1px solid var(--border-soft)',
+                                            marginBottom: '30px',
+                                            boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+                                        }}>
+                                            <h4 style={{ margin: '0 0 15px 0', fontSize: '1.1rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                📊 Performance Summary
+                                            </h4>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+                                                {/* Total Points */}
+                                                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '15px', borderRadius: '12px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '5px' }}>Total Points</span>
+                                                    <strong style={{ fontSize: '1.8rem', color: getTeamColor(studentData?.team), textShadow: `0 0 10px ${getTeamColor(studentData?.team)}44` }}>
+                                                        {totalPoints} <span style={{ fontSize: '1rem' }}>pts</span>
+                                                    </strong>
                                                 </div>
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-                                                    <div style={{ fontSize: '28px', fontWeight: '800', color: res.place === '1st' ? '#F59E0B' : res.place === '2nd' ? '#94A3B8' : res.place === '3rd' ? '#B45309' : 'var(--text-main)', textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
-                                                        {res.place}
-                                                    </div>
-                                                    {res.place !== "None" && (
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                generateCertificate({
-                                                                    studentName: studentData?.fullName || res.name,
-                                                                    chestNo: chestNumber.toUpperCase(),
-                                                                    eventName: res.eventName,
-                                                                    place: res.place,
-                                                                    team: res.team,
-                                                                    appName: appName,
-                                                                    date: res.timestamp?.toDate().toLocaleDateString()
-                                                                });
-                                                            }}
-                                                            style={{
-                                                                background: 'rgba(255,255,255,0.05)',
-                                                                border: '1px solid var(--border-soft)',
-                                                                color: 'var(--text-secondary)',
-                                                                fontSize: '10px',
-                                                                padding: '4px 8px',
-                                                                borderRadius: '4px',
-                                                                cursor: 'pointer'
-                                                            }}
-                                                        >
-                                                            📜 Certificate
-                                                        </button>
-                                                    )}
+                                                
+                                                {/* Trophy Tier */}
+                                                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '15px', borderRadius: '12px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                                    <span style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '5px' }}>Trophy Tier</span>
+                                                    <strong style={{ fontSize: '1.2rem', display: 'block', marginTop: '6px' }}>{getTrophyTier(totalPoints)}</strong>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+
+                                            {/* Placement breakdown */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '12px' }}>
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <span style={{ fontSize: '1.2rem', display: 'block' }}>🥇</span>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>1st Place</span>
+                                                    <strong style={{ display: 'block', fontSize: '1.1rem', marginTop: '2px', color: '#ffd700' }}>{firstCount}</strong>
+                                                </div>
+                                                <div style={{ textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.08)', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    <span style={{ fontSize: '1.2rem', display: 'block' }}>🥈</span>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>2nd Place</span>
+                                                    <strong style={{ display: 'block', fontSize: '1.1rem', marginTop: '2px', color: '#c0c0c0' }}>{secondCount}</strong>
+                                                </div>
+                                                <div style={{ textAlign: 'center', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+                                                    <span style={{ fontSize: '1.2rem', display: 'block' }}>🥉</span>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>3rd Place</span>
+                                                    <strong style={{ display: 'block', fontSize: '1.1rem', marginTop: '2px', color: '#cd7f32' }}>{thirdCount}</strong>
+                                                </div>
+                                                <div style={{ textAlign: 'center' }}>
+                                                    <span style={{ fontSize: '1.2rem', display: 'block' }}>🏷️</span>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>Grade Only</span>
+                                                    <strong style={{ display: 'block', fontSize: '1.1rem', marginTop: '2px', color: 'var(--text-main)' }}>{gradeOnlyCount}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Achievements list */}
+                                        <div style={{ marginBottom: '30px' }}>
+                                            <h3 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-main)' }}>
+                                                🏆 Achievements ({resultsData.length})
+                                            </h3>
+                                            <div style={{ display: 'grid', gap: '12px' }}>
+                                                {resultsData.map(res => {
+                                                    const is1st = res.place === '1st' || res.place === 'First' || res.place === '1';
+                                                    const is2nd = res.place === '2nd' || res.place === 'Second' || res.place === '2';
+                                                    const is3rd = res.place === '3rd' || res.place === 'Third' || res.place === '3';
+                                                    const borderLeftColor = is1st ? '#F59E0B' : is2nd ? '#94A3B8' : is3rd ? '#B45309' : 'var(--border-soft)';
+                                                    const highlightColor = is1st ? '#F59E0B' : is2nd ? '#94A3B8' : is3rd ? '#B45309' : 'var(--text-main)';
+
+                                                    return (
+                                                        <div key={res.id} style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.05), transparent)', padding: '16px', borderRadius: '12px', borderLeft: `4px solid ${borderLeftColor}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <div>
+                                                                <div style={{ fontWeight: '600', marginBottom: '4px', fontSize: '1.1rem' }}>{res.eventName}</div>
+                                                                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Score: {res.points || 0} pts | Grade: {res.grade || 'N/A'}</div>
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                                                                <div style={{ fontSize: '28px', fontWeight: '800', color: highlightColor, textShadow: '0 2px 10px rgba(0,0,0,0.5)' }}>
+                                                                    {res.place}
+                                                                </div>
+                                                                {res.place !== "None" && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            generateCertificate({
+                                                                                studentName: studentData?.fullName || res.name,
+                                                                                chestNo: chestNumber.toUpperCase(),
+                                                                                eventName: res.eventName,
+                                                                                place: res.place,
+                                                                                team: res.team,
+                                                                                appName: appName,
+                                                                                date: res.timestamp?.toDate().toLocaleDateString()
+                                                                            });
+                                                                        }}
+                                                                        style={{
+                                                                            background: 'rgba(255,255,255,0.05)',
+                                                                            border: '1px solid var(--border-soft)',
+                                                                            color: 'var(--text-secondary)',
+                                                                            fontSize: '10px',
+                                                                            padding: '4px 8px',
+                                                                            borderRadius: '4px',
+                                                                            cursor: 'pointer'
+                                                                        }}
+                                                                    >
+                                                                        📜 Certificate
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </>
+                                );
+                            })()}
 
                             {/* 4. EVENT ITINERARY (Timeline) */}
                             {studentData && studentData.events && studentData.events.length > 0 && (
